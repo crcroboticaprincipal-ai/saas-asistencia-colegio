@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { Upload, FileDown, CheckCircle, AlertCircle, Printer, QrCode, RefreshCw } from "lucide-react";
+import { Upload, FileDown, CheckCircle, AlertCircle, Printer, QrCode, RefreshCw, Download } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 
 type EstudianteRow = {
@@ -29,7 +29,6 @@ type ImportedStudent = {
  * Garantiza unicidad absoluta incluso si se importa el mismo alumno varias veces.
  */
 function generateUniqueQR(cedula: string): string {
-  // UUID v4 generado con crypto.randomUUID si disponible, fallback manual
   const uuid = typeof crypto !== 'undefined' && crypto.randomUUID 
     ? crypto.randomUUID() 
     : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -38,6 +37,56 @@ function generateUniqueQR(cedula: string): string {
         return v.toString(16);
       });
   return `RC-${cedula.trim()}-${uuid}`;
+}
+
+/**
+ * Descarga una plantilla Excel con las columnas exactas que necesita el sistema.
+ */
+async function downloadTemplate() {
+  const XLSX = await import("xlsx");
+
+  const templateData = [
+    {
+      "Cédula": "V-12345678",
+      "Nombre Completo": "PÉREZ GONZÁLEZ JUAN CARLOS",
+      "Grado": "4to",
+      "Sección": "A",
+      "Nombre Representante": "MARÍA GONZÁLEZ",
+      "Correo Representante": "maria@email.com",
+    },
+    {
+      "Cédula": "V-87654321",
+      "Nombre Completo": "RODRÍGUEZ LÓPEZ ANA MARÍA",
+      "Grado": "5to",
+      "Sección": "B",
+      "Nombre Representante": "CARLOS RODRÍGUEZ",
+      "Correo Representante": "carlos@email.com",
+    },
+    {
+      "Cédula": "V-11223344",
+      "Nombre Completo": "MARTÍNEZ DÍAZ LUIS MIGUEL",
+      "Grado": "3er",
+      "Sección": "A",
+      "Nombre Representante": "LUISA DÍAZ",
+      "Correo Representante": "luisa@email.com",
+    },
+  ];
+
+  const ws = XLSX.utils.json_to_sheet(templateData);
+
+  // Ajustar ancho de columnas
+  ws['!cols'] = [
+    { wch: 15 }, // Cédula
+    { wch: 35 }, // Nombre Completo
+    { wch: 10 }, // Grado
+    { wch: 10 }, // Sección
+    { wch: 25 }, // Nombre Representante
+    { wch: 30 }, // Correo Representante
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Estudiantes");
+  XLSX.writeFile(wb, "Plantilla_Estudiantes_Rafael_Castillo.xlsx");
 }
 
 export default function ImportarComponent() {
@@ -67,22 +116,30 @@ export default function ImportarComponent() {
         const rawData = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
 
         const normalized: EstudianteRow[] = rawData.map((row) => ({
-          Cedula: String(row["Cédula"] || row["Cedula"] || row["cedula"] || "").trim(),
-          Nombre_Completo: String(row["Nombre Completo"] || row["Nombre_Completo"] || row["nombre_completo"] || "").trim(),
-          Grado: String(row["Grado"] || row["grado"] || "").trim(),
-          Seccion: String(row["Seccion"] || row["Sección"] || row["seccion"] || row["sección"] || "").trim(),
-          Nombre_Representante: String(row["Nombre Representante"] || row["Nombre_Representante"] || row["nombre_representante"] || "").trim(),
-          Correo_Representante: String(row["Correo Representante"] || row["Correo_Representante"] || row["correo_representante"] || "").trim(),
+          Cedula: String(row["Cédula"] || row["Cedula"] || row["cedula"] || row["CÉDULA"] || row["CEDULA"] || "").trim(),
+          Nombre_Completo: String(row["Nombre Completo"] || row["Nombre_Completo"] || row["nombre_completo"] || row["NOMBRE COMPLETO"] || row["Nombre"] || row["nombre"] || "").trim(),
+          Grado: String(row["Grado"] || row["grado"] || row["GRADO"] || "").trim(),
+          Seccion: String(row["Seccion"] || row["Sección"] || row["seccion"] || row["sección"] || row["SECCIÓN"] || row["SECCION"] || "").trim(),
+          Nombre_Representante: String(row["Nombre Representante"] || row["Nombre_Representante"] || row["nombre_representante"] || row["NOMBRE REPRESENTANTE"] || row["Representante"] || "").trim(),
+          Correo_Representante: String(row["Correo Representante"] || row["Correo_Representante"] || row["correo_representante"] || row["CORREO REPRESENTANTE"] || row["Correo"] || row["Email"] || row["email"] || "").trim(),
         }));
 
         // Filter out empty rows
         const validRows = normalized.filter(row => row.Cedula && row.Nombre_Completo);
+        
+        if (validRows.length === 0) {
+          setStatus({ type: "error", message: "No se encontraron datos válidos. Asegúrate de que tu archivo tenga las columnas: Cédula, Nombre Completo, Grado, Sección, Nombre Representante, Correo Representante. Descarga la plantilla para ver el formato correcto." });
+          setData([]);
+          return;
+        }
+
         setData(validRows);
+        setStatus({ type: "success", message: `Se encontraron ${validRows.length} estudiantes. Revisa los datos y dale "Importar".` });
       };
 
       reader.readAsBinaryString(selected);
     } catch {
-      setStatus({ type: "error", message: "Error al leer el archivo Excel." });
+      setStatus({ type: "error", message: "Error al leer el archivo Excel. Verifica que sea un archivo .xlsx válido." });
     }
   }, []);
 
@@ -124,7 +181,7 @@ export default function ImportarComponent() {
 
       if (error) throw error;
 
-      setStatus({ type: "success", message: `✅ Se importaron ${data.length} estudiantes correctamente. QR generados automáticamente.` });
+      setStatus({ type: "success", message: `✅ Se importaron ${data.length} estudiantes correctamente. ¡Los QR fueron generados automáticamente!` });
 
       if (insertedData) {
         setImportedStudents(
@@ -173,6 +230,22 @@ export default function ImportarComponent() {
               <Upload className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               Subir Archivo Excel
             </h2>
+
+            {/* DOWNLOAD TEMPLATE BUTTON */}
+            <button
+              onClick={downloadTemplate}
+              className="w-full mb-4 py-2.5 px-4 rounded-xl font-medium flex justify-center items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/25 hover:border-blue-400/40 transition-all text-sm active:scale-[0.98]"
+            >
+              <Download className="w-4 h-4" />
+              Descargar Plantilla Excel
+            </button>
+
+            {/* FORMAT HINT */}
+            <div className="mb-4 p-3 rounded-xl bg-slate-800/50 border border-white/5 text-[11px] sm:text-xs text-slate-400 space-y-1">
+              <p className="font-semibold text-slate-300 text-xs">📋 Columnas requeridas:</p>
+              <p>Cédula · Nombre Completo · Grado · Sección</p>
+              <p>Nombre Representante · Correo Representante</p>
+            </div>
 
             <label className="flex flex-col items-center justify-center w-full h-32 sm:h-40 border-2 border-white/10 border-dashed rounded-xl cursor-pointer bg-white/5 hover:bg-white/10 transition-colors active:scale-[0.98]">
               <div className="flex flex-col items-center justify-center p-4 text-center">
@@ -269,8 +342,13 @@ export default function ImportarComponent() {
               <tbody>
                 {data.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-3 sm:px-6 py-10 sm:py-12 text-center text-slate-500 italic text-xs sm:text-sm">
-                      Sube un archivo para previsualizar los datos aquí.
+                    <td colSpan={5} className="px-3 sm:px-6 py-10 sm:py-12 text-center text-slate-500 text-xs sm:text-sm">
+                      <div className="space-y-2">
+                        <p className="italic">Sube un archivo para previsualizar los datos aquí.</p>
+                        <p className="text-[10px] sm:text-xs text-slate-600">
+                          💡 Descarga la plantilla para ver el formato correcto
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
