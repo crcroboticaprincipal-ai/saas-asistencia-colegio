@@ -53,7 +53,7 @@ export async function POST(request: Request) {
       const resend = new Resend(resendApiKey);
       try {
         await resend.emails.send({
-          from: 'Colegio Rafael Castillo <onboarding@resend.dev>', // Usar correo de prueba por defecto
+          from: 'Colegio Rafael Castillo <notificaciones@aulascolegiorafaelcastillo.com>',
           to: estudiante.correo_representante,
           subject: `Notificación de ${tipo} - ${estudiante.nombre_completo}`,
           html: `
