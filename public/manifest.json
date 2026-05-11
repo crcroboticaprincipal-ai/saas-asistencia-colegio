@@ -1,0 +1,17 @@
+{
+  "name": "Asistencia - UE Colegio Rafael Castillo",
+  "short_name": "Asistencia RC",
+  "description": "Sistema de gestión de asistencia escolar con escáner QR",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b1120",
+  "theme_color": "#2563eb",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

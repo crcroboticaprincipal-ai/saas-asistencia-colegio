@@ -63,21 +63,10 @@ export default function ReportesComponent() {
     try {
       const { data, error } = await supabase
         .from("asistencias")
-        .select(
-          `
-          id,
-          estudiante_id,
-          tipo,
-          fecha,
-          hora,
-          estudiantes (
-            cedula,
-            nombre_completo,
-            grado,
-            seccion
-          )
-        `
-        )
+        .select(`
+          id, estudiante_id, tipo, fecha, hora,
+          estudiantes ( cedula, nombre_completo, grado, seccion )
+        `)
         .order("fecha", { ascending: false })
         .order("hora", { ascending: false });
 
@@ -133,7 +122,7 @@ export default function ReportesComponent() {
       body: tableData,
       startY: 28,
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [79, 70, 229] },
+      headStyles: { fillColor: [37, 99, 235] },
     });
 
     doc.save(`Reporte_Asistencia_${new Date().toISOString().split("T")[0]}.pdf`);
@@ -144,13 +133,13 @@ export default function ReportesComponent() {
   const salidas = filteredData.filter((a) => a.tipo === "SALIDA").length;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-5 sm:space-y-6 animate-fade-in">
+      <div className="flex flex-col gap-3 sm:gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Reportes y Analítica</h1>
-          <p className="text-slate-400 mt-1">Exportación y búsqueda histórica de asistencias.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Reportes y Analítica</h1>
+          <p className="text-slate-400 mt-0.5 text-xs sm:text-sm">Exportación y búsqueda histórica de asistencias.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <button
             onClick={fetchData}
             className="px-3 py-2 bg-white/5 text-slate-300 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
@@ -161,14 +150,14 @@ export default function ReportesComponent() {
           <button
             onClick={exportToExcel}
             disabled={filteredData.length === 0}
-            className="px-4 py-2 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl hover:bg-emerald-500/30 transition-colors flex items-center gap-2 font-medium disabled:opacity-40"
+            className="px-3 sm:px-4 py-2 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded-xl hover:bg-emerald-500/25 transition-colors flex items-center gap-1.5 sm:gap-2 font-medium disabled:opacity-40 text-xs sm:text-sm"
           >
             <FileSpreadsheet className="w-4 h-4" /> Excel
           </button>
           <button
             onClick={exportToPDF}
             disabled={filteredData.length === 0}
-            className="px-4 py-2 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl hover:bg-rose-500/30 transition-colors flex items-center gap-2 font-medium disabled:opacity-40"
+            className="px-3 sm:px-4 py-2 bg-red-500/15 text-red-400 border border-red-500/25 rounded-xl hover:bg-red-500/25 transition-colors flex items-center gap-1.5 sm:gap-2 font-medium disabled:opacity-40 text-xs sm:text-sm"
           >
             <FileText className="w-4 h-4" /> PDF
           </button>
@@ -176,60 +165,60 @@ export default function ReportesComponent() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="glass-card p-4 rounded-xl text-center">
-          <p className="text-xs text-slate-400 uppercase tracking-wide">Total</p>
-          <p className="text-2xl font-bold text-white mt-1">{filteredData.length}</p>
+      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+        <div className="glass-card p-3 sm:p-4 rounded-xl text-center">
+          <p className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wide">Total</p>
+          <p className="text-xl sm:text-2xl font-bold text-white mt-0.5 sm:mt-1">{filteredData.length}</p>
         </div>
-        <div className="glass-card p-4 rounded-xl text-center">
-          <p className="text-xs text-emerald-400 uppercase tracking-wide">Entradas</p>
-          <p className="text-2xl font-bold text-emerald-400 mt-1">{entradas}</p>
+        <div className="glass-card p-3 sm:p-4 rounded-xl text-center">
+          <p className="text-[10px] sm:text-xs text-blue-400 uppercase tracking-wide">Entradas</p>
+          <p className="text-xl sm:text-2xl font-bold text-blue-400 mt-0.5 sm:mt-1">{entradas}</p>
         </div>
-        <div className="glass-card p-4 rounded-xl text-center">
-          <p className="text-xs text-rose-400 uppercase tracking-wide">Salidas</p>
-          <p className="text-2xl font-bold text-rose-400 mt-1">{salidas}</p>
+        <div className="glass-card p-3 sm:p-4 rounded-xl text-center">
+          <p className="text-[10px] sm:text-xs text-red-400 uppercase tracking-wide">Salidas</p>
+          <p className="text-xl sm:text-2xl font-bold text-red-400 mt-0.5 sm:mt-1">{salidas}</p>
         </div>
       </div>
 
-      <div className="glass-panel p-6 rounded-2xl space-y-6">
+      <div className="glass-panel p-4 sm:p-6 rounded-xl sm:rounded-2xl space-y-4 sm:space-y-6">
         {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <div className="flex-1 relative">
-            <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Buscar por nombre o cédula..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+              className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2.5 sm:py-3 pl-9 sm:pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-xs sm:text-sm"
             />
           </div>
 
           <div className="relative">
-            <Filter className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <select
               value={filtroTiempo}
               onChange={(e) => setFiltroTiempo(e.target.value)}
-              className="bg-slate-900/50 border border-white/10 rounded-xl py-3 pl-10 pr-8 text-white focus:outline-none focus:border-indigo-500 appearance-none cursor-pointer"
+              className="w-full sm:w-auto bg-slate-900/50 border border-white/10 rounded-xl py-2.5 sm:py-3 pl-9 sm:pl-10 pr-8 text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer text-xs sm:text-sm"
             >
-              <option value="TODOS">Histórico Completo</option>
+              <option value="TODOS">Todo</option>
               <option value="HOY">Hoy</option>
-              <option value="SEMANA">Últimos 7 días</option>
-              <option value="MES">Últimos 30 días</option>
+              <option value="SEMANA">7 días</option>
+              <option value="MES">30 días</option>
             </select>
           </div>
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto rounded-xl border border-white/5 bg-slate-900/50">
-          <table className="w-full text-sm text-left text-slate-300">
-            <thead className="text-xs text-slate-400 uppercase bg-slate-800/50">
+        <div className="overflow-x-auto rounded-xl border border-white/5 bg-slate-900/50 -mx-1">
+          <table className="w-full text-xs sm:text-sm text-left text-slate-300">
+            <thead className="text-[10px] sm:text-xs text-slate-400 uppercase bg-slate-800/50">
               <tr>
-                <th className="px-6 py-4">Fecha / Hora</th>
-                <th className="px-6 py-4">Estudiante</th>
-                <th className="px-6 py-4">Cédula</th>
-                <th className="px-6 py-4">Grado</th>
-                <th className="px-6 py-4 text-right">Registro</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4">Fecha / Hora</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4">Estudiante</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 hidden sm:table-cell">Cédula</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 hidden md:table-cell">Grado</th>
+                <th className="px-3 sm:px-6 py-3 sm:py-4 text-right">Tipo</th>
               </tr>
             </thead>
             <tbody>
@@ -237,38 +226,40 @@ export default function ReportesComponent() {
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="animate-spin w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full" />
-                      <span className="text-slate-500">Cargando datos…</span>
+                      <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
+                      <span className="text-slate-500 text-xs sm:text-sm">Cargando datos…</span>
                     </div>
                   </td>
                 </tr>
               ) : filteredData.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500 text-xs sm:text-sm">
                     No se encontraron registros para estos filtros.
                   </td>
                 </tr>
               ) : (
                 filteredData.map((a) => (
                   <tr key={a.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-slate-500" />
-                        <span className="font-medium text-slate-200">{a.fecha}</span>
-                        <span className="text-slate-500">{a.hora}</span>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 flex-shrink-0" />
+                        <div>
+                          <span className="font-medium text-slate-200 text-xs">{a.fecha}</span>
+                          <span className="text-slate-500 text-[10px] sm:text-xs ml-1">{a.hora}</span>
+                        </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-medium text-white">{a.estudiantes?.nombre_completo}</td>
-                    <td className="px-6 py-4">{a.estudiantes?.cedula}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-white text-xs">{a.estudiantes?.nombre_completo}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 hidden sm:table-cell text-xs">{a.estudiantes?.cedula}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 hidden md:table-cell text-xs">
                       {a.estudiantes?.grado} &ldquo;{a.estudiantes?.seccion}&rdquo;
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold tracking-wide ${
+                        className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold tracking-wide ${
                           a.tipo === "ENTRADA"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                            : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                            ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+                            : "bg-red-500/10 text-red-400 border border-red-500/20"
                         }`}
                       >
                         {a.tipo}
@@ -281,7 +272,7 @@ export default function ReportesComponent() {
           </table>
         </div>
 
-        <div className="text-sm text-slate-500 text-right">Mostrando {filteredData.length} registros</div>
+        <div className="text-xs sm:text-sm text-slate-500 text-right">Mostrando {filteredData.length} registros</div>
       </div>
     </div>
   );

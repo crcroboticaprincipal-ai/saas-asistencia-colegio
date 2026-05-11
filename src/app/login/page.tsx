@@ -45,14 +45,14 @@ function LoginForm() {
   };
 
   return (
-    <div className="glass-panel rounded-3xl p-8 md:p-10 border border-white/10 shadow-2xl">
+    <div className="glass-panel rounded-2xl sm:rounded-3xl p-6 sm:p-10 border border-white/[0.08] shadow-2xl">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-indigo-500/20 rounded-2xl flex items-center justify-center border border-indigo-500/30 mx-auto mb-4">
-          <Shield className="w-8 h-8 text-indigo-400" />
+        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-blue-500/15 rounded-2xl flex items-center justify-center border border-blue-500/25 mx-auto mb-4">
+          <Shield className="w-7 h-7 sm:w-8 sm:h-8 text-blue-400" />
         </div>
-        <h1 className="text-2xl font-bold text-white">Panel Administrativo</h1>
-        <p className="text-slate-400 mt-2 text-sm">Ingresa la contraseña para acceder al sistema</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-white">Panel Administrativo</h1>
+        <p className="text-slate-400 mt-2 text-xs sm:text-sm">Ingresa la contraseña para acceder al sistema</p>
       </div>
 
       {/* Form */}
@@ -68,7 +68,7 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Ingresa la contraseña de administrador"
-              className="w-full bg-slate-800/60 border border-white/10 rounded-xl py-3.5 px-4 pr-12 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+              className="w-full bg-slate-800/60 border border-white/10 rounded-xl py-3 sm:py-3.5 px-4 pr-12 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm sm:text-base"
               autoFocus
             />
             <button
@@ -82,7 +82,7 @@ function LoginForm() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-sm animate-fade-in">
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm animate-fade-in">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <p>{error}</p>
           </div>
@@ -91,10 +91,10 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading || !password.trim()}
-          className={`w-full py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-lg ${
+          className={`w-full py-3 sm:py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-lg text-sm sm:text-base ${
             loading || !password.trim()
               ? "bg-slate-700/50 text-slate-400 cursor-not-allowed"
-              : "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-400 hover:to-indigo-500 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40"
+              : "btn-primary"
           }`}
         >
           {loading ? (
@@ -111,25 +111,25 @@ function LoginForm() {
         </button>
       </form>
 
-      <p className="text-center text-xs text-slate-600 mt-6">UE Colegio Rafael Castillo • Sistema de Asistencia</p>
+      <p className="text-center text-[10px] sm:text-xs text-slate-600 mt-6">UE Colegio Rafael Castillo • Sistema de Asistencia</p>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-blue-500/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-red-500/8 rounded-full blur-3xl" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
         {/* Back link */}
         <Link
           href="/"
-          className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-8 group"
+          className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-6 sm:mb-8 group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Volver al escáner
@@ -137,8 +137,8 @@ export default function LoginPage() {
 
         <Suspense
           fallback={
-            <div className="glass-panel rounded-3xl p-8 md:p-10 border border-white/10 shadow-2xl flex items-center justify-center h-64">
-              <div className="animate-spin w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full" />
+            <div className="glass-panel rounded-2xl sm:rounded-3xl p-8 sm:p-10 border border-white/[0.08] shadow-2xl flex items-center justify-center h-64">
+              <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
             </div>
           }
         >

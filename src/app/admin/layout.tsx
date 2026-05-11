@@ -25,30 +25,30 @@ export default function AdminLayout({
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen overflow-hidden bg-slate-900">
+    <div className="flex flex-col md:flex-row h-screen overflow-hidden">
       <AdminSidebar />
 
-      <main className="flex-1 h-[calc(100vh-64px)] md:h-full overflow-y-auto bg-slate-900/50 p-4 md:p-8 pb-20 md:pb-8">
+      <main className="flex-1 h-[calc(100vh-64px)] md:h-full overflow-y-auto p-4 sm:p-6 md:p-8 pb-24 md:pb-8">
         <div className="max-w-7xl mx-auto h-full">
           {children}
         </div>
       </main>
 
-      {/* Mobile Bottom Navigation — Admin */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 glass-panel border-t border-white/10 z-50 flex items-center justify-around px-2">
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 glass-panel border-t border-white/[0.08] z-50 flex items-center justify-around px-1 safe-bottom">
         <Link
           href="/admin"
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
-            pathname === "/admin" ? "text-indigo-400" : "text-slate-400"
+          className={`flex flex-col items-center gap-0.5 p-2 rounded-lg transition-colors min-w-[56px] ${
+            pathname === "/admin" ? "text-blue-400" : "text-slate-500"
           }`}
         >
           <LayoutDashboard className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Dashboard</span>
+          <span className="text-[10px] font-medium">Panel</span>
         </Link>
         <Link
           href="/admin/importar"
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
-            pathname === "/admin/importar" ? "text-indigo-400" : "text-slate-400"
+          className={`flex flex-col items-center gap-0.5 p-2 rounded-lg transition-colors min-w-[56px] ${
+            pathname === "/admin/importar" ? "text-blue-400" : "text-slate-500"
           }`}
         >
           <Users className="w-5 h-5" />
@@ -56,14 +56,14 @@ export default function AdminLayout({
         </Link>
         <Link
           href="/"
-          className="flex flex-col items-center justify-center -mt-8 w-14 h-14 bg-emerald-600 rounded-full text-white shadow-lg shadow-emerald-500/40 border-4 border-slate-900"
+          className="flex flex-col items-center justify-center -mt-7 w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-500 rounded-full text-white shadow-lg shadow-blue-500/30 border-4 border-[var(--background)]"
         >
           <QrCode className="w-6 h-6" />
         </Link>
         <Link
           href="/admin/reportes"
-          className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
-            pathname === "/admin/reportes" ? "text-indigo-400" : "text-slate-400"
+          className={`flex flex-col items-center gap-0.5 p-2 rounded-lg transition-colors min-w-[56px] ${
+            pathname === "/admin/reportes" ? "text-blue-400" : "text-slate-500"
           }`}
         >
           <FileText className="w-5 h-5" />
@@ -71,7 +71,7 @@ export default function AdminLayout({
         </Link>
         <button
           onClick={handleLogout}
-          className="flex flex-col items-center gap-1 p-2 text-slate-400 hover:text-rose-400 transition-colors"
+          className="flex flex-col items-center gap-0.5 p-2 text-slate-500 hover:text-red-400 transition-colors min-w-[56px]"
         >
           <LogOut className="w-5 h-5" />
           <span className="text-[10px] font-medium">Salir</span>
