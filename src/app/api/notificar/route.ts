@@ -31,8 +31,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Estudiante no encontrado' }, { status: 404 });
     }
 
-    // 2. Registrar Asistencia
-    const horaLocal = new Date().toLocaleTimeString('es-VE', { hour12: true, timeZone: 'America/Caracas' });
+    // 2. Registrar Asistencia con zona horaria de Venezuela
+    const now = new Date();
+    // YYYY-MM-DD en Caracas
+    const fechaSQL = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+    // HH:mm:ss en Caracas
+    const horaSQL = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Caracas', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now);
+    
+    const horaLocal = now.toLocaleTimeString('es-VE', { hour12: true, timeZone: 'America/Caracas' });
     
     const { error: errorAsistencia } = await supabase
       .from('asistencias')
@@ -40,7 +46,8 @@ export async function POST(request: Request) {
         { 
           estudiante_id, 
           tipo, 
-          // fecha y hora son manejadas por la DB como default, pero podemos enviarlas o dejar que la db lo haga
+          fecha: fechaSQL,
+          hora: horaSQL
         }
       ]);
 
