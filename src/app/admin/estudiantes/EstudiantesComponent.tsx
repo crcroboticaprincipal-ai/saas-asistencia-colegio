@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Printer, QrCode, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Printer, QrCode, Search, ChevronLeft, ChevronRight, Edit, Plus, X, Save } from "lucide-react";
 
 type Estudiante = {
   id: string;
@@ -11,6 +11,7 @@ type Estudiante = {
   nombre_completo: string;
   grado: string;
   seccion: string;
+  correo_representante: string;
 };
 
 export default function EstudiantesComponent() {
@@ -19,6 +20,12 @@ export default function EstudiantesComponent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showPrintView, setShowPrintView] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<Estudiante[]>([]);
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Estudiante | null>(null);
+  const [formData, setFormData] = useState<Partial<Estudiante>>({});
+  const [isSaving, setIsSaving] = useState(false);
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,11 +48,76 @@ export default function EstudiantesComponent() {
     setLoading(false);
   };
 
+  const handleOpenModal = (student?: Estudiante) => {
+    if (student) {
+      setEditingStudent(student);
+      setFormData(student);
+    } else {
+      setEditingStudent(null);
+      setFormData({
+        cedula: "",
+        nombre_completo: "",
+        grado: "",
+        seccion: "",
+        correo_representante: ""
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingStudent(null);
+    setFormData({});
+  };
+
+  const handleSaveStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      const cleanCedula = formData.cedula?.trim().toUpperCase().replace(/\s+/g, '') || "";
+      const qrCode = `RC-${cleanCedula}`;
+
+      const studentData = {
+        cedula: formData.cedula?.trim(),
+        nombre_completo: formData.nombre_completo?.trim(),
+        grado: formData.grado?.trim(),
+        seccion: formData.seccion?.trim().toUpperCase(),
+        correo_representante: formData.correo_representante?.trim(),
+        qr_code: qrCode
+      };
+
+      if (editingStudent) {
+        // Actualizar
+        const { error } = await supabase
+          .from("estudiantes")
+          .update(studentData)
+          .eq("id", editingStudent.id);
+        if (error) throw error;
+      } else {
+        // Crear nuevo
+        const { error } = await supabase
+          .from("estudiantes")
+          .insert([studentData]);
+        if (error) throw error;
+      }
+
+      await fetchEstudiantes();
+      handleCloseModal();
+    } catch (error) {
+      console.error("Error al guardar estudiante:", error);
+      alert("Error al guardar los datos del estudiante.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const filteredEstudiantes = estudiantes.filter(e => 
     e.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.cedula.toLowerCase().includes(searchTerm.toLowerCase()) ||
     e.grado.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.seccion.toLowerCase().includes(searchTerm.toLowerCase())
+    e.seccion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (e.correo_representante && e.correo_representante.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const totalPages = Math.ceil(filteredEstudiantes.length / itemsPerPage);
@@ -75,17 +147,24 @@ export default function EstudiantesComponent() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in relative">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Estudiantes y Carnets</h1>
-          <p className="text-slate-400 mt-1 text-sm">Gestiona los códigos QR e imprime carnets de reposición.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Estudiantes</h1>
+          <p className="text-slate-400 mt-1 text-sm">Gestiona alumnos, códigos QR y correos de notificación.</p>
         </div>
-        <div className="flex w-full sm:w-auto gap-3">
+        <div className="flex flex-wrap w-full sm:w-auto gap-3">
+          <button
+            onClick={() => handleOpenModal()}
+            className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-500 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20 text-sm flex-1 sm:flex-none"
+          >
+            <Plus className="w-4 h-4" />
+            Añadir Alumno
+          </button>
           <button
             onClick={() => setShowPrintView(true)}
             disabled={selectedStudents.length === 0}
-            className={`px-4 py-2 rounded-xl font-medium flex items-center justify-center gap-2 transition-all w-full sm:w-auto text-sm ${
+            className={`px-4 py-2 rounded-xl font-medium flex items-center justify-center gap-2 transition-all text-sm flex-1 sm:flex-none ${
               selectedStudents.length === 0
                 ? "bg-slate-800 text-slate-500 cursor-not-allowed"
                 : "bg-blue-600 text-white hover:bg-blue-500 shadow-lg shadow-blue-500/20"
@@ -102,7 +181,7 @@ export default function EstudiantesComponent() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           <input
             type="text"
-            placeholder="Buscar por cédula, nombre, grado..."
+            placeholder="Buscar por cédula, nombre, correo..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -128,13 +207,14 @@ export default function EstudiantesComponent() {
                 <th className="px-4 py-3">Nombre</th>
                 <th className="px-4 py-3">Grado</th>
                 <th className="px-4 py-3">Sección</th>
-                <th className="px-4 py-3 text-center">Acción</th>
+                <th className="px-4 py-3 hidden md:table-cell">Correo Representante</th>
+                <th className="px-4 py-3 text-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center">
+                  <td colSpan={7} className="px-4 py-12 text-center">
                     <div className="flex justify-center items-center">
                       <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
                     </div>
@@ -142,7 +222,7 @@ export default function EstudiantesComponent() {
                 </tr>
               ) : currentEstudiantes.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-500 italic">
+                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500 italic">
                     No se encontraron estudiantes
                   </td>
                 </tr>
@@ -161,14 +241,22 @@ export default function EstudiantesComponent() {
                     <td className="px-4 py-3">{estudiante.nombre_completo}</td>
                     <td className="px-4 py-3">{estudiante.grado}</td>
                     <td className="px-4 py-3">{estudiante.seccion}</td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-4 py-3 hidden md:table-cell text-slate-400">{estudiante.correo_representante || "-"}</td>
+                    <td className="px-4 py-3 text-center space-x-1">
+                      <button
+                        onClick={() => handleOpenModal(estudiante)}
+                        className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors inline-flex items-center justify-center"
+                        title="Editar alumno"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => {
                           setSelectedStudents([estudiante]);
                           setShowPrintView(true);
                         }}
                         className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors inline-flex items-center justify-center"
-                        title="Imprimir carnet individual"
+                        title="Imprimir carnet"
                       >
                         <QrCode className="w-4 h-4" />
                       </button>
@@ -208,6 +296,103 @@ export default function EstudiantesComponent() {
           </div>
         )}
       </div>
+
+      {/* Modal Añadir/Editar */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl animate-slide-up">
+            <div className="flex items-center justify-between p-6 border-b border-white/5">
+              <h2 className="text-xl font-bold text-white">
+                {editingStudent ? "Editar Alumno" : "Añadir Nuevo Alumno"}
+              </h2>
+              <button onClick={handleCloseModal} className="text-slate-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveStudent} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Cédula</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.cedula || ""}
+                  onChange={e => setFormData({...formData, cedula: e.target.value})}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  placeholder="Ej: V-12345678"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Nombre Completo</label>
+                <input
+                  required
+                  type="text"
+                  value={formData.nombre_completo || ""}
+                  onChange={e => setFormData({...formData, nombre_completo: e.target.value})}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  placeholder="Nombres y Apellidos"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Grado/Año</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.grado || ""}
+                    onChange={e => setFormData({...formData, grado: e.target.value})}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    placeholder="Ej: 1er Año"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Sección</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.seccion || ""}
+                    onChange={e => setFormData({...formData, seccion: e.target.value})}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    placeholder="Ej: A"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Correo del Representante</label>
+                <input
+                  required
+                  type="email"
+                  value={formData.correo_representante || ""}
+                  onChange={e => setFormData({...formData, correo_representante: e.target.value})}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
+              
+              <div className="pt-4 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-5 py-2.5 rounded-xl font-medium text-slate-300 hover:bg-white/5 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium flex items-center gap-2 transition-all disabled:opacity-50"
+                >
+                  {isSaving ? (
+                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {isSaving ? "Guardando..." : "Guardar Estudiante"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
