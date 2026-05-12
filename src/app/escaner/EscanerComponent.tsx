@@ -104,12 +104,12 @@ export default function EscanerPage() {
         text: `${mode} registrada para ${data.nombre_completo}` 
       });
 
-      // Auto-reset after 4 seconds to scan next student
+      // Auto-reset faster to scan next student
       setTimeout(() => {
         setScanResult(null);
         setEstudiante(null);
         setMessage({ type: null, text: "" });
-      }, 4000);
+      }, 1500);
 
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
@@ -117,7 +117,7 @@ export default function EscanerPage() {
         setScanResult(null);
         setEstudiante(null);
         setMessage({ type: null, text: "" });
-      }, 3000);
+      }, 2000);
     } finally {
       setLoading(false);
     }
