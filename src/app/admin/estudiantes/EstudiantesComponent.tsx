@@ -11,6 +11,7 @@ type Estudiante = {
   nombre_completo: string;
   grado: string;
   seccion: string;
+  nombre_representante: string;
   correo_representante: string;
 };
 
@@ -59,6 +60,7 @@ export default function EstudiantesComponent() {
         nombre_completo: "",
         grado: "",
         seccion: "",
+        nombre_representante: "",
         correo_representante: ""
       });
     }
@@ -83,6 +85,7 @@ export default function EstudiantesComponent() {
         nombre_completo: formData.nombre_completo?.trim(),
         grado: formData.grado?.trim(),
         seccion: formData.seccion?.trim().toUpperCase(),
+        nombre_representante: formData.nombre_representante?.trim(),
         correo_representante: formData.correo_representante?.trim(),
         qr_code: qrCode
       };
@@ -356,16 +359,29 @@ export default function EstudiantesComponent() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-slate-400 mb-1">Correo del Representante</label>
-                <input
-                  required
-                  type="email"
-                  value={formData.correo_representante || ""}
-                  onChange={e => setFormData({...formData, correo_representante: e.target.value})}
-                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                  placeholder="correo@ejemplo.com"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Nombre del Representante</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.nombre_representante || ""}
+                    onChange={e => setFormData({...formData, nombre_representante: e.target.value})}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    placeholder="Nombre y Apellido"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Correo del Representante</label>
+                  <input
+                    required
+                    type="email"
+                    value={formData.correo_representante || ""}
+                    onChange={e => setFormData({...formData, correo_representante: e.target.value})}
+                    className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                    placeholder="correo@ejemplo.com"
+                  />
+                </div>
               </div>
               
               <div className="pt-4 flex gap-3 justify-end">
