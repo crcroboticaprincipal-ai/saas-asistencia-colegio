@@ -55,6 +55,15 @@ export default function AdminLayout({
           <span className="text-[10px] font-medium">Importar</span>
         </Link>
         <Link
+          href="/admin/estudiantes"
+          className={`flex flex-col items-center gap-0.5 p-2 rounded-lg transition-colors min-w-[56px] ${
+            pathname === "/admin/estudiantes" ? "text-blue-400" : "text-slate-500"
+          }`}
+        >
+          <QrCode className="w-5 h-5" />
+          <span className="text-[10px] font-medium">QR</span>
+        </Link>
+        <Link
           href="/"
           className="flex flex-col items-center justify-center -mt-7 w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-500 rounded-full text-white shadow-lg shadow-blue-500/30 border-4 border-[var(--background)]"
         >

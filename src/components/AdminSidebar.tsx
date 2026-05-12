@@ -11,6 +11,7 @@ export function AdminSidebar() {
   const routes = [
     { name: "Dashboard", path: "/admin", icon: LayoutDashboard },
     { name: "Importar Alumnos", path: "/admin/importar", icon: Users },
+    { name: "Estudiantes / QR", path: "/admin/estudiantes", icon: QrCode },
     { name: "Reportes", path: "/admin/reportes", icon: FileText },
   ];
 

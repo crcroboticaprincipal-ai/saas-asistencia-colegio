@@ -383,7 +383,7 @@ function CarnetsView({ students, onClose }: { students: ImportedStudent[]; onClo
   }, []);
 
   return (
-    <div className="bg-white text-black min-h-screen p-4 sm:p-8 absolute inset-0 z-50 overflow-auto">
+    <div className="bg-white text-black min-h-screen p-4 sm:p-8 absolute inset-0 z-50 overflow-auto print:relative print:overflow-visible print:p-0 print:h-auto">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 sm:mb-8 print:hidden">
         <h1 className="text-xl sm:text-2xl font-bold text-slate-900">🎓 Carnets Digitales</h1>
         <div className="flex gap-3">
