@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Registrar Asistencia
-    const horaLocal = new Date().toLocaleTimeString('es-VE', { hour12: true });
+    const horaLocal = new Date().toLocaleTimeString('es-VE', { hour12: true, timeZone: 'America/Caracas' });
     
     const { error: errorAsistencia } = await supabase
       .from('asistencias')

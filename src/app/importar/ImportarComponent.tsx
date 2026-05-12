@@ -23,20 +23,16 @@ type ImportedStudent = {
 };
 
 /**
- * Genera un QR code único basado en la cédula del estudiante + UUID v4.
- * Formato: RC-{CEDULA}-{UUID} 
+ * Genera un QR code determinista basado en la cédula del estudiante.
+ * Formato: RC-{CEDULA}
  * RC = Rafael Castillo (prefix institucional)
- * Garantiza unicidad absoluta incluso si se importa el mismo alumno varias veces.
+ * Esto garantiza que si se vuelve a importar el Excel, los carnets impresos previamente sigan funcionando.
  */
 function generateUniqueQR(cedula: string): string {
-  const uuid = typeof crypto !== 'undefined' && crypto.randomUUID 
-    ? crypto.randomUUID() 
-    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
-  return `RC-${cedula.trim()}-${uuid}`;
+  // Retiramos el UUID aleatorio para evitar que los QR cambien en cada importación masiva.
+  // Convertimos a mayúsculas y quitamos espacios para estandarizar.
+  const cleanCedula = cedula.trim().toUpperCase().replace(/\s+/g, '');
+  return `RC-${cleanCedula}`;
 }
 
 /**
