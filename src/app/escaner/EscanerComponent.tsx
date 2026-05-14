@@ -110,7 +110,7 @@ export default function EscanerPage() {
         setScanResult(null);
         setEstudiante(null);
         setMessage({ type: null, text: "" });
-      }, 1500);
+      }, 800);
 
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
@@ -118,7 +118,7 @@ export default function EscanerPage() {
         setScanResult(null);
         setEstudiante(null);
         setMessage({ type: null, text: "" });
-      }, 2000);
+      }, 1500);
     } finally {
       setLoading(false);
     }
