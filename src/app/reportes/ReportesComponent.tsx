@@ -28,6 +28,7 @@ export default function ReportesComponent() {
   const [filtroTiempo, setFiltroTiempo] = useState("HOY");
   const [organizacion, setOrganizacion] = useState("Colegio Rafael Castillo");
   const [horaOficialEntrada, setHoraOficialEntrada] = useState("07:00");
+  const [search, setSearch] = useState("");
   
   const [isExporting, setIsExporting] = useState(false);
 
@@ -79,8 +80,19 @@ export default function ReportesComponent() {
       result = result.filter((a) => a.fecha >= monthAgoStr);
     }
 
+    if (search) {
+      const s = search.toLowerCase();
+      result = result.filter(
+        (a) =>
+          a.estudiantes?.nombre_completo?.toLowerCase().includes(s) ||
+          a.estudiantes?.cedula?.toLowerCase().includes(s) ||
+          a.estudiantes?.grado?.toLowerCase().includes(s) ||
+          a.estudiantes?.seccion?.toLowerCase().includes(s)
+      );
+    }
+
     setFilteredData(result);
-  }, [filtroTiempo, asistencias]);
+  }, [filtroTiempo, search, asistencias]);
 
   // KPIs y Cálculos
   const { totalEntradas, minutosRetardoTotales, promedioHoraLlegada, chartData } = useMemo(() => {
@@ -226,6 +238,16 @@ export default function ReportesComponent() {
             value={horaOficialEntrada}
             onChange={(e) => setHoraOficialEntrada(e.target.value)}
             className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm [color-scheme:dark]"
+          />
+        </div>
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-medium text-slate-400 mb-1">Buscar Alumno o Sección</label>
+          <input 
+            type="text"
+            placeholder="Ej: Cédula, Nombre o Sección 'A'"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
           />
         </div>
       </div>

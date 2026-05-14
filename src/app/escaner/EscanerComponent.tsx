@@ -140,8 +140,8 @@ export default function EscanerPage() {
     return (
       <div className="max-w-lg mx-auto space-y-6 animate-slide-up px-4 mt-6 sm:mt-10">
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 mx-auto overflow-hidden p-2">
-            <Image src="/logo.png" alt="Qrono Logo" width={80} height={80} className="w-full h-full object-contain filter invert opacity-90" />
+          <div className="h-16 sm:h-20 flex items-center justify-center mx-auto overflow-hidden">
+            <Image src="/logo.png" alt="Qrono Logo" width={180} height={80} className="w-auto h-full object-contain filter invert opacity-90" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
             Qrono Scanner
