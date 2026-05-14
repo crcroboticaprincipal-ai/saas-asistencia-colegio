@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Shield, Eye, EyeOff, AlertCircle, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
+import Image from "next/image";
+
 function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -48,10 +50,10 @@ function LoginForm() {
     <div className="glass-panel rounded-2xl sm:rounded-3xl p-6 sm:p-10 border border-white/[0.08] shadow-2xl">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-blue-500/15 rounded-2xl flex items-center justify-center border border-blue-500/25 mx-auto mb-4">
-          <Shield className="w-7 h-7 sm:w-8 sm:h-8 text-blue-400" />
+        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 mx-auto mb-4 p-2 overflow-hidden">
+          <Image src="/logo.png" alt="Qrono Logo" width={64} height={64} className="w-full h-full object-contain filter invert opacity-90" />
         </div>
-        <h1 className="text-xl sm:text-2xl font-bold text-white">Panel Administrativo</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Qrono Admin</h1>
         <p className="text-slate-400 mt-2 text-xs sm:text-sm">Ingresa la contraseña para acceder al sistema</p>
       </div>
 

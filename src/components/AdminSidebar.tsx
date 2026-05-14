@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LayoutDashboard, Users, FileText, LogOut, QrCode, Shield } from "lucide-react";
 
+import Image from "next/image";
+
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -29,11 +31,11 @@ export function AdminSidebar() {
     <aside className="w-64 h-full glass-panel border-r border-white/[0.08] flex-col z-10 hidden md:flex">
       <div className="p-6 border-b border-white/5">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 bg-blue-500/15 rounded-lg flex items-center justify-center border border-blue-500/25">
-            <Shield className="w-4 h-4 text-blue-400" />
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 border border-white/10 p-1.5 overflow-hidden">
+            <Image src="/logo.png" alt="Qrono Logo" width={32} height={32} className="w-full h-full object-contain filter invert opacity-90" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gradient leading-tight">Qrono Admin</h1>
+            <h1 className="text-lg font-bold text-gradient leading-tight tracking-tight">Qrono Admin</h1>
             <p className="text-[10px] text-slate-500 leading-tight">Control de Asistencia</p>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { ScanLine, Shield } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 const EscanerComponent = dynamic(() => import("./escaner/EscanerComponent"), {
   ssr: false,
@@ -22,8 +23,8 @@ export default function HomePage() {
       {/* Header */}
       <header className="glass-panel border-b border-white/[0.08] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-blue-500/15 rounded-xl flex items-center justify-center border border-blue-500/25">
-            <ScanLine className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-white/5 rounded-xl flex items-center justify-center border border-white/10 p-1.5 overflow-hidden">
+            <Image src="/logo.png" alt="Qrono Logo" width={40} height={40} className="w-full h-full object-contain filter invert opacity-90" />
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight">

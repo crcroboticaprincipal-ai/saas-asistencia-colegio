@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { CheckCircle, AlertTriangle, ScanLine, User, LogIn, LogOut, RotateCcw } from "lucide-react";
+import Image from "next/image";
 
 type Estudiante = {
   id: string;
@@ -139,8 +140,8 @@ export default function EscanerPage() {
     return (
       <div className="max-w-lg mx-auto space-y-6 animate-slide-up px-4 mt-6 sm:mt-10">
         <div className="text-center space-y-3">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-500/15 rounded-2xl flex items-center justify-center border border-blue-500/25 mx-auto animate-glow">
-            <ScanLine className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
+          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 mx-auto overflow-hidden p-2">
+            <Image src="/logo.png" alt="Qrono Logo" width={80} height={80} className="w-full h-full object-contain filter invert opacity-90" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
             Qrono Scanner
