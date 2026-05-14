@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Search, Download, Calendar, Filter, FileSpreadsheet, FileText, RefreshCw } from "lucide-react";
+import { Download, Calendar, Users, Clock, AlertTriangle, TrendingUp } from "lucide-react";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 type Asistencia = {
   id: string;
@@ -22,257 +23,271 @@ export default function ReportesComponent() {
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
   const [filteredData, setFilteredData] = useState<Asistencia[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [filtroTiempo, setFiltroTiempo] = useState("TODOS");
+  
+  // Filtros
+  const [filtroTiempo, setFiltroTiempo] = useState("HOY");
+  const [organizacion, setOrganizacion] = useState("Colegio Rafael Castillo");
+  const [horaOficialEntrada, setHoraOficialEntrada] = useState("07:00");
+  
+  const [isExporting, setIsExporting] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  const fetchData = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("asistencias")
+      .select(`
+        id,
+        estudiante_id,
+        tipo,
+        fecha,
+        hora,
+        estudiantes (cedula, nombre_completo, grado, seccion)
+      `)
+      .order("fecha", { ascending: false })
+      .order("hora", { ascending: false });
+
+    if (data && !error) {
+      setAsistencias(data as unknown as Asistencia[]);
+    }
+    setLoading(false);
+  };
+
   useEffect(() => {
     let result = asistencias;
-
-    // Search filter
-    if (search) {
-      const s = search.toLowerCase();
-      result = result.filter(
-        (a) =>
-          a.estudiantes?.nombre_completo?.toLowerCase().includes(s) ||
-          a.estudiantes?.cedula?.includes(s)
-      );
-    }
-
-    // Time filter
     const today = new Date();
+    
+    // Obtener string en formato local de Caracas YYYY-MM-DD
+    const getCaracasDateString = (date: Date) => {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Caracas', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+    };
+
+    const todayStr = getCaracasDateString(today);
+
     if (filtroTiempo === "HOY") {
-      const todayStr = today.toISOString().split("T")[0];
       result = result.filter((a) => a.fecha === todayStr);
     } else if (filtroTiempo === "SEMANA") {
-      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      result = result.filter((a) => a.fecha >= weekAgo);
+      const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const weekAgoStr = getCaracasDateString(weekAgo);
+      result = result.filter((a) => a.fecha >= weekAgoStr);
     } else if (filtroTiempo === "MES") {
-      const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-      result = result.filter((a) => a.fecha >= monthAgo);
+      const monthAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const monthAgoStr = getCaracasDateString(monthAgo);
+      result = result.filter((a) => a.fecha >= monthAgoStr);
     }
 
     setFilteredData(result);
-  }, [search, filtroTiempo, asistencias]);
+  }, [filtroTiempo, asistencias]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  // KPIs y Cálculos
+  const { totalEntradas, minutosRetardoTotales, promedioHoraLlegada, chartData } = useMemo(() => {
+    let entradas = 0;
+    let retardosAcumulados = 0;
+    let totalMinutosLlegada = 0;
+    
+    const [oficialH, oficialM] = horaOficialEntrada.split(":").map(Number);
+    const officialMinutes = oficialH * 60 + oficialM;
+
+    // Para el gráfico: agrupar por fecha
+    const entradasPorDia: Record<string, number> = {};
+
+    filteredData.forEach(a => {
+      if (a.tipo === "ENTRADA") {
+        entradas++;
+        
+        // Sumar para el gráfico
+        entradasPorDia[a.fecha] = (entradasPorDia[a.fecha] || 0) + 1;
+
+        const [h, m] = a.hora.split(":").map(Number);
+        const entryMinutes = h * 60 + m;
+        totalMinutosLlegada += entryMinutes;
+
+        let retardo = entryMinutes - officialMinutes;
+        if (retardo > 0) {
+          retardosAcumulados += retardo;
+        }
+      }
+    });
+
+    // Formatear promedio
+    let promedioStr = "--:--";
+    if (entradas > 0) {
+      const promMinutos = Math.floor(totalMinutosLlegada / entradas);
+      const h = Math.floor(promMinutos / 60);
+      const m = promMinutos % 60;
+      promedioStr = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+    }
+
+    // Preparar Data del Gráfico (ordenar por fecha)
+    const sortedDates = Object.keys(entradasPorDia).sort();
+    const chart = sortedDates.map(date => {
+      // Formato DD/MM
+      const [y, m, d] = date.split("-");
+      return {
+        name: `${d}/${m}`,
+        Entradas: entradasPorDia[date]
+      };
+    });
+
+    return {
+      totalEntradas: entradas,
+      minutosRetardoTotales: retardosAcumulados,
+      promedioHoraLlegada: promedioStr,
+      chartData: chart
+    };
+  }, [filteredData, horaOficialEntrada]);
+
+  const handleExportExcel = async () => {
+    setIsExporting(true);
     try {
-      const { data, error } = await supabase
-        .from("asistencias")
-        .select(`
-          id, estudiante_id, tipo, fecha, hora,
-          estudiantes ( cedula, nombre_completo, grado, seccion )
-        `)
-        .order("fecha", { ascending: false })
-        .order("hora", { ascending: false });
+      const response = await fetch("/api/exportar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          data: filteredData, 
+          horaOficialEntrada 
+        })
+      });
 
-      if (error) throw error;
-      setAsistencias(data as unknown as Asistencia[]);
+      if (!response.ok) throw new Error("Error al exportar");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Qrono_Reporte_${filtroTiempo}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (error) {
-      console.error("Error fetching data:", error);
+      alert("Error al descargar el archivo Excel.");
     } finally {
-      setLoading(false);
+      setIsExporting(false);
     }
   };
 
-  const exportToExcel = useCallback(async () => {
-    const XLSX = await import("xlsx");
-    const dataToExport = filteredData.map((a) => ({
-      Fecha: a.fecha,
-      Hora: a.hora,
-      Cédula: a.estudiantes?.cedula,
-      Nombre: a.estudiantes?.nombre_completo,
-      Grado: a.estudiantes?.grado,
-      Sección: a.estudiantes?.seccion,
-      Tipo: a.tipo,
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Reporte Asistencia");
-    XLSX.writeFile(wb, `Reporte_Asistencia_${new Date().toISOString().split("T")[0]}.xlsx`);
-  }, [filteredData]);
-
-  const exportToPDF = useCallback(async () => {
-    const jsPDF = (await import("jspdf")).default;
-    const autoTable = (await import("jspdf-autotable")).default;
-
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Reporte de Asistencia", 14, 15);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("UE Colegio Rafael Castillo", 14, 22);
-
-    const tableData = filteredData.map((a) => [
-      a.fecha,
-      a.hora,
-      a.estudiantes?.cedula || "",
-      a.estudiantes?.nombre_completo || "",
-      `${a.estudiantes?.grado || ""} "${a.estudiantes?.seccion || ""}"`,
-      a.tipo,
-    ]);
-
-    autoTable(doc, {
-      head: [["Fecha", "Hora", "Cédula", "Nombre", "Grado/Sección", "Tipo"]],
-      body: tableData,
-      startY: 28,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [37, 99, 235] },
-    });
-
-    doc.save(`Reporte_Asistencia_${new Date().toISOString().split("T")[0]}.pdf`);
-  }, [filteredData]);
-
-  // Stats
-  const entradas = filteredData.filter((a) => a.tipo === "ENTRADA").length;
-  const salidas = filteredData.filter((a) => a.tipo === "SALIDA").length;
-
   return (
-    <div className="space-y-5 sm:space-y-6 animate-fade-in">
-      <div className="flex flex-col gap-3 sm:gap-4">
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Reportes y Analítica</h1>
-          <p className="text-slate-400 mt-0.5 text-xs sm:text-sm">Exportación y búsqueda histórica de asistencias.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2">
+            <TrendingUp className="w-8 h-8 text-indigo-500" />
+            Qrono Analytics
+          </h1>
+          <p className="text-slate-400 mt-1 text-sm">Inteligencia y reportes dinámicos de asistencia.</p>
         </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3">
-          <button
-            onClick={fetchData}
-            className="px-3 py-2 bg-white/5 text-slate-300 border border-white/10 rounded-xl hover:bg-white/10 transition-colors"
-            title="Actualizar datos"
+        <button
+          onClick={handleExportExcel}
+          disabled={isExporting || filteredData.length === 0}
+          className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-500 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+        >
+          {isExporting ? (
+            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+          ) : (
+            <Download className="w-4 h-4" />
+          )}
+          {isExporting ? "Generando Excel Inteligente..." : "Exportar a Excel"}
+        </button>
+      </div>
+
+      {/* Selectores */}
+      <div className="glass-panel p-4 rounded-2xl flex flex-wrap gap-4">
+        <div className="flex-1 min-w-[200px]">
+          <label className="block text-xs font-medium text-slate-400 mb-1">Organización (Multi-tenant)</label>
+          <select 
+            value={organizacion} 
+            onChange={(e) => setOrganizacion(e.target.value)}
+            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
           >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          <button
-            onClick={exportToExcel}
-            disabled={filteredData.length === 0}
-            className="px-3 sm:px-4 py-2 bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 rounded-xl hover:bg-emerald-500/25 transition-colors flex items-center gap-1.5 sm:gap-2 font-medium disabled:opacity-40 text-xs sm:text-sm"
+            <option value="Colegio Rafael Castillo">Colegio Rafael Castillo</option>
+            <option value="Otra Sede">Sede Secundaria (Demo)</option>
+          </select>
+        </div>
+        <div className="flex-1 min-w-[150px]">
+          <label className="block text-xs font-medium text-slate-400 mb-1">Rango de Tiempo</label>
+          <select 
+            value={filtroTiempo} 
+            onChange={(e) => setFiltroTiempo(e.target.value)}
+            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
           >
-            <FileSpreadsheet className="w-4 h-4" /> Excel
-          </button>
-          <button
-            onClick={exportToPDF}
-            disabled={filteredData.length === 0}
-            className="px-3 sm:px-4 py-2 bg-red-500/15 text-red-400 border border-red-500/25 rounded-xl hover:bg-red-500/25 transition-colors flex items-center gap-1.5 sm:gap-2 font-medium disabled:opacity-40 text-xs sm:text-sm"
-          >
-            <FileText className="w-4 h-4" /> PDF
-          </button>
+            <option value="HOY">Hoy</option>
+            <option value="SEMANA">Esta Semana</option>
+            <option value="MES">Últimos 30 Días</option>
+            <option value="TODOS">Histórico Completo</option>
+          </select>
+        </div>
+        <div className="flex-1 min-w-[120px]">
+          <label className="block text-xs font-medium text-slate-400 mb-1">Hora Oficial Entrada</label>
+          <input 
+            type="time"
+            value={horaOficialEntrada}
+            onChange={(e) => setHoraOficialEntrada(e.target.value)}
+            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm [color-scheme:dark]"
+          />
         </div>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
-        <div className="glass-card p-3 sm:p-4 rounded-xl text-center">
-          <p className="text-[10px] sm:text-xs text-slate-400 uppercase tracking-wide">Total</p>
-          <p className="text-xl sm:text-2xl font-bold text-white mt-0.5 sm:mt-1">{filteredData.length}</p>
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+        <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Users className="w-16 h-16 text-emerald-500" />
+          </div>
+          <p className="text-slate-400 text-sm font-medium mb-1">Total Entradas</p>
+          <h3 className="text-3xl font-bold text-white">{loading ? "-" : totalEntradas}</h3>
+          <p className="text-emerald-400 text-xs mt-2 font-medium">Asistencias registradas</p>
         </div>
-        <div className="glass-card p-3 sm:p-4 rounded-xl text-center">
-          <p className="text-[10px] sm:text-xs text-blue-400 uppercase tracking-wide">Entradas</p>
-          <p className="text-xl sm:text-2xl font-bold text-blue-400 mt-0.5 sm:mt-1">{entradas}</p>
+        
+        <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Clock className="w-16 h-16 text-blue-500" />
+          </div>
+          <p className="text-slate-400 text-sm font-medium mb-1">Promedio Hora Llegada</p>
+          <h3 className="text-3xl font-bold text-white">{loading ? "-" : promedioHoraLlegada}</h3>
+          <p className="text-blue-400 text-xs mt-2 font-medium">Tiempo medio de ingreso</p>
         </div>
-        <div className="glass-card p-3 sm:p-4 rounded-xl text-center">
-          <p className="text-[10px] sm:text-xs text-red-400 uppercase tracking-wide">Salidas</p>
-          <p className="text-xl sm:text-2xl font-bold text-red-400 mt-0.5 sm:mt-1">{salidas}</p>
+
+        <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <AlertTriangle className="w-16 h-16 text-rose-500" />
+          </div>
+          <p className="text-slate-400 text-sm font-medium mb-1">Retardos Acumulados</p>
+          <h3 className="text-3xl font-bold text-white">{loading ? "-" : minutosRetardoTotales}</h3>
+          <p className="text-rose-400 text-xs mt-2 font-medium">Minutos totales después de las {horaOficialEntrada}</p>
         </div>
       </div>
 
-      <div className="glass-panel p-4 sm:p-6 rounded-xl sm:rounded-2xl space-y-4 sm:space-y-6">
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-          <div className="flex-1 relative">
-            <Search className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre o cédula..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2.5 sm:py-3 pl-9 sm:pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all text-xs sm:text-sm"
-            />
-          </div>
-
-          <div className="relative">
-            <Filter className="w-4 h-4 sm:w-5 sm:h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <select
-              value={filtroTiempo}
-              onChange={(e) => setFiltroTiempo(e.target.value)}
-              className="w-full sm:w-auto bg-slate-900/50 border border-white/10 rounded-xl py-2.5 sm:py-3 pl-9 sm:pl-10 pr-8 text-white focus:outline-none focus:border-blue-500 appearance-none cursor-pointer text-xs sm:text-sm"
-            >
-              <option value="TODOS">Todo</option>
-              <option value="HOY">Hoy</option>
-              <option value="SEMANA">7 días</option>
-              <option value="MES">30 días</option>
-            </select>
-          </div>
+      {/* Gráfico */}
+      <div className="glass-panel p-6 rounded-2xl">
+        <h2 className="text-lg font-bold text-white mb-6">Tendencia de Ingresos</h2>
+        <div className="h-[300px] w-full">
+          {loading ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <span className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="w-full h-full flex items-center justify-center text-slate-500">
+              No hay suficientes datos para graficar
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                <Tooltip 
+                  cursor={{ fill: '#ffffff05' }}
+                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#ffffff10', borderRadius: '8px' }}
+                  itemStyle={{ color: '#818cf8', fontWeight: 'bold' }}
+                />
+                <Bar dataKey="Entradas" fill="#4f46e5" radius={[4, 4, 0, 0]} barSize={40} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto rounded-xl border border-white/5 bg-slate-900/50 -mx-1">
-          <table className="w-full text-xs sm:text-sm text-left text-slate-300">
-            <thead className="text-[10px] sm:text-xs text-slate-400 uppercase bg-slate-800/50">
-              <tr>
-                <th className="px-3 sm:px-6 py-3 sm:py-4">Fecha / Hora</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4">Estudiante</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 hidden sm:table-cell">Cédula</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 hidden md:table-cell">Grado</th>
-                <th className="px-3 sm:px-6 py-3 sm:py-4 text-right">Tipo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full" />
-                      <span className="text-slate-500 text-xs sm:text-sm">Cargando datos…</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredData.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500 text-xs sm:text-sm">
-                    No se encontraron registros para estos filtros.
-                  </td>
-                </tr>
-              ) : (
-                filteredData.map((a) => (
-                  <tr key={a.id} className="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
-                    <td className="px-3 sm:px-6 py-3 sm:py-4">
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 flex-shrink-0" />
-                        <div>
-                          <span className="font-medium text-slate-200 text-xs">{a.fecha}</span>
-                          <span className="text-slate-500 text-[10px] sm:text-xs ml-1">{a.hora}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 font-medium text-white text-xs">{a.estudiantes?.nombre_completo}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 hidden sm:table-cell text-xs">{a.estudiantes?.cedula}</td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 hidden md:table-cell text-xs">
-                      {a.estudiantes?.grado} &ldquo;{a.estudiantes?.seccion}&rdquo;
-                    </td>
-                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
-                      <span
-                        className={`px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold tracking-wide ${
-                          a.tipo === "ENTRADA"
-                            ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                            : "bg-red-500/10 text-red-400 border border-red-500/20"
-                        }`}
-                      >
-                        {a.tipo}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="text-xs sm:text-sm text-slate-500 text-right">Mostrando {filteredData.length} registros</div>
       </div>
     </div>
   );

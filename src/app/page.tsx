@@ -27,10 +27,10 @@ export default function HomePage() {
           </div>
           <div>
             <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight">
-              Control de Acceso
+              Qrono Scanner
             </h1>
             <p className="text-[10px] sm:text-xs text-slate-500 leading-tight">
-              UE Colegio Rafael Castillo
+              Sistema de Asistencia
             </p>
           </div>
         </div>

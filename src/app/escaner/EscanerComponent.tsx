@@ -143,7 +143,7 @@ export default function EscanerPage() {
             <ScanLine className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            Control de Acceso
+            Qrono Scanner
           </h1>
           <p className="text-slate-400 text-sm sm:text-base">
             Selecciona el tipo de registro antes de escanear

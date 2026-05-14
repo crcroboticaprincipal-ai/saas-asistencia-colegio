@@ -33,8 +33,8 @@ export function AdminSidebar() {
             <Shield className="w-4 h-4 text-blue-400" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gradient leading-tight">Admin Panel</h1>
-            <p className="text-[10px] text-slate-500 leading-tight">Colegio Rafael Castillo</p>
+            <h1 className="text-lg font-bold text-gradient leading-tight">Qrono Admin</h1>
+            <p className="text-[10px] text-slate-500 leading-tight">Control de Asistencia</p>
           </div>
         </div>
       </div>
