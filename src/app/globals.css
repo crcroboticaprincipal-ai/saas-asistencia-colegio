@@ -116,6 +116,12 @@
 
 /* Print styles */
 @media print {
-  body { background: white !important; color: black !important; }
+  html, body { 
+    background: white !important; 
+    color: black !important; 
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+  }
   [data-print-hide] { display: none !important; }
 }
