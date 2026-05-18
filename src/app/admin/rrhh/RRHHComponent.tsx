@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
 import {
   UserCog, Plus, Search, ChevronRight, CheckCircle, XCircle,
-  Clock, Calendar, Loader2, Save, X, Eye, EyeOff
+  Clock, Calendar, Loader2, Save, X, Eye, EyeOff, Edit2
 } from "lucide-react";
 import type { Personal, Rol } from "@/lib/supabase/types";
 import { generarEmailInterno } from "@/lib/login-pin";
@@ -55,6 +55,7 @@ export default function RRHHComponent() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   const INSTITUCION_NOMBRE_CORTO = "CRC"; // Configurable futuro
 
@@ -88,50 +89,67 @@ export default function RRHHComponent() {
     setError("");
 
     try {
-      // 1. Si tiene username y PIN, crear usuario en Supabase Auth vía API
-      if (formData.username && formData.pin) {
-        if (formData.pin.length < 4 || formData.pin.length > 6 || !/^\d+$/.test(formData.pin)) {
-          throw new Error("El PIN debe tener entre 4 y 6 dígitos numéricos.");
+      if (editandoId) {
+        // Actualizar empleado existente
+        const { error: dbError } = await supabase.from("personal").update({
+          nombres: formData.nombres,
+          apellidos: formData.apellidos,
+          cedula: formData.cedula || null,
+          correo: formData.correo || null,
+          telefono: formData.telefono || null,
+          cargo: formData.cargo || null,
+          rol: formData.rol,
+        }).eq("id", editandoId);
+
+        if (dbError) throw new Error(dbError.message);
+        setSuccess(`${formData.nombres} ${formData.apellidos} actualizado exitosamente.`);
+      } else {
+        // 1. Si tiene username y PIN, crear usuario en Supabase Auth vía API
+        if (formData.username && formData.pin) {
+          if (formData.pin.length < 4 || formData.pin.length > 6 || !/^\d+$/.test(formData.pin)) {
+            throw new Error("El PIN debe tener entre 4 y 6 dígitos numéricos.");
+          }
+
+          const email = generarEmailInterno(formData.username, INSTITUCION_NOMBRE_CORTO);
+          const res = await fetch("/api/admin/crear-usuario-personal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email,
+              pin: formData.pin,
+              nombres: formData.nombres,
+              apellidos: formData.apellidos,
+              rol: formData.rol,
+              username: formData.username,
+            }),
+          });
+
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || "Error al crear usuario");
+          }
         }
 
-        const email = generarEmailInterno(formData.username, INSTITUCION_NOMBRE_CORTO);
-        const res = await fetch("/api/admin/crear-usuario-personal", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email,
-            pin: formData.pin,
-            nombres: formData.nombres,
-            apellidos: formData.apellidos,
-            rol: formData.rol,
-            username: formData.username,
-          }),
-        });
+        // 2. Insertar en tabla personal
+        const { error: dbError } = await supabase.from("personal").insert([{
+          nombres: formData.nombres,
+          apellidos: formData.apellidos,
+          cedula: formData.cedula || null,
+          correo: formData.correo || null,
+          telefono: formData.telefono || null,
+          cargo: formData.cargo || null,
+          rol: formData.rol,
+          username: formData.username || null,
+          institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7", // ID del Colegio Rafael Castillo
+        }]);
 
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "Error al crear usuario");
-        }
+        if (dbError) throw new Error(dbError.message);
+        setSuccess(`${formData.nombres} ${formData.apellidos} registrado exitosamente.`);
       }
 
-      // 2. Insertar en tabla personal
-      const { error: dbError } = await supabase.from("personal").insert([{
-        nombres: formData.nombres,
-        apellidos: formData.apellidos,
-        cedula: formData.cedula || null,
-        correo: formData.correo || null,
-        telefono: formData.telefono || null,
-        cargo: formData.cargo || null,
-        rol: formData.rol,
-        username: formData.username || null,
-        institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7", // ID del Colegio Rafael Castillo
-      }]);
-
-      if (dbError) throw new Error(dbError.message);
-
-      setSuccess(`${formData.nombres} ${formData.apellidos} registrado exitosamente.`);
       setShowModal(false);
       setFormData(FORM_EMPTY);
+      setEditandoId(null);
       fetchPersonal();
       setTimeout(() => setSuccess(""), 4000);
     } catch (err: unknown) {
@@ -139,6 +157,23 @@ export default function RRHHComponent() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEditar = (p: Personal) => {
+    setFormData({
+      nombres: p.nombres,
+      apellidos: p.apellidos,
+      cedula: p.cedula || "",
+      correo: p.correo || "",
+      telefono: p.telefono || "",
+      cargo: p.cargo || "",
+      rol: p.rol,
+      username: p.username || "",
+      pin: "", // El PIN no se recupera por seguridad
+    });
+    setEditandoId(p.id);
+    setError("");
+    setShowModal(true);
   };
 
   const handleToggleActivo = async (p: Personal) => {
@@ -165,7 +200,7 @@ export default function RRHHComponent() {
           <p className="text-slate-400 mt-1 text-sm">RRHH · Roles y Accesos del Colegio</p>
         </div>
         <button
-          onClick={() => { setShowModal(true); setFormData(FORM_EMPTY); setError(""); }}
+          onClick={() => { setEditandoId(null); setShowModal(true); setFormData(FORM_EMPTY); setError(""); }}
           className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20 text-sm w-full sm:w-auto justify-center"
         >
           <Plus className="w-4 h-4" /> Nuevo Empleado
@@ -279,8 +314,16 @@ export default function RRHHComponent() {
                         {p.activo ? "Activo" : "Inactivo"}
                       </button>
                     </td>
-                    <td className="px-4 py-4">
-                      <ChevronRight className="w-4 h-4 text-slate-600" />
+                    <td className="px-4 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleEditar(p)}
+                          className="p-2 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all"
+                          title="Editar información"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -295,7 +338,7 @@ export default function RRHHComponent() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="glass-panel w-full max-w-2xl rounded-2xl p-6 border border-white/[0.08] shadow-2xl overflow-y-auto max-h-[90vh]">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white">Registrar Empleado</h2>
+              <h2 className="text-xl font-bold text-white">{editandoId ? "Editar Empleado" : "Registrar Empleado"}</h2>
               <button onClick={() => setShowModal(false)} className="text-slate-500 hover:text-white transition-colors">
                 <X className="w-5 h-5" />
               </button>
@@ -342,44 +385,46 @@ export default function RRHHComponent() {
                 </select>
               </div>
 
-              <div className="border-t border-white/5 pt-4">
-                <p className="text-xs text-slate-500 mb-3">
-                  <span className="text-slate-300 font-medium">Acceso PIN</span> — Opcional. Permite al empleado iniciar sesión rápido con usuario y PIN de 4-6 dígitos.
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">Nombre de Usuario</label>
-                    <input
-                      type="text"
-                      placeholder="ej: profe_garcia"
-                      value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s/g, "_") })}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm font-mono"
-                    />
-                    {formData.username && (
-                      <p className="text-[10px] text-slate-600 mt-1">
-                        Email interno: {generarEmailInterno(formData.username, INSTITUCION_NOMBRE_CORTO)}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-400 mb-1">PIN (4-6 dígitos)</label>
-                    <div className="relative">
+              {!editandoId && (
+                <div className="border-t border-white/5 pt-4">
+                  <p className="text-xs text-slate-500 mb-3">
+                    <span className="text-slate-300 font-medium">Acceso PIN</span> — Opcional. Permite al empleado iniciar sesión rápido con usuario y PIN de 4-6 dígitos.
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">Nombre de Usuario</label>
                       <input
-                        type={showPin ? "text" : "password"}
-                        placeholder="••••••"
-                        value={formData.pin}
-                        maxLength={6}
-                        onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, "") })}
-                        className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm font-mono"
+                        type="text"
+                        placeholder="ej: profe_garcia"
+                        value={formData.username}
+                        onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/\s/g, "_") })}
+                        className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm font-mono"
                       />
-                      <button type="button" onClick={() => setShowPin(!showPin)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
-                        {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
+                      {formData.username && (
+                        <p className="text-[10px] text-slate-600 mt-1">
+                          Email interno: {generarEmailInterno(formData.username, INSTITUCION_NOMBRE_CORTO)}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-400 mb-1">PIN (4-6 dígitos)</label>
+                      <div className="relative">
+                        <input
+                          type={showPin ? "text" : "password"}
+                          placeholder="••••••"
+                          value={formData.pin}
+                          maxLength={6}
+                          onChange={(e) => setFormData({ ...formData, pin: e.target.value.replace(/\D/g, "") })}
+                          className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 pr-10 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm font-mono"
+                        />
+                        <button type="button" onClick={() => setShowPin(!showPin)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500">
+                          {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               <div className="flex gap-3 justify-end pt-2">
                 <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-colors text-sm">
