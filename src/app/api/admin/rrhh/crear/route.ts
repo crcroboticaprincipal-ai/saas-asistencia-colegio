@@ -1,0 +1,71 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { generarEmailInterno } from "@/lib/login-pin";
+
+export async function POST(req: NextRequest) {
+  try {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error("Variables de entorno de Supabase no configuradas.");
+    }
+
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { auth: { persistSession: false } }
+    );
+
+    const body = await req.json();
+    const { nombres, apellidos, cedula, correo, telefono, cargo, rol, username, pin } = body;
+
+    let authUserId = null;
+
+    // 1. Si hay username y pin, crear usuario en Supabase Auth
+    if (username && pin) {
+      const email = generarEmailInterno(username, "CRC");
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: pin,
+        email_confirm: true,
+        user_metadata: { nombres, apellidos, username },
+        app_metadata: {
+          rol,
+          institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7",
+        },
+      });
+
+      if (authError && !authError.message.includes("already been registered")) {
+        throw new Error(authError.message);
+      }
+      
+      if (authData?.user) {
+        authUserId = authData.user.id;
+      } else {
+        // If already registered, fetch the user ID
+        const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers();
+        const found = existingUser.users.find(u => u.email === email);
+        if (found) authUserId = found.id;
+      }
+    }
+
+    // 2. Insertar en tabla personal usando Service Role (salta RLS)
+    const { data: personalData, error: dbError } = await supabaseAdmin.from("personal").insert([{
+      nombres,
+      apellidos,
+      cedula: cedula || null,
+      correo: correo || null,
+      telefono: telefono || null,
+      cargo: cargo || null,
+      rol,
+      username: username || null,
+      auth_user_id: authUserId,
+      institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7",
+    }]).select().single();
+
+    if (dbError) throw new Error(dbError.message);
+
+    return NextResponse.json({ ok: true, personal: personalData });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "Error interno";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}

@@ -104,46 +104,18 @@ export default function RRHHComponent() {
         if (dbError) throw new Error(dbError.message);
         setSuccess(`${formData.nombres} ${formData.apellidos} actualizado exitosamente.`);
       } else {
-        // 1. Si tiene username y PIN, crear usuario en Supabase Auth vía API
-        if (formData.username && formData.pin) {
-          if (formData.pin.length < 4 || formData.pin.length > 6 || !/^\d+$/.test(formData.pin)) {
-            throw new Error("El PIN debe tener entre 4 y 6 dígitos numéricos.");
-          }
+        // Enviar todos los datos a la API para crear usuario (bypassa RLS usando service_role)
+        const res = await fetch("/api/admin/rrhh/crear", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
 
-          const email = generarEmailInterno(formData.username, INSTITUCION_NOMBRE_CORTO);
-          const res = await fetch("/api/admin/crear-usuario-personal", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              email,
-              pin: formData.pin,
-              nombres: formData.nombres,
-              apellidos: formData.apellidos,
-              rol: formData.rol,
-              username: formData.username,
-            }),
-          });
-
-          if (!res.ok) {
-            const data = await res.json();
-            throw new Error(data.error || "Error al crear usuario");
-          }
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || "Error al registrar empleado");
         }
 
-        // 2. Insertar en tabla personal
-        const { error: dbError } = await supabase.from("personal").insert([{
-          nombres: formData.nombres,
-          apellidos: formData.apellidos,
-          cedula: formData.cedula || null,
-          correo: formData.correo || null,
-          telefono: formData.telefono || null,
-          cargo: formData.cargo || null,
-          rol: formData.rol,
-          username: formData.username || null,
-          institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7", // ID del Colegio Rafael Castillo
-        }]);
-
-        if (dbError) throw new Error(dbError.message);
         setSuccess(`${formData.nombres} ${formData.apellidos} registrado exitosamente.`);
       }
 
