@@ -2,14 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { resolverCredencialesLogin } from '@/lib/login-pin';
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } }
-);
+// Client is initialized dynamically inside the route handler
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
+    );
+
     const body = await req.json();
     const { username, pin, institucion_nombre_corto } = body;
 
@@ -58,7 +60,7 @@ export async function POST(req: NextRequest) {
       access_token: data.session?.access_token,
       refresh_token: data.session?.refresh_token,
       user: {
-        id: data.user.id,
+        auth_id: data.user.id,
         email: data.user.email,
         ...personalData,
       },

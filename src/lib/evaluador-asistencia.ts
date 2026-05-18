@@ -3,7 +3,7 @@
 // Soporte: Horario Fijo, Medio Turno, Fraccionado con Horas Huecas
 // ================================================================
 import { parseISO, parse, differenceInMinutes } from 'date-fns';
-import type { HorarioBloque, EstadoEvaluacion, ResultadoEvaluacion } from './types';
+import type { HorarioBloque, EstadoEvaluacion, ResultadoEvaluacion } from './supabase/types';
 
 /**
  * Convierte un string de tiempo "HH:mm:ss" o "HH:mm" a minutos desde medianoche

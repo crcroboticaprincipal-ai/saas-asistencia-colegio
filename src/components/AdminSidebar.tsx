@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, FileText, LogOut, QrCode, Shield } from "lucide-react";
+import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, BarChart3, Building2 } from "lucide-react";
 
 import Image from "next/image";
 
@@ -15,6 +15,17 @@ export function AdminSidebar() {
     { name: "Importar Alumnos", path: "/admin/importar", icon: Users },
     { name: "Estudiantes / QR", path: "/admin/estudiantes", icon: QrCode },
     { name: "Reportes", path: "/admin/reportes", icon: FileText },
+    { name: "Analítica Avanzada", path: "/reportes", icon: BarChart3 },
+  ];
+
+  const routesRRHH = [
+    { name: "Personal", path: "/admin/rrhh", icon: UserCog },
+    { name: "Calendario", path: "/admin/rrhh/calendario", icon: LayoutDashboard },
+  ];
+
+  const routesAcademico = [
+    { name: "Materias", path: "/admin/academico", icon: BookOpen },
+    { name: "Pasar Lista", path: "/aula/pasar-lista", icon: BookOpen },
   ];
 
   const handleLogout = async () => {
@@ -41,24 +52,67 @@ export function AdminSidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1.5">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-4 mb-2">Principal</p>
         {routes.map((route) => {
-          const isActive = pathname === route.path;
+          const isActive = pathname === route.path || (route.path !== '/admin' && pathname.startsWith(route.path));
           return (
             <Link
               key={route.path}
               href={route.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ${
+              className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 ${
                 isActive
                   ? "bg-blue-500/15 text-blue-300 border border-blue-500/25 shadow-[0_0_12px_rgba(59,130,246,0.1)]"
                   : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
               }`}
             >
-              <route.icon className={`w-5 h-5 ${isActive ? "text-blue-400" : "text-slate-500"}`} />
+              <route.icon className={`w-4 h-4 ${isActive ? "text-blue-400" : "text-slate-500"}`} />
               <span className="font-medium text-sm">{route.name}</span>
             </Link>
           );
         })}
+
+        <div className="pt-3">
+          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-4 mb-2">RRHH</p>
+          {routesRRHH.map((route) => {
+            const isActive = pathname.startsWith(route.path);
+            return (
+              <Link
+                key={route.path}
+                href={route.path}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 ${
+                  isActive
+                    ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/25"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                }`}
+              >
+                <route.icon className={`w-4 h-4 ${isActive ? "text-emerald-400" : "text-slate-500"}`} />
+                <span className="font-medium text-sm">{route.name}</span>
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="pt-3">
+          <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-4 mb-2">Académico</p>
+          {routesAcademico.map((route) => {
+            const isActive = pathname.startsWith(route.path);
+            return (
+              <Link
+                key={route.path}
+                href={route.path}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 ${
+                  isActive
+                    ? "bg-indigo-500/15 text-indigo-300 border border-indigo-500/25"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                }`}
+              >
+                <route.icon className={`w-4 h-4 ${isActive ? "text-indigo-400" : "text-slate-500"}`} />
+                <span className="font-medium text-sm">{route.name}</span>
+              </Link>
+            );
+          })}
+        </div>
       </nav>
 
       <div className="p-4 space-y-2 border-t border-white/5">
