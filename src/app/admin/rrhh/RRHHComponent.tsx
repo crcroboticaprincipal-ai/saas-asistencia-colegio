@@ -3,12 +3,15 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
 import {
-  UserCog, Plus, Search, ChevronRight, CheckCircle, XCircle,
-  Clock, Calendar, Loader2, Save, X, Eye, EyeOff, Edit2
+  UserCog, Plus, Search, CheckCircle, XCircle,
+  Calendar, Loader2, Save, X, Eye, EyeOff, Edit2, GraduationCap
 } from "lucide-react";
 import type { Personal, Rol } from "@/lib/supabase/types";
 import { generarEmailInterno } from "@/lib/login-pin";
 import { QRCodeSVG } from "qrcode.react";
+import dynamic from "next/dynamic";
+
+const GestorDocenteModal = dynamic(() => import("./GestorDocenteModal"), { ssr: false });
 
 const ROL_LABELS: Record<string, string> = {
   director: "Director/a",
@@ -58,6 +61,7 @@ export default function RRHHComponent() {
   const [success, setSuccess] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [showQR, setShowQR] = useState<Personal | null>(null);
+  const [gestorDocente, setGestorDocente] = useState<Personal | null>(null);
 
   const INSTITUCION_NOMBRE_CORTO = "CRC"; // Configurable futuro
 
@@ -292,6 +296,16 @@ export default function RRHHComponent() {
                     </td>
                     <td className="px-4 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* Configurar horario / carga académica — solo docentes */}
+                        {(p.rol === "docente" || p.rol === "coordinador" || p.rol === "director") && (
+                          <button
+                            onClick={() => setGestorDocente(p)}
+                            className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-xl transition-all"
+                            title="Configurar horario y carga académica"
+                          >
+                            <GraduationCap className="w-4 h-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => setShowQR(p)}
                           className="p-2 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all"
@@ -443,6 +457,14 @@ export default function RRHHComponent() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* ── Panel de Configuración Docente ── */}
+      {gestorDocente && (
+        <GestorDocenteModal
+          personal={gestorDocente}
+          onClose={() => setGestorDocente(null)}
+        />
       )}
     </div>
   );

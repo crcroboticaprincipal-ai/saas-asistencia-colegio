@@ -125,19 +125,22 @@ export default function PasarListaComponent() {
   const [loading, setLoading] = useState(false);
   const [lastCode, setLastCode] = useState<string | null>(null);
 
-  const hoy = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
-  const diaSemana = new Date().getDay() === 0 ? 7 : new Date().getDay(); // ISO
+  const [diaFiltro, setDiaFiltro] = useState<number>(
+    new Date().getDay() === 0 ? 7 : new Date().getDay()
+  );
 
   useEffect(() => {
     if (!personalId) return;
+    // Fetch all active assignments — include those with no specific day (null)
     supabase
       .from("profesores_asignaciones")
       .select("*, materia:materias(nombre, codigo)")
       .eq("personal_id", personalId)
       .eq("activo", true)
-      .eq("dia_semana", diaSemana)
       .order("hora_inicio")
-      .then(({ data }) => { if (data) setAsignaciones(data as ProfesorAsignacion[]); });
+      .then(({ data }) => {
+        if (data) setAsignaciones(data as ProfesorAsignacion[]);
+      });
   }, [personalId]);
 
   const handleScan = async (qrCode: string) => {
@@ -193,6 +196,17 @@ export default function PasarListaComponent() {
     }
   };
 
+  const DIAS_LABEL: Record<number, string> = {
+    1: "Lunes", 2: "Martes", 3: "Miércoles", 4: "Jueves",
+    5: "Viernes", 6: "Sábado", 7: "Domingo",
+  };
+  const hoy = format(new Date(), "EEEE d 'de' MMMM", { locale: es });
+
+  // Filter assignments by selected day (null dia_semana means applies to any day)
+  const asignacionesFiltradas = asignaciones.filter(
+    (a) => a.dia_semana === null || a.dia_semana === undefined || (a as any).dia_semana === diaFiltro
+  );
+
   if (!personalId) {
     return <PinLoginModal onLogin={(id, nombre) => { setPersonalId(id); setPersonalNombre(nombre); }} />;
   }
@@ -217,12 +231,24 @@ export default function PasarListaComponent() {
 
       {/* Selector de clase */}
       <div className="glass-panel rounded-2xl p-4">
-        <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">Mis Clases de Hoy</p>
-        {asignaciones.length === 0 ? (
-          <p className="text-slate-500 text-sm text-center py-4">No tienes clases programadas para hoy</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest">Mis Clases</p>
+          {/* Day filter */}
+          <select
+            value={diaFiltro}
+            onChange={(e) => { setDiaFiltro(Number(e.target.value)); setAsignacionSeleccionada(null); setEscaneando(false); setRegistrados([]); }}
+            className="bg-slate-800/60 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+          >
+            {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+              <option key={d} value={d}>{DIAS_LABEL[d]}</option>
+            ))}
+          </select>
+        </div>
+        {asignacionesFiltradas.length === 0 ? (
+          <p className="text-slate-500 text-sm text-center py-4">No tienes clases configuradas para {DIAS_LABEL[diaFiltro]}</p>
         ) : (
           <div className="space-y-2">
-            {asignaciones.map((a) => (
+            {asignacionesFiltradas.map((a) => (
               <button
                 key={a.id}
                 onClick={() => { setAsignacionSeleccionada(a); setEscaneando(false); setRegistrados([]); }}
