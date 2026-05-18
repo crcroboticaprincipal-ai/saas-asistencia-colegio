@@ -47,7 +47,8 @@ export async function POST(request: Request) {
           estudiante_id, 
           tipo, 
           fecha: fechaSQL,
-          hora: horaSQL
+          hora: horaSQL,
+          institucion_id: estudiante.institucion_id
         }
       ]);
 
