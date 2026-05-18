@@ -21,6 +21,7 @@ export default function EscanerPage() {
   const [mode, setMode] = useState<ScanMode>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [estudiante, setEstudiante] = useState<Estudiante | null>(null);
+  const [personal, setPersonal] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({ type: null, text: "" });
   const scannerRef = useRef<any>(null);
@@ -71,54 +72,65 @@ export default function EscanerPage() {
     setLoading(true);
     setMessage({ type: null, text: "" });
     try {
-      // 1. Find student
-      const { data, error } = await supabase
+      // 1. Primero intentar buscar como estudiante
+      const { data: estData, error: estError } = await supabase
         .from('estudiantes')
         .select('*')
         .eq('qr_code', qrCode)
         .single();
 
-      if (error || !data) {
-        throw new Error("Estudiante no encontrado. QR inválido.");
+      if (!estError && estData) {
+        setEstudiante(estData);
+        const response = await fetch('/api/notificar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ estudiante_id: estData.id, tipo: mode }),
+        });
+        const resData = await response.json();
+        if (!response.ok) throw new Error(resData.error || "Error al registrar asistencia");
+        setMessage({ type: "success", text: `${mode} registrada para ${estData.nombre_completo}` });
+      } else {
+        // 2. Si no es estudiante, intentar como personal (el qrCode es su ID)
+        // Check if qrCode is a valid UUID to prevent pg errors
+        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(qrCode);
+        if (!isUUID) throw new Error("Código QR no válido para el sistema.");
+
+        const { data: perData, error: perError } = await supabase
+          .from('personal')
+          .select('*')
+          .eq('id', qrCode)
+          .single();
+
+        if (perError || !perData) {
+          throw new Error("Estudiante o Empleado no encontrado. QR inválido.");
+        }
+
+        setPersonal(perData);
+        const response = await fetch('/api/notificar/personal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personal_id: perData.id, tipo: mode }),
+        });
+        const resData = await response.json();
+        if (!response.ok) throw new Error(resData.error || "Error al registrar asistencia");
+        setMessage({ type: "success", text: `${mode} registrada para ${perData.nombres} ${perData.apellidos}` });
       }
 
-      setEstudiante(data);
-
-      // 2. Auto-register with selected mode
-      const response = await fetch('/api/notificar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          estudiante_id: data.id,
-          tipo: mode,
-        }),
-      });
-
-      const resData = await response.json();
-
-      if (!response.ok) {
-        throw new Error(resData.error || "Error al registrar asistencia");
-      }
-
-      setMessage({ 
-        type: "success", 
-        text: `${mode} registrada para ${data.nombre_completo}` 
-      });
-
-      // Auto-reset faster to scan next student
       setTimeout(() => {
         setScanResult(null);
         setEstudiante(null);
+        setPersonal(null);
         setMessage({ type: null, text: "" });
-      }, 800);
+      }, 1500);
 
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
       setTimeout(() => {
         setScanResult(null);
         setEstudiante(null);
+        setPersonal(null);
         setMessage({ type: null, text: "" });
-      }, 1500);
+      }, 2000);
     } finally {
       setLoading(false);
     }
@@ -232,9 +244,7 @@ export default function EscanerPage() {
           ) : estudiante ? (
             <div className="flex flex-col items-center text-center space-y-4 animate-fade-in">
               <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center border ${
-                mode === "ENTRADA" 
-                  ? "bg-blue-500/15 border-blue-500/30" 
-                  : "bg-red-500/15 border-red-500/30"
+                mode === "ENTRADA" ? "bg-blue-500/15 border-blue-500/30" : "bg-red-500/15 border-red-500/30"
               }`}>
                 <User className={`w-8 h-8 sm:w-10 sm:h-10 ${mode === "ENTRADA" ? "text-blue-400" : "text-red-400"}`} />
               </div>
@@ -243,7 +253,22 @@ export default function EscanerPage() {
                 <p className={`font-medium mt-1 ${mode === "ENTRADA" ? "text-blue-300" : "text-red-300"}`}>
                   {estudiante.grado} &ldquo;{estudiante.seccion}&rdquo;
                 </p>
-                <p className="text-slate-400 text-xs sm:text-sm mt-1">C.I: {estudiante.cedula}</p>
+                <p className="text-slate-400 text-xs sm:text-sm mt-1">Estudiante</p>
+              </div>
+            </div>
+          ) : personal ? (
+            <div className="flex flex-col items-center text-center space-y-4 animate-fade-in">
+              <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center border ${
+                mode === "ENTRADA" ? "bg-blue-500/15 border-blue-500/30" : "bg-red-500/15 border-red-500/30"
+              }`}>
+                <User className={`w-8 h-8 sm:w-10 sm:h-10 ${mode === "ENTRADA" ? "text-emerald-400" : "text-emerald-400"}`} />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white uppercase">{personal.nombres} {personal.apellidos}</h2>
+                <p className={`font-medium mt-1 ${mode === "ENTRADA" ? "text-blue-300" : "text-red-300"}`}>
+                  {personal.cargo || personal.rol}
+                </p>
+                <p className="text-emerald-400/80 font-semibold text-xs sm:text-sm mt-1">Personal</p>
               </div>
             </div>
           ) : null}

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { Personal, Rol } from "@/lib/supabase/types";
 import { generarEmailInterno } from "@/lib/login-pin";
+import { QRCodeSVG } from "qrcode.react";
 
 const ROL_LABELS: Record<string, string> = {
   director: "Director/a",
@@ -56,6 +57,7 @@ export default function RRHHComponent() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [showQR, setShowQR] = useState<Personal | null>(null);
 
   const INSTITUCION_NOMBRE_CORTO = "CRC"; // Configurable futuro
 
@@ -65,11 +67,13 @@ export default function RRHHComponent() {
 
   const fetchPersonal = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("personal")
-      .select("*")
-      .order("apellidos", { ascending: true });
-    if (data) setPersonal(data as Personal[]);
+    try {
+      const res = await fetch("/api/admin/rrhh/listar");
+      const { data } = await res.json();
+      if (data) setPersonal(data as Personal[]);
+    } catch (e) {
+      console.error(e);
+    }
     setLoading(false);
   };
 
@@ -289,8 +293,15 @@ export default function RRHHComponent() {
                     <td className="px-4 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => handleEditar(p)}
+                          onClick={() => setShowQR(p)}
                           className="p-2 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all"
+                          title="Mostrar Código QR"
+                        >
+                          <UserCog className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleEditar(p)}
+                          className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all"
                           title="Editar información"
                         >
                           <Edit2 className="w-4 h-4" />
@@ -306,6 +317,24 @@ export default function RRHHComponent() {
       </div>
 
       {/* Modal Nuevo Empleado */}
+      {showQR && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="glass-panel w-full max-w-sm rounded-2xl p-8 border border-white/[0.08] shadow-2xl text-center">
+            <h2 className="text-xl font-bold text-white mb-2 uppercase">{showQR.nombres} {showQR.apellidos}</h2>
+            <p className="text-slate-400 text-sm mb-6">{ROL_LABELS[showQR.rol]}</p>
+            <div className="bg-white p-6 rounded-2xl inline-block mx-auto mb-6 shadow-xl">
+              <QRCodeSVG value={showQR.id} size={200} level="H" />
+            </div>
+            <button
+              onClick={() => setShowQR(null)}
+              className="w-full px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-all"
+            >
+              Cerrar QR
+            </button>
+          </div>
+        </div>
+      )}
+
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="glass-panel w-full max-w-2xl rounded-2xl p-6 border border-white/[0.08] shadow-2xl overflow-y-auto max-h-[90vh]">
