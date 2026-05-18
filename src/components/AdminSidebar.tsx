@@ -40,13 +40,13 @@ export function AdminSidebar() {
 
   return (
     <aside className="w-64 h-full glass-panel border-r border-white/[0.08] flex-col z-10 hidden md:flex">
-      <div className="p-6 border-b border-white/5">
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 flex items-center justify-center overflow-hidden">
-            <Image src="/logo.png" alt="Qrono Logo" width={120} height={40} className="w-auto h-full object-contain filter invert opacity-90" />
+      <div className="px-5 py-5 border-b border-white/5">
+        <div className="flex flex-col items-center gap-2">
+          <div className="h-14 flex items-center justify-center overflow-hidden">
+            <Image src="/logo.png" alt="Qrono Logo" width={168} height={56} className="w-auto h-full object-contain filter invert opacity-90" priority />
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-gradient leading-tight tracking-tight">Qrono Admin</h1>
+          <div className="text-center">
+            <h1 className="text-base font-bold text-gradient leading-tight tracking-tight">Qrono Admin</h1>
             <p className="text-[10px] text-slate-500 leading-tight">Control de Asistencia</p>
           </div>
         </div>

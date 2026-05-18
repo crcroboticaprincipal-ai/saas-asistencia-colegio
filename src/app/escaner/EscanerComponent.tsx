@@ -1,27 +1,20 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { supabase } from "@/lib/supabase/client";
-import { CheckCircle, AlertTriangle, ScanLine, User, LogIn, LogOut, RotateCcw } from "lucide-react";
+import { CheckCircle, AlertTriangle, ScanLine, User, LogIn, LogOut, RotateCcw, Briefcase } from "lucide-react";
 import Image from "next/image";
 
-type Estudiante = {
-  id: string;
-  cedula: string;
-  nombre_completo: string;
-  grado: string;
-  seccion: string;
-  nombre_representante: string;
-  correo_representante: string;
-};
-
 type ScanMode = "ENTRADA" | "SALIDA" | null;
+
+type ScanResult =
+  | { tipo_usuario: "estudiante"; nombre: string; grado: string; seccion: string }
+  | { tipo_usuario: "personal"; nombre: string; cargo: string; rol: string }
+  | null;
 
 export default function EscanerPage() {
   const [mode, setMode] = useState<ScanMode>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
-  const [estudiante, setEstudiante] = useState<Estudiante | null>(null);
-  const [personal, setPersonal] = useState<any | null>(null);
+  const [scannedData, setScannedData] = useState<ScanResult>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({ type: null, text: "" });
   const scannerRef = useRef<any>(null);
@@ -36,8 +29,8 @@ export default function EscanerPage() {
       const { Html5QrcodeScanner } = await import("html5-qrcode");
       scanner = new Html5QrcodeScanner(
         "reader",
-        { 
-          fps: 10, 
+        {
+          fps: 10,
           qrbox: { width: 220, height: 220 },
           aspectRatio: 1,
           rememberLastUsedCamera: true,
@@ -52,7 +45,7 @@ export default function EscanerPage() {
           processScannedCode(decodedText);
         },
         () => {
-          // Ignore continuous scan errors
+          // Ignore continuous scan errors silently
         }
       );
 
@@ -66,71 +59,43 @@ export default function EscanerPage() {
         scanner.clear().catch(() => {});
       }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, scanResult]);
 
   const processScannedCode = async (qrCode: string) => {
     setLoading(true);
     setMessage({ type: null, text: "" });
+
     try {
-      // 1. Primero intentar buscar como estudiante
-      const { data: estData, error: estError } = await supabase
-        .from('estudiantes')
-        .select('*')
-        .eq('qr_code', qrCode)
-        .single();
+      // Llamada unificada al servidor — bypasea RLS con service_role key
+      const response = await fetch("/api/escaner/validar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qrCode, tipo: mode }),
+      });
 
-      if (!estError && estData) {
-        setEstudiante(estData);
-        const response = await fetch('/api/notificar', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ estudiante_id: estData.id, tipo: mode }),
-        });
-        const resData = await response.json();
-        if (!response.ok) throw new Error(resData.error || "Error al registrar asistencia");
-        setMessage({ type: "success", text: `${mode} registrada para ${estData.nombre_completo}` });
-      } else {
-        // 2. Si no es estudiante, intentar como personal (el qrCode es su ID)
-        // Check if qrCode is a valid UUID to prevent pg errors
-        const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(qrCode);
-        if (!isUUID) throw new Error("Código QR no válido para el sistema.");
+      const data = await response.json();
 
-        const { data: perData, error: perError } = await supabase
-          .from('personal')
-          .select('*')
-          .eq('id', qrCode)
-          .single();
-
-        if (perError || !perData) {
-          throw new Error("Estudiante o Empleado no encontrado. QR inválido.");
-        }
-
-        setPersonal(perData);
-        const response = await fetch('/api/notificar/personal', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ personal_id: perData.id, tipo: mode }),
-        });
-        const resData = await response.json();
-        if (!response.ok) throw new Error(resData.error || "Error al registrar asistencia");
-        setMessage({ type: "success", text: `${mode} registrada para ${perData.nombres} ${perData.apellidos}` });
+      if (!response.ok) {
+        throw new Error(data.error || "Error al procesar el código QR");
       }
+
+      setScannedData(data as ScanResult);
+      const nombre = data.nombre || "Persona";
+      setMessage({ type: "success", text: `${mode} registrada para ${nombre}` });
 
       setTimeout(() => {
         setScanResult(null);
-        setEstudiante(null);
-        setPersonal(null);
+        setScannedData(null);
         setMessage({ type: null, text: "" });
-      }, 1500);
-
+      }, 2500);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
       setTimeout(() => {
         setScanResult(null);
-        setEstudiante(null);
-        setPersonal(null);
+        setScannedData(null);
         setMessage({ type: null, text: "" });
-      }, 2000);
+      }, 2500);
     } finally {
       setLoading(false);
     }
@@ -139,7 +104,7 @@ export default function EscanerPage() {
   const resetAll = () => {
     setMode(null);
     setScanResult(null);
-    setEstudiante(null);
+    setScannedData(null);
     setMessage({ type: null, text: "" });
     if (scannerRef.current) {
       scannerRef.current.clear().catch(() => {});
@@ -147,20 +112,30 @@ export default function EscanerPage() {
     }
   };
 
-  // ── STEP 1: Select mode (ENTRADA or SALIDA) ──
+  // ── STEP 1: Select mode ──
   if (!mode) {
     return (
       <div className="max-w-lg mx-auto space-y-6 animate-slide-up px-4 mt-6 sm:mt-10">
-        <div className="text-center space-y-3">
-          <div className="h-16 sm:h-20 flex items-center justify-center mx-auto overflow-hidden">
-            <Image src="/logo.png" alt="Qrono Logo" width={180} height={80} className="w-auto h-full object-contain filter invert opacity-90" />
+        <div className="text-center space-y-4">
+          {/* Logo aumentado ~40% respecto al anterior (180→252) */}
+          <div className="h-24 sm:h-28 flex items-center justify-center mx-auto overflow-hidden">
+            <Image
+              src="/logo.png"
+              alt="Qrono Logo"
+              width={252}
+              height={112}
+              className="w-auto h-full object-contain filter invert opacity-90"
+              priority
+            />
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-            Qrono Scanner
-          </h1>
-          <p className="text-slate-400 text-sm sm:text-base">
-            Selecciona el tipo de registro antes de escanear
-          </p>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+              Qrono Scanner
+            </h1>
+            <p className="text-slate-400 text-sm sm:text-base mt-1">
+              Selecciona el tipo de registro antes de escanear
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -176,7 +151,7 @@ export default function EscanerPage() {
               <span className="text-xs text-blue-400/60 mt-1 block">Registrar llegada</span>
             </div>
           </button>
-          
+
           <button
             onClick={() => setMode("SALIDA")}
             className="group flex flex-col items-center justify-center gap-4 p-8 sm:p-10 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border-2 border-red-500/25 hover:border-red-400/50 text-red-400 transition-all duration-300 active:scale-[0.97]"
@@ -197,10 +172,24 @@ export default function EscanerPage() {
   // ── STEP 2: Scanning ──
   return (
     <div className="max-w-lg mx-auto space-y-4 animate-fade-in px-4 mt-4 sm:mt-8">
+      {/* Header con logo prominente */}
+      <div className="flex justify-center mb-2">
+        <div className="h-12 sm:h-14 flex items-center justify-center overflow-hidden">
+          <Image
+            src="/logo.png"
+            alt="Qrono Logo"
+            width={168}
+            height={56}
+            className="w-auto h-full object-contain filter invert opacity-80"
+            priority
+          />
+        </div>
+      </div>
+
       {/* Mode indicator bar */}
       <div className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border-2 ${
-        mode === "ENTRADA" 
-          ? "bg-blue-500/10 border-blue-500/30" 
+        mode === "ENTRADA"
+          ? "bg-blue-500/10 border-blue-500/30"
           : "bg-red-500/10 border-red-500/30"
       }`}>
         <div className="flex items-center gap-3">
@@ -211,10 +200,10 @@ export default function EscanerPage() {
             <p className={`font-bold text-sm sm:text-base ${mode === "ENTRADA" ? "text-blue-300" : "text-red-300"}`}>
               Modo: {mode}
             </p>
-            <p className="text-[11px] sm:text-xs text-slate-500">Escanea el carnet del estudiante</p>
+            <p className="text-[11px] sm:text-xs text-slate-500">Escanea el carnet del estudiante o empleado</p>
           </div>
         </div>
-        <button 
+        <button
           onClick={resetAll}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
         >
@@ -226,11 +215,11 @@ export default function EscanerPage() {
       {/* Scanner or Result */}
       {!scanResult ? (
         <div className={`glass-panel p-3 sm:p-4 rounded-2xl overflow-hidden border-2 shadow-2xl ${
-          mode === "ENTRADA" 
-            ? "border-blue-500/20 shadow-blue-500/10" 
+          mode === "ENTRADA"
+            ? "border-blue-500/20 shadow-blue-500/10"
             : "border-red-500/20 shadow-red-500/10"
         }`}>
-          <div id="reader" className="w-full rounded-xl overflow-hidden [&>video]:rounded-xl bg-black"></div>
+          <div id="reader" className="w-full rounded-xl overflow-hidden [&>video]:rounded-xl bg-black" />
         </div>
       ) : (
         <div className="glass-panel rounded-2xl p-6 sm:p-8 space-y-6 animate-slide-up">
@@ -239,36 +228,37 @@ export default function EscanerPage() {
               <div className={`animate-spin w-10 h-10 border-4 rounded-full border-t-transparent ${
                 mode === "ENTRADA" ? "border-blue-500" : "border-red-500"
               }`} />
-              <p className="text-slate-300 font-medium text-sm">Registrando {mode.toLowerCase()}...</p>
+              <p className="text-slate-300 font-medium text-sm">Registrando {mode?.toLowerCase()}…</p>
             </div>
-          ) : estudiante ? (
+          ) : scannedData ? (
             <div className="flex flex-col items-center text-center space-y-4 animate-fade-in">
               <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center border ${
-                mode === "ENTRADA" ? "bg-blue-500/15 border-blue-500/30" : "bg-red-500/15 border-red-500/30"
+                scannedData.tipo_usuario === "personal"
+                  ? "bg-emerald-500/15 border-emerald-500/30"
+                  : mode === "ENTRADA"
+                    ? "bg-blue-500/15 border-blue-500/30"
+                    : "bg-red-500/15 border-red-500/30"
               }`}>
-                <User className={`w-8 h-8 sm:w-10 sm:h-10 ${mode === "ENTRADA" ? "text-blue-400" : "text-red-400"}`} />
+                {scannedData.tipo_usuario === "personal"
+                  ? <Briefcase className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-400" />
+                  : <User className={`w-8 h-8 sm:w-10 sm:h-10 ${mode === "ENTRADA" ? "text-blue-400" : "text-red-400"}`} />
+                }
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white uppercase">{estudiante.nombre_completo}</h2>
-                <p className={`font-medium mt-1 ${mode === "ENTRADA" ? "text-blue-300" : "text-red-300"}`}>
-                  {estudiante.grado} &ldquo;{estudiante.seccion}&rdquo;
-                </p>
-                <p className="text-slate-400 text-xs sm:text-sm mt-1">Estudiante</p>
-              </div>
-            </div>
-          ) : personal ? (
-            <div className="flex flex-col items-center text-center space-y-4 animate-fade-in">
-              <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center border ${
-                mode === "ENTRADA" ? "bg-blue-500/15 border-blue-500/30" : "bg-red-500/15 border-red-500/30"
-              }`}>
-                <User className={`w-8 h-8 sm:w-10 sm:h-10 ${mode === "ENTRADA" ? "text-emerald-400" : "text-emerald-400"}`} />
-              </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white uppercase">{personal.nombres} {personal.apellidos}</h2>
-                <p className={`font-medium mt-1 ${mode === "ENTRADA" ? "text-blue-300" : "text-red-300"}`}>
-                  {personal.cargo || personal.rol}
-                </p>
-                <p className="text-emerald-400/80 font-semibold text-xs sm:text-sm mt-1">Personal</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-white uppercase">{scannedData.nombre}</h2>
+                {scannedData.tipo_usuario === "estudiante" ? (
+                  <>
+                    <p className={`font-medium mt-1 ${mode === "ENTRADA" ? "text-blue-300" : "text-red-300"}`}>
+                      {scannedData.grado} &ldquo;{scannedData.seccion}&rdquo;
+                    </p>
+                    <p className="text-slate-400 text-xs sm:text-sm mt-1">Estudiante</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium mt-1 text-emerald-300">{scannedData.cargo}</p>
+                    <p className="text-emerald-400/80 font-semibold text-xs sm:text-sm mt-1">Personal</p>
+                  </>
+                )}
               </div>
             </div>
           ) : null}
@@ -276,18 +266,20 @@ export default function EscanerPage() {
           {/* Message */}
           {message.type && (
             <div className={`p-4 rounded-xl flex items-center justify-center gap-3 text-center animate-slide-up ${
-              message.type === 'success' 
-                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' 
-                : 'bg-red-500/15 text-red-400 border border-red-500/25'
+              message.type === "success"
+                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
+                : "bg-red-500/15 text-red-400 border border-red-500/25"
             }`}>
-              {message.type === 'success' ? <CheckCircle className="w-6 h-6 flex-shrink-0" /> : <AlertTriangle className="w-6 h-6 flex-shrink-0" />}
+              {message.type === "success"
+                ? <CheckCircle className="w-6 h-6 flex-shrink-0" />
+                : <AlertTriangle className="w-6 h-6 flex-shrink-0" />}
               <p className="font-semibold text-sm sm:text-base">{message.text}</p>
             </div>
           )}
 
           {message.type === "success" && (
             <p className="text-center text-xs text-slate-500 animate-fade-in">
-              Escaneando siguiente en unos segundos...
+              Escaneando siguiente en unos segundos…
             </p>
           )}
         </div>

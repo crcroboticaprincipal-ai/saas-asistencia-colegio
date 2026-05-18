@@ -50,8 +50,8 @@ function LoginForm() {
     <div className="glass-panel rounded-2xl sm:rounded-3xl p-6 sm:p-10 border border-white/[0.08] shadow-2xl">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="h-12 sm:h-16 flex items-center justify-center mx-auto mb-6 overflow-hidden">
-          <Image src="/logo.png" alt="Qrono Logo" width={160} height={64} className="w-auto h-full object-contain filter invert opacity-90" />
+        <div className="h-20 sm:h-24 flex items-center justify-center mx-auto mb-5 overflow-hidden">
+          <Image src="/logo.png" alt="Qrono Logo" width={224} height={90} className="w-auto h-full object-contain filter invert opacity-90" priority />
         </div>
         <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Qrono Admin</h1>
         <p className="text-slate-400 mt-2 text-xs sm:text-sm">Ingresa la contraseña para acceder al sistema</p>
