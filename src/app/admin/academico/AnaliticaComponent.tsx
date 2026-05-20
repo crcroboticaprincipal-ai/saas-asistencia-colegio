@@ -129,7 +129,7 @@ export default function AnaliticaMateriasComponent() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Qrono_Analitica_Materias_${fechaFin}.xlsx`;
+      a.download = `Asisto_Analitica_Materias_${fechaFin}.xlsx`;
       a.click();
       a.remove();
     } catch {

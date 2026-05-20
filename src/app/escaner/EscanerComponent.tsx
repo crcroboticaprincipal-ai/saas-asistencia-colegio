@@ -117,22 +117,22 @@ export default function EscanerPage() {
     return (
       <div className="max-w-lg mx-auto space-y-6 animate-slide-up px-4 mt-6 sm:mt-10">
         <div className="text-center space-y-4">
-          {/* Logo aumentado ~40% respecto al anterior (180→252) */}
-          <div className="h-24 sm:h-28 flex items-center justify-center mx-auto overflow-hidden">
+          {/* Logo aumentado ~40% respecto al anterior (252→353) */}
+          <div className="h-32 sm:h-36 flex items-center justify-center mx-auto overflow-hidden">
             <Image
               src="/logo.png"
-              alt="Qrono Logo"
-              width={252}
-              height={112}
-              className="w-auto h-full object-contain filter invert opacity-90"
+              alt="Asisto Logo"
+              width={353}
+              height={157}
+              className="w-auto h-full object-contain opacity-90"
               priority
             />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
-              Qrono Scanner
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+              Asisto Scanner
             </h1>
-            <p className="text-slate-400 text-sm sm:text-base mt-1">
+            <p className="text-slate-500 text-sm sm:text-base mt-1">
               Selecciona el tipo de registro antes de escanear
             </p>
           </div>
@@ -141,27 +141,27 @@ export default function EscanerPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <button
             onClick={() => setMode("ENTRADA")}
-            className="group flex flex-col items-center justify-center gap-4 p-8 sm:p-10 rounded-2xl bg-blue-500/10 hover:bg-blue-500/20 border-2 border-blue-500/25 hover:border-blue-400/50 text-blue-400 transition-all duration-300 active:scale-[0.97]"
+            className="group flex flex-col items-center justify-center gap-4 p-8 sm:p-10 rounded-2xl bg-blue-50/60 hover:bg-blue-100/80 border-2 border-blue-200/60 hover:border-blue-300 text-blue-600 shadow-md transition-all duration-300 active:scale-[0.97]"
           >
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-500/15 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <LogIn className="w-8 h-8 sm:w-10 sm:h-10" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-blue-100/70 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <LogIn className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" />
             </div>
             <div className="text-center">
               <span className="font-bold text-lg sm:text-xl tracking-wide block">ENTRADA</span>
-              <span className="text-xs text-blue-400/60 mt-1 block">Registrar llegada</span>
+              <span className="text-xs text-blue-500/80 mt-1 block font-medium">Registrar llegada</span>
             </div>
           </button>
 
           <button
             onClick={() => setMode("SALIDA")}
-            className="group flex flex-col items-center justify-center gap-4 p-8 sm:p-10 rounded-2xl bg-red-500/10 hover:bg-red-500/20 border-2 border-red-500/25 hover:border-red-400/50 text-red-400 transition-all duration-300 active:scale-[0.97]"
+            className="group flex flex-col items-center justify-center gap-4 p-8 sm:p-10 rounded-2xl bg-rose-50/60 hover:bg-rose-100/80 border-2 border-rose-200/60 hover:border-rose-300 text-rose-600 shadow-md transition-all duration-300 active:scale-[0.97]"
           >
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-red-500/15 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-              <LogOut className="w-8 h-8 sm:w-10 sm:h-10" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-rose-100/70 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <LogOut className="w-8 h-8 sm:w-10 sm:h-10 text-rose-600" />
             </div>
             <div className="text-center">
               <span className="font-bold text-lg sm:text-xl tracking-wide block">SALIDA</span>
-              <span className="text-xs text-red-400/60 mt-1 block">Registrar salida</span>
+              <span className="text-xs text-rose-500/80 mt-1 block font-medium">Registrar salida</span>
             </div>
           </button>
         </div>
@@ -174,13 +174,13 @@ export default function EscanerPage() {
     <div className="max-w-lg mx-auto space-y-4 animate-fade-in px-4 mt-4 sm:mt-8">
       {/* Header con logo prominente */}
       <div className="flex justify-center mb-2">
-        <div className="h-12 sm:h-14 flex items-center justify-center overflow-hidden">
+        <div className="h-16 sm:h-20 flex items-center justify-center overflow-hidden">
           <Image
             src="/logo.png"
-            alt="Qrono Logo"
-            width={168}
-            height={56}
-            className="w-auto h-full object-contain filter invert opacity-80"
+            alt="Asisto Logo"
+            width={235}
+            height={78}
+            className="w-auto h-full object-contain opacity-80"
             priority
           />
         </div>

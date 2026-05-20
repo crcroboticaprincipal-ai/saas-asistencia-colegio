@@ -47,20 +47,20 @@ function LoginForm() {
   };
 
   return (
-    <div className="glass-panel rounded-2xl sm:rounded-3xl p-6 sm:p-10 border border-white/[0.08] shadow-2xl">
+    <div className="glass-panel rounded-2xl sm:rounded-3xl p-6 sm:p-10 border border-slate-200/60 shadow-2xl">
       {/* Header */}
       <div className="text-center mb-8">
-        <div className="h-20 sm:h-24 flex items-center justify-center mx-auto mb-5 overflow-hidden">
-          <Image src="/logo.png" alt="Qrono Logo" width={224} height={90} className="w-auto h-full object-contain filter invert opacity-90" priority />
+        <div className="h-28 sm:h-32 flex items-center justify-center mx-auto mb-5 overflow-hidden">
+          <Image src="/logo.png" alt="Asisto Logo" width={314} height={126} className="w-auto h-full object-contain opacity-90" priority />
         </div>
-        <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Qrono Admin</h1>
-        <p className="text-slate-400 mt-2 text-xs sm:text-sm">Ingresa la contraseña para acceder al sistema</p>
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">Asisto Admin</h1>
+        <p className="text-slate-500 mt-2 text-xs sm:text-sm">Ingresa la contraseña para acceder al sistema</p>
       </div>
 
       {/* Form */}
       <form onSubmit={handleLogin} className="space-y-5">
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
+          <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
             Contraseña
           </label>
           <div className="relative">
@@ -70,13 +70,13 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Ingresa la contraseña de administrador"
-              className="w-full bg-slate-800/60 border border-white/10 rounded-xl py-3 sm:py-3.5 px-4 pr-12 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm sm:text-base"
+              className="w-full bg-slate-100/60 border border-slate-200 rounded-xl py-3 sm:py-3.5 px-4 pr-12 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/20 transition-all text-sm sm:text-base"
               autoFocus
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
             >
               {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
@@ -84,7 +84,7 @@ function LoginForm() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm animate-fade-in">
+          <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-sm animate-fade-in">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <p>{error}</p>
           </div>
@@ -95,7 +95,7 @@ function LoginForm() {
           disabled={loading || !password.trim()}
           className={`w-full py-3 sm:py-3.5 rounded-xl font-semibold flex items-center justify-center gap-2 transition-all shadow-lg text-sm sm:text-base ${
             loading || !password.trim()
-              ? "bg-slate-700/50 text-slate-400 cursor-not-allowed"
+              ? "bg-slate-200 text-slate-400 cursor-not-allowed"
               : "btn-primary"
           }`}
         >
@@ -113,7 +113,7 @@ function LoginForm() {
         </button>
       </form>
 
-      <p className="text-center text-[10px] sm:text-xs text-slate-600 mt-6">UE Colegio Rafael Castillo • Sistema de Asistencia</p>
+      <p className="text-center text-[10px] sm:text-xs text-slate-500 mt-6">UE Colegio Rafael Castillo • Sistema de Asistencia</p>
     </div>
   );
 }
@@ -123,15 +123,15 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background effects */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-blue-500/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-red-500/8 rounded-full blur-3xl" />
+        <div className="absolute top-1/4 left-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-indigo-500/5 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 right-1/4 w-72 sm:w-96 h-72 sm:h-96 bg-emerald-500/5 rounded-full blur-3xl" />
       </div>
 
       <div className="w-full max-w-md relative z-10">
         {/* Back link */}
         <Link
           href="/"
-          className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-6 sm:mb-8 group"
+          className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-800 transition-colors mb-6 sm:mb-8 group"
         >
           <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
           Volver al escáner
@@ -139,8 +139,8 @@ export default function LoginPage() {
 
         <Suspense
           fallback={
-            <div className="glass-panel rounded-2xl sm:rounded-3xl p-8 sm:p-10 border border-white/[0.08] shadow-2xl flex items-center justify-center h-64">
-              <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
+            <div className="glass-panel rounded-2xl sm:rounded-3xl p-8 sm:p-10 border border-slate-200/60 shadow-2xl flex items-center justify-center h-64">
+              <div className="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full" />
             </div>
           }
         >

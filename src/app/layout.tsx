@@ -5,13 +5,13 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Asistencia - UE Colegio Rafael Castillo",
+  title: "Asisto - control de asistencia",
   description: "Sistema de gestión de asistencia escolar con control de acceso QR",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Asistencia RC",
+    title: "Asisto",
   },
 };
 
@@ -20,7 +20,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#0b1120",
+  themeColor: "#f8fafc",
 };
 
 export default function RootLayout({
@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="dark">
+    <html lang="es" className="light">
       <body className={`${inter.variable} antialiased min-h-screen`}>
         {children}
       </body>

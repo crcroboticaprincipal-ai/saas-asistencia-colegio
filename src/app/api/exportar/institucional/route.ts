@@ -9,8 +9,8 @@ export async function POST(req: NextRequest) {
     const { tipo, fechaInicio, fechaFin, data } = body;
 
     const wb = new ExcelJS.Workbook();
-    wb.creator = "Qrono Platform";
-    wb.lastModifiedBy = "Qrono";
+    wb.creator = "Asisto Platform";
+    wb.lastModifiedBy = "Asisto";
     wb.created = new Date();
     wb.modified = new Date();
 
@@ -32,10 +32,10 @@ export async function POST(req: NextRequest) {
     };
 
     const addHeader = (ws: ExcelJS.Worksheet, titulo: string) => {
-      // Fila de título Qrono
+      // Fila de título Asisto
       ws.mergeCells("A1:F1");
       const titleCell = ws.getCell("A1");
-      titleCell.value = `QRONO — ${titulo}`;
+      titleCell.value = `ASISTO — ${titulo}`;
       titleCell.font = { name: "Calibri", bold: true, size: 14, color: { argb: "FF4F46E5" } };
       titleCell.alignment = { horizontal: "center", vertical: "middle" };
       ws.getRow(1).height = 28;
@@ -126,18 +126,18 @@ export async function POST(req: NextRequest) {
 
     // ── HOJA: RESUMEN INSTITUCIONAL ──
     {
-      const ws = wb.addWorksheet("Resumen Qrono");
+      const ws = wb.addWorksheet("Resumen Asisto");
       ws.properties.defaultRowHeight = 18;
       ws.getColumn(1).width = 30;
       ws.getColumn(2).width = 25;
 
-      ws.addRow(["QRONO — SISTEMA DE ASISTENCIA ESCOLAR"]).font = {
+      ws.addRow(["ASISTO — SISTEMA DE ASISTENCIA ESCOLAR"]).font = {
         name: "Calibri", bold: true, size: 16, color: { argb: "FF4F46E5" }
       };
       ws.addRow(["Colegio Rafael Castillo"]).font = { name: "Calibri", size: 12, color: { argb: "FF334155" } };
       ws.addRow([`Reporte generado: ${format(new Date(), "PPPp", { locale: es })}`]).font = { name: "Calibri", size: 10, color: { argb: "FF94A3B8" } };
       ws.addRow([]);
-      ws.addRow(["Plataforma", "Qrono EdTech"]);
+      ws.addRow(["Plataforma", "Asisto EdTech"]);
       ws.addRow(["Tipo de reporte", tipo === "materias" ? "Analítica por Materia" : "General"]);
       ws.addRow(["Período", `${fechaInicio} al ${fechaFin}`]);
     }
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="Qrono_Reporte_${format(new Date(), "yyyyMMdd")}.xlsx"`,
+        "Content-Disposition": `attachment; filename="Asisto_Reporte_${format(new Date(), "yyyyMMdd")}.xlsx"`,
         "Cache-Control": "no-cache",
       },
     });

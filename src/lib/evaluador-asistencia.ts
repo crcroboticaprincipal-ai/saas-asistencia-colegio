@@ -1,5 +1,5 @@
 // ================================================================
-// QRONO — Motor Evaluador de Asistencia de Personal
+// ASISTO — Motor Evaluador de Asistencia de Personal
 // Soporte: Horario Fijo, Medio Turno, Fraccionado con Horas Huecas
 // ================================================================
 import { parseISO, parse, differenceInMinutes } from 'date-fns';

@@ -1,5 +1,5 @@
 // ================================================================
-// QRONO — Tipos TypeScript completos del esquema de base de datos
+// ASISTO — Tipos TypeScript completos del esquema de base de datos
 // ================================================================
 
 export type Rol = 'superadmin' | 'staff_qrono' | 'director' | 'coordinador' | 'docente' | 'porteria' | 'administrativo' | 'obrero';

@@ -170,7 +170,7 @@ export default function ReportesComponent() {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `Qrono_Reporte_${filtroTiempo}.xlsx`;
+      a.download = `Asisto_Reporte_${filtroTiempo}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -185,16 +185,16 @@ export default function ReportesComponent() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-2">
-            <TrendingUp className="w-8 h-8 text-indigo-500" />
-            Qrono Analytics
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            <TrendingUp className="w-8 h-8 text-indigo-600" />
+            Asisto Analytics
           </h1>
-          <p className="text-slate-400 mt-1 text-sm">Inteligencia y reportes dinámicos de asistencia.</p>
+          <p className="text-slate-500 mt-1 text-sm">Inteligencia y reportes dinámicos de asistencia.</p>
         </div>
         <button
           onClick={handleExportExcel}
           disabled={isExporting || filteredData.length === 0}
-          className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-500 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
+          className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/20 text-sm disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
         >
           {isExporting ? (
             <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -208,22 +208,22 @@ export default function ReportesComponent() {
       {/* Selectores */}
       <div className="glass-panel p-4 rounded-2xl flex flex-wrap gap-4">
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-medium text-slate-400 mb-1">Organización (Multi-tenant)</label>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Organización (Multi-tenant)</label>
           <select 
             value={organizacion} 
             onChange={(e) => setOrganizacion(e.target.value)}
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
+            className="w-full bg-slate-100/60 border border-slate-200 rounded-xl py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm"
           >
             <option value="Colegio Rafael Castillo">Colegio Rafael Castillo</option>
             <option value="Otra Sede">Sede Secundaria (Demo)</option>
           </select>
         </div>
         <div className="flex-1 min-w-[150px]">
-          <label className="block text-xs font-medium text-slate-400 mb-1">Rango de Tiempo</label>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Rango de Tiempo</label>
           <select 
             value={filtroTiempo} 
             onChange={(e) => setFiltroTiempo(e.target.value)}
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
+            className="w-full bg-slate-100/60 border border-slate-200 rounded-xl py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm"
           >
             <option value="HOY">Hoy</option>
             <option value="SEMANA">Esta Semana</option>
@@ -232,22 +232,22 @@ export default function ReportesComponent() {
           </select>
         </div>
         <div className="flex-1 min-w-[120px]">
-          <label className="block text-xs font-medium text-slate-400 mb-1">Hora Oficial Entrada</label>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Hora Oficial Entrada</label>
           <input 
             type="time"
             value={horaOficialEntrada}
             onChange={(e) => setHoraOficialEntrada(e.target.value)}
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm [color-scheme:dark]"
+            className="w-full bg-slate-100/60 border border-slate-200 rounded-xl py-2 px-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm"
           />
         </div>
         <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-medium text-slate-400 mb-1">Buscar Alumno o Sección</label>
+          <label className="block text-xs font-medium text-slate-500 mb-1">Buscar Alumno o Sección</label>
           <input 
             type="text"
             placeholder="Ej: Cédula, Nombre o Sección 'A'"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-sm"
+            className="w-full bg-slate-100/60 border border-slate-200 rounded-xl py-2 px-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 text-sm"
           />
         </div>
       </div>
@@ -256,54 +256,54 @@ export default function ReportesComponent() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
         <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Users className="w-16 h-16 text-emerald-500" />
+            <Users className="w-16 h-16 text-emerald-600" />
           </div>
-          <p className="text-slate-400 text-sm font-medium mb-1">Total Entradas</p>
-          <h3 className="text-3xl font-bold text-white">{loading ? "-" : totalEntradas}</h3>
-          <p className="text-emerald-400 text-xs mt-2 font-medium">Asistencias registradas</p>
+          <p className="text-slate-500 text-sm font-medium mb-1">Total Entradas</p>
+          <h3 className="text-3xl font-bold text-slate-900">{loading ? "-" : totalEntradas}</h3>
+          <p className="text-emerald-600 text-xs mt-2 font-medium">Asistencias registradas</p>
         </div>
         
         <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Clock className="w-16 h-16 text-blue-500" />
+            <Clock className="w-16 h-16 text-indigo-600" />
           </div>
-          <p className="text-slate-400 text-sm font-medium mb-1">Promedio Hora Llegada</p>
-          <h3 className="text-3xl font-bold text-white">{loading ? "-" : promedioHoraLlegada}</h3>
-          <p className="text-blue-400 text-xs mt-2 font-medium">Tiempo medio de ingreso</p>
+          <p className="text-slate-500 text-sm font-medium mb-1">Promedio Hora Llegada</p>
+          <h3 className="text-3xl font-bold text-slate-900">{loading ? "-" : promedioHoraLlegada}</h3>
+          <p className="text-indigo-600 text-xs mt-2 font-medium">Tiempo medio de ingreso</p>
         </div>
 
         <div className="glass-panel p-6 rounded-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-            <AlertTriangle className="w-16 h-16 text-rose-500" />
+            <AlertTriangle className="w-16 h-16 text-rose-600" />
           </div>
-          <p className="text-slate-400 text-sm font-medium mb-1">Retardos Acumulados</p>
-          <h3 className="text-3xl font-bold text-white">{loading ? "-" : minutosRetardoTotales}</h3>
-          <p className="text-rose-400 text-xs mt-2 font-medium">Minutos totales después de las {horaOficialEntrada}</p>
+          <p className="text-slate-500 text-sm font-medium mb-1">Retardos Acumulados</p>
+          <h3 className="text-3xl font-bold text-slate-900">{loading ? "-" : minutosRetardoTotales}</h3>
+          <p className="text-rose-600 text-xs mt-2 font-medium">Minutos totales después de las {horaOficialEntrada}</p>
         </div>
       </div>
 
       {/* Gráfico */}
       <div className="glass-panel p-6 rounded-2xl">
-        <h2 className="text-lg font-bold text-white mb-6">Tendencia de Ingresos</h2>
+        <h2 className="text-lg font-bold text-slate-900 mb-6">Tendencia de Ingresos</h2>
         <div className="h-[300px] w-full">
           {loading ? (
             <div className="w-full h-full flex items-center justify-center">
-              <span className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <span className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
             </div>
           ) : chartData.length === 0 ? (
-            <div className="w-full h-full flex items-center justify-center text-slate-500">
+            <div className="w-full h-full flex items-center justify-center text-slate-400">
               No hay suficientes datos para graficar
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
-                <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis dataKey="name" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
+                <YAxis stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip 
-                  cursor={{ fill: '#ffffff05' }}
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#ffffff10', borderRadius: '8px' }}
-                  itemStyle={{ color: '#818cf8', fontWeight: 'bold' }}
+                  cursor={{ fill: '#f1f5f9' }}
+                  contentStyle={{ backgroundColor: '#ffffff', borderColor: '#e2e8f0', borderRadius: '8px' }}
+                  itemStyle={{ color: '#4f46e5', fontWeight: 'bold' }}
                 />
                 <Bar dataKey="Entradas" fill="#4f46e5" radius={[4, 4, 0, 0]} barSize={40} />
               </BarChart>

@@ -21,14 +21,14 @@ export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="glass-panel border-b border-white/[0.08] px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-50">
+      <header className="glass-panel border-b border-slate-200/60 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="h-8 flex items-center justify-center overflow-hidden">
-            <Image src="/logo.png" alt="Qrono Logo" width={120} height={32} className="w-auto h-full object-contain filter invert opacity-90" />
+          <div className="h-11 flex items-center justify-center overflow-hidden">
+            <Image src="/logo.png" alt="Asisto Logo" width={168} height={45} className="w-auto h-full object-contain opacity-90" />
           </div>
           <div>
-            <h1 className="text-base sm:text-lg font-bold text-white tracking-tight leading-tight">
-              Qrono Scanner
+            <h1 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-tight">
+              Asisto Scanner
             </h1>
             <p className="text-[10px] sm:text-xs text-slate-500 leading-tight">
               Sistema de Asistencia
@@ -37,7 +37,7 @@ export default function HomePage() {
         </div>
         <Link
           href="/login"
-          className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all border border-white/5 hover:border-white/10"
+          className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all border border-slate-200"
         >
           <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span className="hidden sm:inline">Administración</span>
@@ -53,9 +53,9 @@ export default function HomePage() {
       </main>
 
       {/* Footer */}
-      <footer className="px-4 sm:px-6 py-3 text-center border-t border-white/5">
-        <p className="text-[10px] sm:text-xs text-slate-600">
-          Sistema de Asistencia v2.0 — UE Colegio Rafael Castillo
+      <footer className="px-4 sm:px-6 py-4 text-center border-t border-slate-200/50">
+        <p className="text-[10px] sm:text-xs font-medium text-slate-500">
+          Asisto, diseñado por Orlando Márquez (todos los derechos reservados)
         </p>
       </footer>
     </div>

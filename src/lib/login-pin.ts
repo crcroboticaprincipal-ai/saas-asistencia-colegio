@@ -1,5 +1,5 @@
 // ================================================================
-// QRONO — Sistema de Login Rápido (PIN)
+// ASISTO — Sistema de Login Rápido (PIN)
 // Convierte username + PIN en credenciales Supabase Auth válidas
 // ================================================================
 
@@ -7,11 +7,11 @@ import type { LoginPinPayload } from '@/lib/supabase/types';
 
 /**
  * Genera el correo interno a partir del username del empleado.
- * Ej: "profe_juan" + "crc" → "profe_juan@crc.qrono.local"
+ * Ej: "profe_juan" + "crc" → "profe_juan@crc.asisto.local"
  */
 export function generarEmailInterno(username: string, nombreCortoInstitucion: string): string {
   const slug = nombreCortoInstitucion.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return `${username.toLowerCase().trim()}@${slug}.qrono.local`;
+  return `${username.toLowerCase().trim()}@${slug}.asisto.local`;
 }
 
 /**

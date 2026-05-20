@@ -79,7 +79,7 @@ export default function ImportarPersonalComponent() {
     // Column widths
     ws["!cols"] = COLS_TEMPLATE.map(() => ({ wch: 22 }));
     XLSX.utils.book_append_sheet(wb, ws, "Plantilla_Personal");
-    XLSX.writeFile(wb, "plantilla_personal_qrono.xlsx");
+    XLSX.writeFile(wb, "plantilla_personal_asisto.xlsx");
   };
 
   // ── File parse ────────────────────────────────────────────────────────────
@@ -217,7 +217,7 @@ export default function ImportarPersonalComponent() {
       const inst = insts?.[0];
       const nombreCorto = inst?.nombre_corto || "CRC";
 
-      const email = `${row.username}@${nombreCorto.toLowerCase().replace(/[^a-z0-9]/g, "")}.qrono.local`;
+      const email = `${row.username}@${nombreCorto.toLowerCase().replace(/[^a-z0-9]/g, "")}.asisto.local`;
 
       const res = await fetch("/api/admin/crear-usuario-personal", {
         method: "POST",

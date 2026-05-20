@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const [oficialH, oficialM] = horaOficialEntrada.split(":").map(Number);
 
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Qrono SaaS";
+    workbook.creator = "Asisto SaaS";
     workbook.created = new Date();
 
     // ── HOJA 1: RESUMEN INSTITUCIONAL ──
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
     return new NextResponse(buffer, {
       status: 200,
       headers: {
-        "Content-Disposition": `attachment; filename="Qrono_Reporte_${new Date().toISOString().split("T")[0]}.xlsx"`,
+        "Content-Disposition": `attachment; filename="Asisto_Reporte_${new Date().toISOString().split("T")[0]}.xlsx"`,
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       },
     });

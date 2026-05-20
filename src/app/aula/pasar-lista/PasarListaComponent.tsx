@@ -130,7 +130,7 @@ export default function PasarListaComponent() {
     new Date().getDay() === 0 ? 7 : new Date().getDay()
   );
 
-  const SESSION_KEY = "qrono_docente_session";
+  const SESSION_KEY = "asisto_docente_session";
   const SESSION_TTL = 60 * 60 * 24 * 30 * 1000; // 30 days in ms
 
   // Restore persisted session on mount
