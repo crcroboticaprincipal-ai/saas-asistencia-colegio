@@ -124,10 +124,49 @@ export default function PasarListaComponent() {
   const [mensaje, setMensaje] = useState<{ tipo: "ok" | "error" | null; texto: string }>({ tipo: null, texto: "" });
   const [loading, setLoading] = useState(false);
   const [lastCode, setLastCode] = useState<string | null>(null);
+  const [sessionRestored, setSessionRestored] = useState(false);
 
   const [diaFiltro, setDiaFiltro] = useState<number>(
     new Date().getDay() === 0 ? 7 : new Date().getDay()
   );
+
+  const SESSION_KEY = "qrono_docente_session";
+  const SESSION_TTL = 60 * 60 * 24 * 30 * 1000; // 30 days in ms
+
+  // Restore persisted session on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (raw) {
+        const { id, nombre, expiry } = JSON.parse(raw);
+        if (expiry && Date.now() < expiry && id && nombre) {
+          setPersonalId(id);
+          setPersonalNombre(nombre);
+        } else {
+          localStorage.removeItem(SESSION_KEY);
+        }
+      }
+    } catch { /* ignore */ } finally {
+      setSessionRestored(true);
+    }
+  }, []);
+
+  const handleLogin = (id: string, nombre: string) => {
+    setPersonalId(id);
+    setPersonalNombre(nombre);
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ id, nombre, expiry: Date.now() + SESSION_TTL }));
+    } catch { /* ignore */ }
+  };
+
+  const handleLogout = () => {
+    setPersonalId(null);
+    setAsignaciones([]);
+    setAsignacionSeleccionada(null);
+    setEscaneando(false);
+    setRegistrados([]);
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+  };
 
   useEffect(() => {
     if (!personalId) return;
@@ -207,8 +246,16 @@ export default function PasarListaComponent() {
     (a) => a.dia_semana === null || a.dia_semana === undefined || (a as any).dia_semana === diaFiltro
   );
 
+  if (!sessionRestored) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-indigo-400 animate-spin" />
+      </div>
+    );
+  }
+
   if (!personalId) {
-    return <PinLoginModal onLogin={(id, nombre) => { setPersonalId(id); setPersonalNombre(nombre); }} />;
+    return <PinLoginModal onLogin={handleLogin} />;
   }
 
   return (
@@ -222,7 +269,7 @@ export default function PasarListaComponent() {
           <p className="text-slate-400 text-xs">{personalNombre} · {hoy}</p>
         </div>
         <button
-          onClick={() => { setPersonalId(null); setAsignaciones([]); setAsignacionSeleccionada(null); setEscaneando(false); setRegistrados([]); }}
+          onClick={handleLogout}
           className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-red-400 transition-colors"
         >
           <RotateCcw className="w-4 h-4" /> Salir

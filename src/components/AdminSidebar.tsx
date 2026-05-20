@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, BarChart3, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, GraduationCap, Building2 } from "lucide-react";
 
 import Image from "next/image";
 
@@ -15,7 +15,6 @@ export function AdminSidebar() {
     { name: "Importar Alumnos", path: "/admin/importar", icon: Users },
     { name: "Estudiantes / QR", path: "/admin/estudiantes", icon: QrCode },
     { name: "Reportes", path: "/admin/reportes", icon: FileText },
-    { name: "Analítica Avanzada", path: "/reportes", icon: BarChart3 },
   ];
 
   const routesRRHH = [
@@ -25,6 +24,7 @@ export function AdminSidebar() {
 
   const routesAcademico = [
     { name: "Materias", path: "/admin/academico", icon: BookOpen },
+    { name: "Gestión Materias", path: "/admin/materias", icon: GraduationCap },
     { name: "Pasar Lista", path: "/aula/pasar-lista", icon: BookOpen },
   ];
 
