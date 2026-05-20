@@ -38,15 +38,19 @@ export default function EstudiantesComponent() {
 
   const fetchEstudiantes = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("estudiantes")
-      .select("*")
-      .order("nombre_completo");
-    
-    if (data) {
-      setEstudiantes(data as Estudiante[]);
+    try {
+      const res = await fetch("/api/admin/estudiantes");
+      const resData = await res.json();
+      if (resData.ok && resData.data) {
+        setEstudiantes(resData.data as Estudiante[]);
+      } else {
+        console.error("Error fetching students:", resData.error);
+      }
+    } catch (err) {
+      console.error("Error fetching students:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleOpenModal = (student?: Estudiante) => {
@@ -91,25 +95,34 @@ export default function EstudiantesComponent() {
       };
 
       if (editingStudent) {
-        // Actualizar
-        const { error } = await supabase
-          .from("estudiantes")
-          .update(studentData)
-          .eq("id", editingStudent.id);
-        if (error) throw error;
+        // Actualizar via API
+        const res = await fetch("/api/admin/estudiantes", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: editingStudent.id, ...studentData }),
+        });
+        const resData = await res.json();
+        if (!res.ok || !resData.ok) {
+          throw new Error(resData.error || "Error al actualizar estudiante");
+        }
       } else {
-        // Crear nuevo
-        const { error } = await supabase
-          .from("estudiantes")
-          .insert([studentData]);
-        if (error) throw error;
+        // Crear nuevo via API
+        const res = await fetch("/api/admin/estudiantes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(studentData),
+        });
+        const resData = await res.json();
+        if (!res.ok || !resData.ok) {
+          throw new Error(resData.error || "Error al crear estudiante");
+        }
       }
 
       await fetchEstudiantes();
       handleCloseModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al guardar estudiante:", error);
-      alert("Error al guardar los datos del estudiante.");
+      alert(error.message || "Error al guardar los datos del estudiante.");
     } finally {
       setIsSaving(false);
     }
