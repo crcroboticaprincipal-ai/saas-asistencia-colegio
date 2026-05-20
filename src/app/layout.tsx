@@ -20,7 +20,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#f8fafc",
+  themeColor: "#0b1120",
 };
 
 export default function RootLayout({
@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="light">
+    <html lang="es" className="dark">
       <body className={`${inter.variable} antialiased min-h-screen`}>
         {children}
       </body>

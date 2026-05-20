@@ -26,23 +26,24 @@
   --color-danger-400: #fb7185;
   --color-danger-500: #f43f5e;
 
-  --color-glass-bg: rgba(255, 255, 255, 0.75);
-  --color-glass-border: rgba(9, 9, 11, 0.08);
+  --color-glass-bg: rgba(15, 23, 42, 0.65);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
 }
 
 @layer base {
   :root {
-    --background: #f8fafc;
-    --foreground: #09090b;
+    --background: #090d16;
+    --foreground: #f1f5f9;
   }
 
   body {
     background-color: var(--background);
     color: var(--foreground);
     background-image: 
-      radial-gradient(at 30% 10%, hsla(243,100%,66%,0.04) 0px, transparent 55%),
-      radial-gradient(at 85% 5%, hsla(160,84%,39%,0.03) 0px, transparent 50%),
-      radial-gradient(at 0% 70%, hsla(243,100%,66%,0.03) 0px, transparent 50%);
+      radial-gradient(at 0% 0%, hsla(220,100%,15%,1) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, hsla(224,100%,12%,1) 0px, transparent 50%),
+      radial-gradient(at 50% 50%, hsla(226,90%,20%,0.9) 0px, transparent 100%),
+      linear-gradient(135deg, #090d16 0%, #0f1e3d 50%, #060a12 100%);
     background-attachment: fixed;
     min-height: 100vh;
     font-family: var(--font-sans), system-ui, sans-serif;
@@ -52,25 +53,25 @@
   /* Custom scrollbar */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(79,70,229,0.2); border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(79,70,229,0.35); }
+  ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.25); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.4); }
 }
 
 @layer utilities {
   .glass-panel {
-    @apply bg-white/75 backdrop-blur-xl border border-slate-200/60 shadow-xl;
+    @apply bg-slate-950/60 backdrop-blur-xl border border-white/[0.08] shadow-2xl;
   }
   
   .glass-card {
-    @apply bg-white/50 backdrop-blur-md border border-slate-200/40 hover:bg-white/70 transition-all duration-300;
+    @apply bg-slate-900/40 backdrop-blur-md border border-white/[0.05] hover:bg-slate-900/55 hover:border-white/[0.1] hover:shadow-xl transition-all duration-300;
   }
 
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-indigo-500;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-blue-400 to-indigo-200;
   }
 
   .text-gradient-accent {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-rose-600 to-rose-500;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-rose-400 to-pink-300;
   }
 
   .btn-primary {
