@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, GraduationCap, Building2 } from "lucide-react";
+import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, GraduationCap, Building2, Upload } from "lucide-react";
 
 import Image from "next/image";
 
@@ -19,6 +19,7 @@ export function AdminSidebar() {
 
   const routesRRHH = [
     { name: "Personal", path: "/admin/rrhh", icon: UserCog },
+    { name: "Importar Personal", path: "/admin/rrhh/importar", icon: Upload },
     { name: "Calendario", path: "/admin/rrhh/calendario", icon: LayoutDashboard },
   ];
 
