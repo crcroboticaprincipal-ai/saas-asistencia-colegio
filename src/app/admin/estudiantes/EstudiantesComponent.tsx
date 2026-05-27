@@ -13,6 +13,7 @@ type Estudiante = {
   seccion: string;
   nombre_representante: string;
   correo_representante: string;
+  estado: 'Activo' | 'Retirado' | 'Graduado';
 };
 
 export default function EstudiantesComponent() {
@@ -65,7 +66,8 @@ export default function EstudiantesComponent() {
         grado: "",
         seccion: "",
         nombre_representante: "",
-        correo_representante: ""
+        correo_representante: "",
+        estado: "Activo"
       });
     }
     setIsModalOpen(true);
@@ -91,7 +93,8 @@ export default function EstudiantesComponent() {
         seccion: formData.seccion?.trim().toUpperCase(),
         nombre_representante: formData.nombre_representante?.trim(),
         correo_representante: formData.correo_representante?.trim(),
-        qr_code: qrCode
+        qr_code: qrCode,
+        estado: formData.estado || "Activo"
       };
 
       if (editingStudent) {
@@ -223,6 +226,7 @@ export default function EstudiantesComponent() {
                 <th className="px-4 py-3">Nombre</th>
                 <th className="px-4 py-3">Grado</th>
                 <th className="px-4 py-3">Sección</th>
+                <th className="px-4 py-3">Estado</th>
                 <th className="px-4 py-3 hidden md:table-cell">Correo Representante</th>
                 <th className="px-4 py-3 text-center">Acciones</th>
               </tr>
@@ -230,7 +234,7 @@ export default function EstudiantesComponent() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center">
+                  <td colSpan={8} className="px-4 py-12 text-center">
                     <div className="flex justify-center items-center">
                       <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full" />
                     </div>
@@ -238,7 +242,7 @@ export default function EstudiantesComponent() {
                 </tr>
               ) : currentEstudiantes.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-slate-500 italic">
+                  <td colSpan={8} className="px-4 py-12 text-center text-slate-500 italic">
                     No se encontraron estudiantes
                   </td>
                 </tr>
@@ -257,6 +261,17 @@ export default function EstudiantesComponent() {
                     <td className="px-4 py-3">{estudiante.nombre_completo}</td>
                     <td className="px-4 py-3">{estudiante.grado}</td>
                     <td className="px-4 py-3">{estudiante.seccion}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 text-[10px] sm:text-xs rounded-full font-bold border ${
+                        estudiante.estado === 'Activo' 
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                          : estudiante.estado === 'Retirado'
+                          ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          : 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+                      }`}>
+                        {estudiante.estado || 'Activo'}
+                      </span>
+                    </td>
                     <td className="px-4 py-3 hidden md:table-cell text-slate-400">{estudiante.correo_representante || "-"}</td>
                     <td className="px-4 py-3 text-center space-x-1">
                       <button
@@ -372,6 +387,20 @@ export default function EstudiantesComponent() {
                   />
                 </div>
               </div>
+              
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1">Estado de Matrícula</label>
+                <select
+                  value={formData.estado || "Activo"}
+                  onChange={e => setFormData({...formData, estado: e.target.value as any})}
+                  className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                >
+                  <option value="Activo">🟢 Activo</option>
+                  <option value="Retirado">🔴 Retirado (Soft Delete)</option>
+                  <option value="Graduado">🔵 Graduado</option>
+                </select>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">Nombre del Representante</label>

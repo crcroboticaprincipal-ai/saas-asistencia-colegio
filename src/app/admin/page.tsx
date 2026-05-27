@@ -6,6 +6,8 @@ import {
   Users, Activity, LogIn, LogOut, ShieldAlert, AlertCircle,
   Building2, Plus, X, Save, Loader2, CheckCircle, Globe
 } from "lucide-react";
+import AusenciasAlertCard from "@/components/AusenciasAlertCard";
+import AlertasDesercionCard from "@/components/AlertasDesercionCard";
 
 type Asistencia = {
   id: string;
@@ -231,6 +233,12 @@ export default function AdminDashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* ── ALERTA DE AUSENCIAS CRÍTICAS ── */}
+      <AusenciasAlertCard />
+
+      {/* ── PANEL DE ALERTA TEMPRANA DE DESERCIÓN ── */}
+      <AlertasDesercionCard />
 
       {/* ── GESTIÓN DE INSTITUCIONES (Multi-tenant) ── */}
       <div className="glass-panel rounded-xl sm:rounded-2xl p-4 sm:p-6">

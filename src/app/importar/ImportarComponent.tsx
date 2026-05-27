@@ -160,6 +160,14 @@ export default function ImportarComponent() {
         throw new Error(`Cédulas duplicadas en el archivo: ${duplicates.join(', ')}. Corrige el Excel.`);
       }
 
+      // Fetch institucion_id
+      const instRes = await fetch("/api/admin/instituciones");
+      const { data: insts } = await instRes.json();
+      const inst = insts?.[0];
+      if (!inst) {
+        throw new Error("No hay instituciones registradas. Crea una primero.");
+      }
+
       const recordsToInsert = data.map((row) => ({
         cedula: row.Cedula,
         nombre_completo: row.Nombre_Completo,
@@ -168,6 +176,7 @@ export default function ImportarComponent() {
         nombre_representante: row.Nombre_Representante,
         correo_representante: row.Correo_Representante,
         qr_code: generateUniqueQR(row.Cedula),
+        institucion_id: inst.id,
       }));
 
       const { data: insertedData, error } = await supabase

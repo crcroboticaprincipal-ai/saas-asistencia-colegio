@@ -42,6 +42,7 @@ export interface Estudiante {
   correo_representante: string;
   qr_code: string;
   created_at: string;
+  estado: 'Activo' | 'Retirado' | 'Graduado';
 }
 
 export interface Asistencia {

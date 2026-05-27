@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid
 } from "recharts";
 import {
-  BookOpen, TrendingUp, Users, AlertTriangle, Download, Loader2, Filter
+  BookOpen, TrendingUp, Users, AlertTriangle, Download, Loader2, Filter, Calendar, GraduationCap
 } from "lucide-react";
 import { format, subDays } from "date-fns";
 import { es } from "date-fns/locale";
@@ -32,6 +32,7 @@ interface FugaInterna {
 }
 
 export default function AnaliticaMateriasComponent() {
+  const [activeTab, setActiveTab] = useState<"analitica" | "ciclo">("analitica");
   const [loading, setLoading] = useState(true);
   const [dataClases, setDataClases] = useState<DataMateria[]>([]);
   const [filtroGrado, setFiltroGrado] = useState("todos");
@@ -146,21 +147,53 @@ export default function AnaliticaMateriasComponent() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight flex items-center gap-3">
             <BookOpen className="w-8 h-8 text-indigo-400" />
-            Analítica por Materia
+            {activeTab === "analitica" ? "Analítica por Materia" : "Gestión Académica"}
           </h1>
-          <p className="text-slate-400 mt-1 text-sm">Detección de fugas internas · Ranking de secciones</p>
+          <p className="text-slate-400 mt-1 text-sm">
+            {activeTab === "analitica" ? "Detección de fugas internas · Ranking de secciones" : "Gestión de ciclo escolar y matrícula estudiantil"}
+          </p>
         </div>
+        {activeTab === "analitica" && (
+          <button
+            onClick={handleExportExcel}
+            disabled={isExporting || filtrado.length === 0}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium flex items-center gap-2 transition-all text-sm disabled:opacity-50 w-full sm:w-auto justify-center"
+          >
+            {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+            {isExporting ? "Exportando..." : "Exportar Excel"}
+          </button>
+        )}
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="flex gap-4 border-b border-white/5 pb-2">
         <button
-          onClick={handleExportExcel}
-          disabled={isExporting || filtrado.length === 0}
-          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium flex items-center gap-2 transition-all text-sm disabled:opacity-50 w-full sm:w-auto justify-center"
+          onClick={() => setActiveTab("analitica")}
+          className={`pb-2 px-1 text-sm font-semibold transition-all border-b-2 ${
+            activeTab === "analitica"
+              ? "text-indigo-400 border-indigo-500"
+              : "text-slate-400 border-transparent hover:text-white"
+          }`}
         >
-          {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          {isExporting ? "Exportando..." : "Exportar Excel"}
+          📊 Analítica de Materias
+        </button>
+        <button
+          onClick={() => setActiveTab("ciclo")}
+          className={`pb-2 px-1 text-sm font-semibold transition-all border-b-2 ${
+            activeTab === "ciclo"
+              ? "text-indigo-400 border-indigo-500"
+              : "text-slate-400 border-transparent hover:text-white"
+          }`}
+        >
+          ⚙️ Gestión de Ciclo Escolar
         </button>
       </div>
 
-      {/* Filtros */}
+      {activeTab === "ciclo" ? (
+        <CicloEscolarCard />
+      ) : (
+        <>
+          {/* Filtros */}
       <div className="glass-panel p-4 rounded-2xl flex flex-wrap gap-4 items-end">
         <div className="flex-1 min-w-[140px]">
           <label className="block text-xs font-medium text-slate-400 mb-1">Desde</label>
@@ -305,6 +338,242 @@ export default function AnaliticaMateriasComponent() {
             </div>
           </div>
         </>
+      )}
+    </>
+  )}
+</div>
+  );
+}
+
+function CicloEscolarCard() {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [step, setStep] = useState(1);
+  const [confirmText, setConfirmText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [successData, setSuccessData] = useState<{
+    graduados: number;
+    promovidos: number;
+    total: number;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handlePromover = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/ciclo-escolar/promover", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al promover");
+      setSuccessData({
+        graduados: data.graduados,
+        promovidos: data.promovidos,
+        total: data.total,
+      });
+      setStep(3); // Step 3: Success Screen!
+    } catch (err: any) {
+      setError(err.message || "Error al ejecutar la promoción");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    setModalOpen(false);
+    setStep(1);
+    setConfirmText("");
+    setSuccessData(null);
+    setError(null);
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Bento Card 1: Explicación de la Promoción */}
+      <div className="glass-panel p-6 rounded-2xl lg:col-span-2 space-y-6 flex flex-col justify-between">
+        <div>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-3 bg-indigo-500/10 rounded-xl">
+              <GraduationCap className="w-6 h-6 text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="text-white text-lg font-semibold">Promoción de Ciclo Escolar</h2>
+              <p className="text-xs text-slate-400">Proceso automatizado de fin de año lectivo</p>
+            </div>
+          </div>
+          <p className="text-sm text-slate-300 leading-relaxed">
+            Este proceso realiza una actualización masiva y segura sobre la matrícula de la institución.
+            Está diseñado para ser ejecutado al concluir el año escolar (usualmente en Agosto).
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5 space-y-2">
+              <h3 className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">🎓 Egresados (5to Año)</h3>
+              <p className="text-xs text-slate-400">
+                Los estudiantes en el último año de bachillerato (<span className="text-white font-mono">5to Año / 5T</span>) cambian automáticamente a estado <span className="text-emerald-400 font-semibold">Graduado</span>. Sus registros se conservan pero ya no aparecerán en las listas activas de asistencia.
+              </p>
+            </div>
+            <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5 space-y-2">
+              <h3 className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">📈 Promoción de Niveles</h3>
+              <p className="text-xs text-slate-400">
+                Los estudiantes de <span className="text-white font-mono">1ero a 4to Año</span> son promovidos al nivel inmediatamente superior (ej. de 2do a 3er Año), conservando intactas sus secciones de origen (A, B, C).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-white/5 flex justify-end">
+          <button
+            onClick={() => {
+              setModalOpen(true);
+              setStep(1);
+            }}
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold transition-all shadow-lg shadow-indigo-500/20"
+          >
+            Promover Año Escolar
+          </button>
+        </div>
+      </div>
+
+      {/* Bento Card 2: Recomendaciones e Información */}
+      <div className="glass-panel p-6 rounded-2xl space-y-4">
+        <h3 className="text-white font-semibold flex items-center gap-2">
+          <Calendar className="w-5 h-5 text-amber-400" />
+          Recomendaciones Importantes
+        </h3>
+        <ul className="space-y-3 text-xs text-slate-400">
+          <li className="flex gap-2">
+            <span className="text-amber-400">⚠️</span>
+            <span>Esta acción es <strong>irreversible</strong> y modifica la base de datos de forma permanente.</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-amber-400">💾</span>
+            <span>Se recomienda exportar todos los reportes de asistencia anuales a Excel antes de proceder.</span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-amber-400">🕒</span>
+            <span>Realice este proceso fuera del horario escolar para evitar interferencias en el escaneo de asistencia.</span>
+          </li>
+        </ul>
+      </div>
+
+      {/* MODAL DE CONFIRMACIÓN CRÍTICA DE DOBLE PASO */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="glass-panel w-full max-w-md p-6 rounded-2xl border border-white/10 space-y-6 shadow-2xl animate-scale-up">
+            {step === 1 && (
+              <>
+                <div className="text-center space-y-2">
+                  <div className="mx-auto w-12 h-12 bg-rose-500/10 rounded-full flex items-center justify-center mb-2">
+                    <AlertTriangle className="w-6 h-6 text-rose-400" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">¿Confirmar Promoción de Año Escolar?</h3>
+                  <p className="text-xs text-rose-400 font-semibold uppercase tracking-wider">¡PASO 1 DE 2!</p>
+                </div>
+                <p className="text-xs text-slate-400 text-center leading-relaxed">
+                  Estás a punto de iniciar el proceso de promoción masiva de la institución. Todos los estudiantes de 5to año serán marcados como "Graduado" y los de 1ero a 4to año serán promovidos de nivel académico.
+                </p>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={handleClose}
+                    className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => setStep(2)}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition-all"
+                  >
+                    Entendido, continuar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <div className="text-center space-y-2">
+                  <div className="mx-auto w-12 h-12 bg-rose-500/20 rounded-full flex items-center justify-center mb-2 animate-pulse">
+                    <AlertTriangle className="w-6 h-6 text-rose-505" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">Verificación de Seguridad</h3>
+                  <p className="text-xs text-rose-500 font-bold uppercase tracking-wider">¡PASO 2 DE 2 (CRÍTICO)!</p>
+                </div>
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-400 text-center leading-relaxed">
+                    Para confirmar y ejecutar esta acción destructiva, escribe la palabra clave <strong className="text-white font-mono">PROMOVER</strong> a continuación:
+                  </p>
+                  <input
+                    type="text"
+                    placeholder="Escribe PROMOVER aquí"
+                    value={confirmText}
+                    onChange={(e) => setConfirmText(e.target.value)}
+                    className="w-full bg-slate-905 border border-rose-500/30 focus:border-rose-500 focus:ring-1 focus:ring-rose-500 rounded-xl py-2 px-3 text-white text-sm text-center font-mono focus:outline-none"
+                  />
+                  {error && (
+                    <p className="text-xs text-rose-500 text-center font-medium bg-rose-500/10 p-2 rounded-lg">
+                      {error}
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-3 justify-end">
+                  <button
+                    onClick={handleClose}
+                    disabled={loading}
+                    className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-xl transition-all disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handlePromover}
+                    disabled={confirmText !== "PROMOVER" || loading}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-500 disabled:bg-rose-950 disabled:text-rose-600 disabled:opacity-50 rounded-xl transition-all flex items-center gap-1.5"
+                  >
+                    {loading && <Loader2 className="w-3 h-3 animate-spin" />}
+                    {loading ? "Procesando..." : "Confirmar e Iniciar Promoción"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {step === 3 && successData && (
+              <>
+                <div className="text-center space-y-2">
+                  <div className="mx-auto w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mb-2">
+                    <span className="text-2xl">🎉</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-white">¡Promoción Ejecutada Exitosamente!</h3>
+                  <p className="text-xs text-emerald-400 font-semibold">El ciclo escolar ha sido actualizado</p>
+                </div>
+                <div className="bg-slate-900/60 border border-white/5 rounded-xl p-4 space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Total de matrícula evaluada:</span>
+                    <span className="text-white font-bold">{successData.total}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Estudiantes Promovidos:</span>
+                    <span className="text-emerald-400 font-bold">+{successData.promovidos}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-400">Graduados Egresados:</span>
+                    <span className="text-indigo-400 font-bold">+{successData.graduados}</span>
+                  </div>
+                </div>
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => {
+                      handleClose();
+                      window.location.reload();
+                    }}
+                    className="w-full px-4 py-2 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-500 rounded-xl transition-all text-center"
+                  >
+                    Entendido, finalizar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

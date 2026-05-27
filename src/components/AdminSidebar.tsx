@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, GraduationCap, Building2, Upload } from "lucide-react";
+import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, GraduationCap, Building2, Upload, Shield } from "lucide-react";
 
 import Image from "next/image";
 
@@ -113,6 +113,21 @@ export function AdminSidebar() {
               </Link>
             );
           })}
+        </div>
+
+        <div className="pt-3">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-4 mb-2">Sistema</p>
+          <Link
+            href="/qrono-admin/estado-sistema"
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 ${
+              pathname.startsWith("/qrono-admin")
+                ? "bg-violet-500/15 text-violet-300 border border-violet-500/25 shadow-[0_0_12px_rgba(139,92,246,0.15)] font-semibold"
+                : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
+            }`}
+          >
+            <Shield className={`w-4 h-4 ${pathname.startsWith("/qrono-admin") ? "text-violet-400" : "text-slate-500"}`} />
+            <span className="font-medium text-sm">Estado del Sistema</span>
+          </Link>
         </div>
       </nav>
 

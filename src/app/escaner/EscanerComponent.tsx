@@ -18,10 +18,12 @@ export default function EscanerPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({ type: null, text: "" });
   const scannerRef = useRef<any>(null);
+  const [showCedulaInput, setShowCedulaInput] = useState(false);
+  const [cedulaInput, setCedulaInput] = useState("");
 
   // Init scanner only after mode is selected and no result yet
   useEffect(() => {
-    if (!mode || scanResult) return;
+    if (!mode || scanResult || showCedulaInput) return;
 
     let scanner: any;
 
@@ -106,10 +108,21 @@ export default function EscanerPage() {
     setScanResult(null);
     setScannedData(null);
     setMessage({ type: null, text: "" });
+    setShowCedulaInput(false);
+    setCedulaInput("");
     if (scannerRef.current) {
       scannerRef.current.clear().catch(() => {});
       scannerRef.current = null;
     }
+  };
+
+  const handleCedulaSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = cedulaInput.trim();
+    if (!clean) return;
+    setScanResult(clean);
+    processScannedCode(clean);
+    setShowCedulaInput(false);
   };
 
   // ── STEP 1: Select mode ──
@@ -214,12 +227,52 @@ export default function EscanerPage() {
 
       {/* Scanner or Result */}
       {!scanResult ? (
-        <div className={`glass-panel p-3 sm:p-4 rounded-2xl overflow-hidden border-2 shadow-2xl ${
-          mode === "ENTRADA"
-            ? "border-blue-500/20 shadow-blue-500/10"
-            : "border-red-500/20 shadow-red-500/10"
-        }`}>
-          <div id="reader" className="w-full rounded-xl overflow-hidden [&>video]:rounded-xl bg-black" />
+        <div className="space-y-4">
+          {showCedulaInput ? (
+            <div className="glass-panel p-6 rounded-2xl border border-white/10 shadow-2xl text-center space-y-4">
+              <p className="text-sm font-semibold text-white">⌨️ Marcar por Cédula / ID</p>
+              <form onSubmit={handleCedulaSubmit} className="max-w-xs mx-auto">
+                <input
+                  type="text"
+                  placeholder="Ej: V-12345678"
+                  value={cedulaInput}
+                  onChange={(e) => setCedulaInput(e.target.value)}
+                  className="w-full bg-slate-900 border border-white/10 rounded-xl py-3 px-4 text-center text-xl font-bold tracking-wider text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  autoFocus
+                />
+                <button
+                  type="submit"
+                  className="mt-3 w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-all"
+                >
+                  Procesar Asistencia
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className={`glass-panel p-3 sm:p-4 rounded-2xl overflow-hidden border-2 shadow-2xl ${
+              mode === "ENTRADA"
+                ? "border-blue-500/20 shadow-blue-500/10"
+                : "border-red-500/20 shadow-red-500/10"
+            }`}>
+              <div id="reader" className="w-full rounded-xl overflow-hidden [&>video]:rounded-xl bg-black" />
+            </div>
+          )}
+          
+          <div className="flex justify-center">
+            <button
+              onClick={() => {
+                setShowCedulaInput(!showCedulaInput);
+                setCedulaInput("");
+                if (scannerRef.current) {
+                  scannerRef.current.clear().catch(() => {});
+                  scannerRef.current = null;
+                }
+              }}
+              className="px-4 py-2 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-all shadow-md flex items-center gap-2"
+            >
+              {showCedulaInput ? "📷 Volver al Escáner QR" : "⌨️ Marcar por Cédula / ID"}
+            </button>
+          </div>
         </div>
       ) : (
         <div className="glass-panel rounded-2xl p-6 sm:p-8 space-y-6 animate-slide-up">

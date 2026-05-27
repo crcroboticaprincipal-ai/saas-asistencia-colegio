@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import {
   Calendar, ChevronLeft, ChevronRight, Loader2, UserCog,
-  AlertCircle
+  AlertCircle, Download
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay,
   addMonths, subMonths, isToday, parseISO } from "date-fns";
@@ -31,6 +31,7 @@ export default function CalendarioRRHH() {
   const [loadingPersonal, setLoadingPersonal] = useState(true);
   const [tieneHorario, setTieneHorario] = useState<boolean | null>(null);
   const [search, setSearch] = useState("");
+  const [exportingXlsx, setExportingXlsx] = useState(false);
 
   // Fetch all personal via server API (bypasses RLS)
   useEffect(() => {
@@ -86,6 +87,30 @@ export default function CalendarioRRHH() {
     const total = entradas.length;
     return { total, puntuales, retardos, porcPuntualidad: total > 0 ? Math.round((puntuales / total) * 100) : 0 };
   }, [asistencias]);
+
+  const handleExportarExcel = async () => {
+    if (!selectedEmpleado) return;
+    setExportingXlsx(true);
+    try {
+      const inicio = format(startOfMonth(mesActual), 'yyyy-MM-dd');
+      const fin = format(endOfMonth(mesActual), 'yyyy-MM-dd');
+      const res = await fetch(
+        `/api/admin/rrhh/exportar-calendario?personal_id=${selectedEmpleado.id}&inicio=${inicio}&fin=${fin}&nombre=${encodeURIComponent(selectedEmpleado.nombres + ' ' + selectedEmpleado.apellidos)}`
+      );
+      if (!res.ok) throw new Error('Error al exportar');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Reporte_${selectedEmpleado.apellidos}_${format(mesActual, 'yyyy-MM')}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setExportingXlsx(false);
+    }
+  };
 
   const primerDiaSemana = getDay(startOfMonth(mesActual));
   const offsetDias = primerDiaSemana === 0 ? 6 : primerDiaSemana - 1;
@@ -169,24 +194,36 @@ export default function CalendarioRRHH() {
                 </div>
               )}
 
-              {/* Controles de mes */}
-              <div className="glass-panel rounded-2xl p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-bold text-white capitalize">
-                    {format(mesActual, "MMMM yyyy", { locale: es })}
-                  </p>
-                  <p className="text-sm text-slate-400">{selectedEmpleado.apellidos}, {selectedEmpleado.nombres}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setMesActual(subMonths(mesActual, 1))} className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <button onClick={() => setMesActual(new Date())} className="px-3 py-1.5 text-xs rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
-                    Hoy
-                  </button>
-                  <button onClick={() => setMesActual(addMonths(mesActual, 1))} className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
+              {/* Month Header + Controls */}
+              <div className="glass-panel rounded-2xl p-5">
+                {/* Big month heading */}
+                <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight text-center uppercase mb-4">
+                  {new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(mesActual)
+                    .replace(/^(\w)/, (c) => c.toUpperCase())}
+                </h2>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-slate-400">{selectedEmpleado.apellidos}, {selectedEmpleado.nombres}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setMesActual(subMonths(mesActual, 1))} className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button onClick={() => setMesActual(new Date())} className="px-3 py-1.5 text-xs rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors">
+                      Hoy
+                    </button>
+                    <button onClick={() => setMesActual(addMonths(mesActual, 1))} className="p-2 rounded-xl hover:bg-white/5 text-slate-400 hover:text-white transition-colors">
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={handleExportarExcel}
+                      disabled={exportingXlsx || loading}
+                      className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-semibold rounded-xl transition-all shadow-lg shadow-emerald-500/20"
+                    >
+                      {exportingXlsx ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                      Exportar Reporte (.xlsx)
+                    </button>
+                  </div>
                 </div>
               </div>
 

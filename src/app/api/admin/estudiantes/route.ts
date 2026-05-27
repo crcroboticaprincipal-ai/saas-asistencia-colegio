@@ -36,7 +36,8 @@ export async function POST(request: Request) {
       nombre_representante,
       correo_representante,
       qr_code,
-      institucion_id
+      institucion_id,
+      estado
     } = body;
 
     if (!cedula || !nombre_completo || !grado || !seccion || !nombre_representante || !correo_representante || !qr_code) {
@@ -60,7 +61,8 @@ export async function POST(request: Request) {
         nombre_representante: nombre_representante.trim(),
         correo_representante: correo_representante.trim(),
         qr_code,
-        institucion_id: finalInstId
+        institucion_id: finalInstId,
+        estado: estado || 'Activo'
       }])
       .select()
       .single();
@@ -86,7 +88,8 @@ export async function PUT(request: Request) {
       nombre_representante,
       correo_representante,
       qr_code,
-      institucion_id
+      institucion_id,
+      estado
     } = body;
 
     if (!id) {
@@ -108,6 +111,7 @@ export async function PUT(request: Request) {
     if (nombre_representante !== undefined) updateData.nombre_representante = nombre_representante.trim();
     if (correo_representante !== undefined) updateData.correo_representante = correo_representante.trim();
     if (qr_code !== undefined) updateData.qr_code = qr_code;
+    if (estado !== undefined) updateData.estado = estado;
     updateData.institucion_id = finalInstId;
 
     const { data, error } = await sb

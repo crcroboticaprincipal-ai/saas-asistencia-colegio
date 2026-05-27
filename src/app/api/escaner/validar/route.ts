@@ -30,14 +30,19 @@ export async function POST(request: Request) {
       hour: '2-digit', minute: '2-digit', second: '2-digit',
     }).format(now);
 
-    // ── 1. Buscar como ESTUDIANTE por qr_code ──
+    // ── 1. Buscar como ESTUDIANTE por qr_code o cédula ──
+    const inputCleaned = qrCode.trim().toUpperCase().replace(/\s+/g, '');
     const { data: estudiante, error: estError } = await supabaseAdmin
       .from('estudiantes')
       .select('*')
-      .eq('qr_code', qrCode)
+      .or(`qr_code.eq.${inputCleaned},cedula.eq.${inputCleaned},cedula.eq.V-${inputCleaned},cedula.eq.E-${inputCleaned}`)
       .maybeSingle();
 
     if (!estError && estudiante) {
+      if (estudiante.estado && estudiante.estado !== 'Activo') {
+        return NextResponse.json({ error: '❌ Acceso Denegado: Estudiante Inactivo / Retirado' }, { status: 403 });
+      }
+
       // Registrar en tabla asistencias
       const { error: errAsis } = await supabaseAdmin
         .from('asistencias')

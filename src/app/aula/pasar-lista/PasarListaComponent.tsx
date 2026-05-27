@@ -188,14 +188,15 @@ export default function PasarListaComponent() {
     setLoading(true);
 
     try {
-      // Buscar estudiante
+      // Buscar estudiante (solo Activo)
       const { data: estudiante, error } = await supabase
         .from("estudiantes")
         .select("*")
         .eq("qr_code", qrCode)
+        .eq("estado", "Activo")
         .single();
 
-      if (error || !estudiante) throw new Error("QR no reconocido");
+      if (error || !estudiante) throw new Error("❌ Acceso Denegado: Estudiante Inactivo / Retirado");
       if (!asignacionSeleccionada) throw new Error("Selecciona una clase primero");
 
       // Verificar que el alumno pertenezca a la sección asignada
