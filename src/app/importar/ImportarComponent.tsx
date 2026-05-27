@@ -172,8 +172,9 @@ export default function ImportarComponent() {
         institucionId = insts?.[0]?.id;
       }
 
+      // Hardcoded fallback for Colegio Rafael Castillo (CRC)
       if (!institucionId) {
-        throw new Error("No se pudo determinar el ID de tu institución. Por favor, inicia sesión de nuevo.");
+        institucionId = "c4e8711a-f035-428c-b98f-69555a819ec7";
       }
 
       const recordsToInsert = data.map((row) => ({
