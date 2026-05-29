@@ -46,8 +46,7 @@ function LoginForm() {
         setError(data.error || "Error de autenticación");
         return;
       }
-      router.push(from);
-      router.refresh();
+      window.location.href = from;
     } catch {
       setError("Error de conexión al servidor");
     } finally {
@@ -76,8 +75,7 @@ function LoginForm() {
         localStorage.setItem("personal_access_token", data.access_token);
         localStorage.setItem("personal_data", JSON.stringify(data.user));
       }
-      router.push("/aula");
-      router.refresh();
+      window.location.href = "/aula";
     } catch {
       setError("Error de conexión al servidor");
     } finally {
