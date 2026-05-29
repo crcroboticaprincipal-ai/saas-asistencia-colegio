@@ -41,11 +41,13 @@ interface FormPersonal {
   rol: Rol;
   username: string;
   pin: string;
+  institucion_id: string;
 }
 
 const FORM_EMPTY: FormPersonal = {
   nombres: "", apellidos: "", cedula: "", correo: "",
   telefono: "", cargo: "", rol: "docente", username: "", pin: "",
+  institucion_id: "",
 };
 
 export default function RRHHComponent() {
@@ -62,12 +64,22 @@ export default function RRHHComponent() {
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [showQR, setShowQR] = useState<Personal | null>(null);
   const [gestorDocente, setGestorDocente] = useState<Personal | null>(null);
+  const [instituciones, setInstituciones] = useState<{ id: string; nombre: string; nombre_corto: string | null }[]>([]);
 
-  const INSTITUCION_NOMBRE_CORTO = "CRC"; // Configurable futuro
+  const INSTITUCION_NOMBRE_CORTO = instituciones.find(i => i.id === formData.institucion_id)?.nombre_corto || "CRC";
 
   useEffect(() => {
     fetchPersonal();
+    fetchInstituciones();
   }, []);
+
+  const fetchInstituciones = async () => {
+    try {
+      const res = await fetch("/api/admin/instituciones");
+      const { data } = await res.json();
+      if (data) setInstituciones(data);
+    } catch { /* silencioso */ }
+  };
 
   const fetchPersonal = async () => {
     setLoading(true);
@@ -150,6 +162,7 @@ export default function RRHHComponent() {
       rol: p.rol,
       username: p.username || "",
       pin: "", // El PIN no se recupera por seguridad
+      institucion_id: p.institucion_id, // preservar institución al editar
     });
     setEditandoId(p.id);
     setError("");
@@ -399,6 +412,26 @@ export default function RRHHComponent() {
                   ))}
                 </select>
               </div>
+
+              {!editandoId && (
+                <div>
+                  <label className="block text-xs font-medium text-slate-400 mb-1">Institución *</label>
+                  <select
+                    required
+                    value={formData.institucion_id}
+                    onChange={(e) => setFormData({ ...formData, institucion_id: e.target.value })}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500/50 text-sm"
+                  >
+                    <option value="">Seleccionar institución…</option>
+                    {instituciones.map((inst) => (
+                      <option key={inst.id} value={inst.id}>
+                        {inst.nombre} {inst.nombre_corto ? `(${inst.nombre_corto})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-600 mt-1">Este campo determina el aislamiento de datos del empleado.</p>
+                </div>
+              )}
 
               {!editandoId && (
                 <div className="border-t border-white/5 pt-4">

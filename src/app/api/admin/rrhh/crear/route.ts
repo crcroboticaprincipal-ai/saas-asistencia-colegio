@@ -15,13 +15,30 @@ export async function POST(req: NextRequest) {
     );
 
     const body = await req.json();
-    const { nombres, apellidos, cedula, correo, telefono, cargo, rol, username, pin } = body;
+    const { nombres, apellidos, cedula, correo, telefono, cargo, rol, username, pin, institucion_id } = body;
 
+    // Validar que se recibió institucion_id
+    if (!institucion_id) {
+      return NextResponse.json({ error: "Se requiere seleccionar una institución" }, { status: 400 });
+    }
+
+    // Obtener nombre_corto de la institución para el email interno
+    const { data: instData, error: instError } = await supabaseAdmin
+      .from("instituciones")
+      .select("nombre_corto")
+      .eq("id", institucion_id)
+      .single();
+
+    if (instError || !instData) {
+      return NextResponse.json({ error: "Institución no encontrada" }, { status: 404 });
+    }
+
+    const nombreCorto = instData.nombre_corto || "INST";
     let authUserId = null;
 
     // 1. Si hay username y pin, crear usuario en Supabase Auth
     if (username && pin) {
-      const email = generarEmailInterno(username, "CRC");
+      const email = generarEmailInterno(username, nombreCorto);
       const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
         email,
         password: pin,
@@ -29,14 +46,14 @@ export async function POST(req: NextRequest) {
         user_metadata: { nombres, apellidos, username },
         app_metadata: {
           rol,
-          institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7",
+          institucion_id,
         },
       });
 
       if (authError && !authError.message.includes("already been registered")) {
         throw new Error(authError.message);
       }
-      
+
       if (authData?.user) {
         authUserId = authData.user.id;
       } else {
@@ -58,7 +75,7 @@ export async function POST(req: NextRequest) {
       rol,
       username: username || null,
       auth_user_id: authUserId,
-      institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7",
+      institucion_id,
     }]).select().single();
 
     if (dbError) throw new Error(dbError.message);

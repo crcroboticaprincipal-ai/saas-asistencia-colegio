@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Printer, QrCode, Search, ChevronLeft, ChevronRight, Edit, Plus, X, Save } from "lucide-react";
+import { Printer, QrCode, Search, ChevronLeft, ChevronRight, Edit, Plus, X, Save, Camera, Loader2 } from "lucide-react";
+import Image from "next/image";
 
 type Estudiante = {
   id: string;
@@ -14,6 +15,7 @@ type Estudiante = {
   nombre_representante: string;
   correo_representante: string;
   estado: 'Activo' | 'Retirado' | 'Graduado';
+  foto_url?: string | null;
 };
 
 export default function EstudiantesComponent() {
@@ -28,6 +30,8 @@ export default function EstudiantesComponent() {
   const [editingStudent, setEditingStudent] = useState<Estudiante | null>(null);
   const [formData, setFormData] = useState<Partial<Estudiante>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,7 +98,8 @@ export default function EstudiantesComponent() {
         nombre_representante: formData.nombre_representante?.trim(),
         correo_representante: formData.correo_representante?.trim(),
         qr_code: qrCode,
-        estado: formData.estado || "Activo"
+        estado: formData.estado || "Activo",
+        foto_url: formData.foto_url || null,
       };
 
       if (editingStudent) {
@@ -128,6 +133,28 @@ export default function EstudiantesComponent() {
       alert(error.message || "Error al guardar los datos del estudiante.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingStudent?.id) return;
+    setUploadingPhoto(true);
+    try {
+      const institucion_id = 'c4e8711a-f035-428c-b98f-69555a819ec7';
+      const filePath = `${institucion_id}/${editingStudent.id}.jpg`;
+      const { error: upErr } = await supabase.storage
+        .from('fotos-estudiantes')
+        .upload(filePath, file, { upsert: true, contentType: file.type });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage
+        .from('fotos-estudiantes')
+        .getPublicUrl(filePath);
+      setFormData(prev => ({ ...prev, foto_url: urlData.publicUrl }));
+    } catch (err: any) {
+      alert('Error al subir foto: ' + err.message);
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
@@ -222,6 +249,7 @@ export default function EstudiantesComponent() {
                     className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
                   />
                 </th>
+                <th className="px-4 py-3 w-12">Foto</th>
                 <th className="px-4 py-3">Cédula</th>
                 <th className="px-4 py-3">Nombre</th>
                 <th className="px-4 py-3">Grado</th>
@@ -257,7 +285,15 @@ export default function EstudiantesComponent() {
                         className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
                       />
                     </td>
-                    <td className="px-4 py-3 font-medium text-white">{estudiante.cedula}</td>
+                    <td className="px-4 py-3 text-center">
+                      {estudiante.foto_url ? (
+                        <Image src={estudiante.foto_url} alt={estudiante.nombre_completo} width={36} height={36} className="w-9 h-9 rounded-full object-cover border border-white/10 mx-auto" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center mx-auto text-slate-500 text-xs font-bold">
+                          {estudiante.nombre_completo[0]}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{estudiante.nombre_completo}</td>
                     <td className="px-4 py-3">{estudiante.grado}</td>
                     <td className="px-4 py-3">{estudiante.seccion}</td>
@@ -426,6 +462,52 @@ export default function EstudiantesComponent() {
                 </div>
               </div>
               
+              {/* Foto de perfil - solo en edición */}
+              {editingStudent && (
+                <div className="flex items-center gap-4 p-4 bg-slate-800/40 rounded-xl border border-white/5">
+                  <div className="w-20 h-20 rounded-xl overflow-hidden border-2 border-white/10 flex-shrink-0 bg-slate-700">
+                    {formData.foto_url ? (
+                      <Image src={formData.foto_url} alt="Foto" width={80} height={80} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-500">
+                        <Camera className="w-8 h-8" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-slate-300 mb-2">Foto de Perfil Académica</p>
+                    <input
+                      ref={photoInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                      id="photo-upload"
+                    />
+                    <label
+                      htmlFor="photo-upload"
+                      className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-all ${
+                        uploadingPhoto
+                          ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                          : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                      }`}
+                    >
+                      {uploadingPhoto ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Camera className="w-3.5 h-3.5" />}
+                      {uploadingPhoto ? 'Subiendo...' : 'Subir foto'}
+                    </label>
+                    {formData.foto_url && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, foto_url: null }))}
+                        className="ml-2 text-xs text-rose-400 hover:text-rose-300"
+                      >
+                        Quitar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="pt-4 flex gap-3 justify-end">
                 <button
                   type="button"

@@ -60,21 +60,32 @@ export async function POST(request: Request) {
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
       try {
+        // Obtener datos de la institución
+        const { data: institucion } = await supabase
+          .from('instituciones')
+          .select('nombre')
+          .eq('id', estudiante.institucion_id)
+          .maybeSingle();
+
+        const nombreColegio = institucion?.nombre || 'Colegio Rafael Castillo';
+
+        const { generarHtmlCorreoAsistencia } = await import('@/lib/email');
+        const emailHtml = generarHtmlCorreoAsistencia({
+          nombreRepresentante: estudiante.nombre_representante,
+          nombreEstudiante: estudiante.nombre_completo,
+          tipo,
+          horaLocal,
+          fotoUrl: estudiante.foto_url,
+          nombreColegio,
+          grado: estudiante.grado || '',
+          seccion: estudiante.seccion || ''
+        });
+
         await resend.emails.send({
-          from: 'Colegio Rafael Castillo <notificaciones@aulascolegiorafaelcastillo.com>',
+          from: `${nombreColegio} <notificaciones@aulascolegiorafaelcastillo.com>`,
           to: estudiante.correo_representante,
           subject: `Notificación de ${tipo} - ${estudiante.nombre_completo}`,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
-              <div style="text-align: center; margin-bottom: 20px;">
-                <h2 style="color: #4f46e5; margin: 0;">UE Colegio Rafael Castillo</h2>
-              </div>
-              <p>Estimado(a) <strong>${estudiante.nombre_representante}</strong>,</p>
-              <p>Le informamos que el estudiante <strong>${estudiante.nombre_completo}</strong> ha registrado su <strong>${tipo}</strong> en las instalaciones del colegio a las <strong>${horaLocal}</strong>.</p>
-              <br/>
-              <p style="color: #666; font-size: 14px;">Este es un mensaje automático del Sistema de Control de Asistencia.</p>
-            </div>
-          `
+          html: emailHtml
         });
       } catch (emailError) {
         console.error("Error enviando email, pero la asistencia se registró:", emailError);

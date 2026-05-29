@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import {
   Users, Activity, LogIn, LogOut, ShieldAlert, AlertCircle,
-  Building2, Plus, X, Save, Loader2, CheckCircle, Globe
+  Building2, Plus, X, Save, Loader2, CheckCircle, Globe, FileText, TrendingUp
 } from "lucide-react";
 import AusenciasAlertCard from "@/components/AusenciasAlertCard";
 import AlertasDesercionCard from "@/components/AlertasDesercionCard";
@@ -63,6 +63,15 @@ export default function AdminDashboardPage() {
   const [instError, setInstError] = useState("");
   const [instSuccess, setInstSuccess] = useState("");
 
+  // Pases state
+  const [pasesPeriod, setPasesPeriod] = useState<'dia' | 'semana' | 'mes'>('dia');
+  const [pasesStats, setPasesStats] = useState<{
+    total: number;
+    porTipo: { ENTRADA: number; SALIDA: number; ESPECIAL: number };
+    ranking_mes: Array<{ estudiante_id: string; nombre: string; grado: string; seccion: string; foto_url: string | null; total: number; alerta: boolean }>;
+  } | null>(null);
+  const [loadingPases, setLoadingPases] = useState(false);
+
   useEffect(() => {
     if (!isSupabaseConfigured()) {
       setConfigError(true);
@@ -73,6 +82,7 @@ export default function AdminDashboardPage() {
     fetchInitialData();
     fetchTotalEstudiantes();
     fetchInstituciones();
+    fetchPasesStats('dia');
 
     const channel = supabase
       .channel("schema-db-changes")
@@ -121,6 +131,19 @@ export default function AdminDashboardPage() {
       console.error("Error cargando instituciones:", e);
     } finally {
       setLoadingInst(false);
+    }
+  };
+
+  const fetchPasesStats = async (period: 'dia' | 'semana' | 'mes') => {
+    setLoadingPases(true);
+    try {
+      const res = await fetch(`/api/pases/stats?period=${period}`);
+      if (res.ok) {
+        const data = await res.json();
+        setPasesStats(data);
+      }
+    } catch { /* silencioso */ } finally {
+      setLoadingPases(false);
     }
   };
 
@@ -239,6 +262,89 @@ export default function AdminDashboardPage() {
 
       {/* ── PANEL DE ALERTA TEMPRANA DE DESERCIÓN ── */}
       <AlertasDesercionCard />
+
+      {/* ── ANALYTICS DE PASES & CONDUCTA ── */}
+      <div className="glass-panel rounded-xl sm:rounded-2xl p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2">
+            <FileText className="w-5 h-5 text-amber-400" />
+            <h2 className="text-base sm:text-lg font-semibold text-white">Pases Digitales & Conducta</h2>
+            <span className="ml-1 text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-medium">Tiempo real</span>
+          </div>
+          <div className="flex gap-2">
+            {(['dia', 'semana', 'mes'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => { setPasesPeriod(p); fetchPasesStats(p); }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  pasesPeriod === p
+                    ? 'bg-amber-500 text-white'
+                    : 'bg-slate-800/50 text-slate-400 hover:text-white'
+                }`}
+              >
+                {p === 'dia' ? 'Hoy' : p === 'semana' ? 'Semana' : 'Mes'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loadingPases ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+          </div>
+        ) : pasesStats ? (
+          <div className="space-y-4">
+            {/* KPIs de pases */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Total Pases', value: pasesStats.total, color: 'text-amber-400', icon: '📋' },
+                { label: 'Entrada', value: pasesStats.porTipo.ENTRADA, color: 'text-blue-400', icon: '🚪' },
+                { label: 'Salida', value: pasesStats.porTipo.SALIDA, color: 'text-rose-400', icon: '🚶' },
+                { label: 'Especial', value: pasesStats.porTipo.ESPECIAL, color: 'text-violet-400', icon: '⭐' },
+              ].map((k) => (
+                <div key={k.label} className="glass-card p-3 rounded-xl text-center">
+                  <p className="text-2xl mb-0.5">{k.icon}</p>
+                  <p className={`text-2xl font-bold ${k.color}`}>{k.value}</p>
+                  <p className="text-slate-500 text-xs">{k.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Ranking conductual del mes */}
+            {pasesStats.ranking_mes.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <TrendingUp className="w-4 h-4 text-rose-400" />
+                  <p className="text-sm font-semibold text-white">Alumnos con Mayor Acumulación (Mes)</p>
+                </div>
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {pasesStats.ranking_mes.map((est) => (
+                    <div key={est.estudiante_id} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
+                      est.alerta
+                        ? 'bg-rose-500/10 border-rose-500/25 animate-pulse'
+                        : 'bg-slate-800/30 border-white/5'
+                    }`}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="text-lg">{est.alerta ? '🚨' : '📋'}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{est.nombre}</p>
+                          <p className="text-xs text-slate-500">{est.grado} &ldquo;{est.seccion}&rdquo;</p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <p className={`text-xl font-bold ${est.alerta ? 'text-rose-400' : 'text-amber-400'}`}>{est.total}</p>
+                        {est.alerta && <p className="text-[9px] text-rose-400 font-semibold uppercase">⚠️ Seguimiento</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="text-slate-500 text-sm text-center py-6">No hay pases registrados en este período.</p>
+        )}
+      </div>
 
       {/* ── GESTIÓN DE INSTITUCIONES (Multi-tenant) ── */}
       <div className="glass-panel rounded-xl sm:rounded-2xl p-4 sm:p-6">

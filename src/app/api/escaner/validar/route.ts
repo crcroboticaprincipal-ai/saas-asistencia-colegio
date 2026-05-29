@@ -62,20 +62,39 @@ export async function POST(request: Request) {
       if (process.env.RESEND_API_KEY) {
         const horaLocal = now.toLocaleTimeString('es-VE', { hour12: true, timeZone: 'America/Caracas' });
         try {
+          // Obtener datos de la institución
+          const { data: institucion } = await supabaseAdmin
+            .from('instituciones')
+            .select('nombre')
+            .eq('id', estudiante.institucion_id)
+            .maybeSingle();
+
+          const nombreColegio = institucion?.nombre || 'Colegio Rafael Castillo';
+
           const { Resend } = await import('resend');
+          const { generarHtmlCorreoAsistencia } = await import('@/lib/email');
+
           const resend = new Resend(process.env.RESEND_API_KEY);
+          const emailHtml = generarHtmlCorreoAsistencia({
+            nombreRepresentante: estudiante.nombre_representante,
+            nombreEstudiante: estudiante.nombre_completo,
+            tipo,
+            horaLocal,
+            fotoUrl: estudiante.foto_url,
+            nombreColegio,
+            grado: estudiante.grado || '',
+            seccion: estudiante.seccion || ''
+          });
+
           await resend.emails.send({
-            from: 'Colegio Rafael Castillo <notificaciones@aulascolegiorafaelcastillo.com>',
+            from: `${nombreColegio} <notificaciones@aulascolegiorafaelcastillo.com>`,
             to: estudiante.correo_representante,
             subject: `Notificación de ${tipo} - ${estudiante.nombre_completo}`,
-            html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;border:1px solid #e0e0e0;border-radius:10px;">
-              <h2 style="color:#4f46e5;">UE Colegio Rafael Castillo</h2>
-              <p>Estimado(a) <strong>${estudiante.nombre_representante}</strong>,</p>
-              <p>El estudiante <strong>${estudiante.nombre_completo}</strong> ha registrado su <strong>${tipo}</strong> a las <strong>${horaLocal}</strong>.</p>
-              <p style="color:#666;font-size:14px;">Mensaje automático del Sistema de Control de Asistencia.</p>
-            </div>`,
+            html: emailHtml,
           });
-        } catch { /* Email falla silenciosamente */ }
+        } catch (emailErr) { 
+          console.error('Error enviando correo asíncrono:', emailErr);
+        }
       }
 
       return NextResponse.json({
@@ -84,6 +103,7 @@ export async function POST(request: Request) {
         grado: estudiante.grado,
         seccion: estudiante.seccion,
         estudiante_id: estudiante.id,
+        foto_url: estudiante.foto_url || null,
       });
     }
 

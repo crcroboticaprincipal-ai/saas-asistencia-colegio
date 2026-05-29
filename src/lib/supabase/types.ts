@@ -43,6 +43,7 @@ export interface Estudiante {
   qr_code: string;
   created_at: string;
   estado: 'Activo' | 'Retirado' | 'Graduado';
+  foto_url?: string | null;
 }
 
 export interface Asistencia {
@@ -68,6 +69,9 @@ export interface Personal {
   cargo: string | null;
   rol: Rol;
   username: string | null;
+  pin_hash: string | null;
+  password_hash: string | null;
+  usa_password_alfanumerico: boolean;
   activo: boolean;
   created_at: string;
   updated_at: string;
@@ -179,4 +183,68 @@ export interface LoginPinPayload {
   username: string;
   pin: string;
   institucion_nombre_corto: string;
+}
+
+// ── Tipos de Pases Digitales ──
+export type TipoPase = 'ENTRADA' | 'SALIDA' | 'ESPECIAL';
+export type MotivoPase =
+  | 'Retraso por transporte'
+  | 'Malestar de salud'
+  | 'Autorización especial de uniforme'
+  | 'Cita médica'
+  | 'Trámite administrativo'
+  | 'Otro';
+
+export interface Pase {
+  id: string;
+  institucion_id: string;
+  estudiante_id: string;
+  tipo_pase: TipoPase;
+  motivo: string | null;
+  hora_pase: string;
+  fecha: string;
+  profesor_notificado_id: string | null;
+  asignacion_id: string | null;
+  notificacion_enviada: boolean;
+  created_at: string;
+  // Joins opcionales
+  estudiante?: Estudiante;
+  profesor_notificado?: Personal;
+}
+
+export interface NotificacionProfesor {
+  id: string;
+  institucion_id: string;
+  personal_id: string;
+  pase_id: string | null;
+  mensaje: string;
+  leida: boolean;
+  created_at: string;
+  // Joins opcionales
+  pase?: Pase;
+}
+
+// ── Usuario del Sistema (Administradores de Panel) ──
+export type RolAdmin = 'superadmin' | 'admin_institucion' | 'staff_qrono';
+
+export interface UsuarioSistema {
+  id: string;
+  nombre_completo: string;
+  username: string | null;
+  email: string | null;
+  rol: RolAdmin;
+  institucion_id: string | null;
+  activo: boolean;
+  ultimo_acceso: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── Sesión de Admin (para cookies/context) ──
+export interface AdminSession {
+  authenticated: boolean;
+  rol: RolAdmin;
+  institucion_id: string | null;
+  nombre: string;
+  email: string;
 }
