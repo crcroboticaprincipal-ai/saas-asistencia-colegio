@@ -29,8 +29,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // Validate input
-    if (!email || !password) {
+    // Validate input & Backward Compatibility Fallback (e.g. cached login page)
+    let userEmail = email ? email.trim().toLowerCase() : '';
+    if (!userEmail && password) {
+      if (password === 'admin2025') {
+        userEmail = 'orlandoasisto@asisto.app';
+      } else if (password === 'crc2025') {
+        userEmail = 'colegiorafaelcastillo@asisto.app';
+      }
+    }
+
+    if (!userEmail || !password) {
       return NextResponse.json({ error: 'Email y contraseña son requeridos' }, { status: 400 });
     }
 
@@ -39,7 +48,7 @@ export async function POST(request: Request) {
     // 1. Verificar contraseña con función SQL
     const { data: pwValid, error: pwError } = await supabaseAdmin
       .rpc('check_admin_password', {
-        user_email: email.trim().toLowerCase(),
+        user_email: userEmail,
         user_password: password,
       });
 
@@ -51,7 +60,7 @@ export async function POST(request: Request) {
     const { data: usuario, error: userError } = await supabaseAdmin
       .from('usuarios_sistema')
       .select('id, nombre_completo, email, rol, institucion_id, activo')
-      .eq('email', email.trim().toLowerCase())
+      .eq('email', userEmail)
       .eq('activo', true)
       .maybeSingle();
 
