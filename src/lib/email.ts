@@ -117,8 +117,8 @@ export function generarHtmlCorreoAsistencia(data: EmailNotificationData): string
                       <td style="padding-bottom: 12px; font-size: 14px; color: #334155; font-weight: 600; text-align: right;">${horaLocal}</td>
                     </tr>
                     <tr>
-                      <td style="font-size: 13px; color: #64748b; font-weight: 500;">Ubicación</td>
-                      <td style="font-size: 14px; color: #334155; font-weight: 600; text-align: right;">Pórtico Principal</td>
+                      <td style="font-size: 13px; color: #64748b; font-weight: 500; width: 35%;">Ubicación</td>
+                      <td style="font-size: 14px; color: #334155; font-weight: 600; text-align: right;">Puerta Principal</td>
                     </tr>
                   </table>
                   
