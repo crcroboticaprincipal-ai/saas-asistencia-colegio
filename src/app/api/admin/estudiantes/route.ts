@@ -47,8 +47,16 @@ export async function POST(request: Request) {
     // Resolver institucion_id de forma dinámica si no viene en el payload
     let finalInstId = institucion_id;
     if (!finalInstId) {
-      const { data: inst } = await sb.from('instituciones').select('id').limit(1).single();
-      finalInstId = inst?.id || 'c4e8711a-f035-428c-b98f-69555a819ec7';
+      const { data: inst, error: instErr } = await sb
+        .from('instituciones')
+        .select('id')
+        .eq('activo', true)
+        .limit(1)
+        .maybeSingle();
+      if (instErr || !inst) {
+        return NextResponse.json({ error: 'No se encontró una institución activa. Verifique la configuración.' }, { status: 400 });
+      }
+      finalInstId = inst.id;
     }
 
     const { data, error } = await sb
@@ -99,11 +107,19 @@ export async function PUT(request: Request) {
     // Resolver institucion_id si no viene
     let finalInstId = institucion_id;
     if (!finalInstId) {
-      const { data: inst } = await sb.from('instituciones').select('id').limit(1).single();
-      finalInstId = inst?.id || 'c4e8711a-f035-428c-b98f-69555a819ec7';
+      const { data: inst, error: instErr } = await sb
+        .from('instituciones')
+        .select('id')
+        .eq('activo', true)
+        .limit(1)
+        .maybeSingle();
+      if (instErr || !inst) {
+        return NextResponse.json({ error: 'No se encontró una institución activa.' }, { status: 400 });
+      }
+      finalInstId = inst.id;
     }
 
-    const updateData: any = {};
+    const updateData: Record<string, string | null | boolean> = {};
     if (cedula !== undefined) updateData.cedula = cedula.trim();
     if (nombre_completo !== undefined) updateData.nombre_completo = nombre_completo.trim();
     if (grado !== undefined) updateData.grado = grado.trim();

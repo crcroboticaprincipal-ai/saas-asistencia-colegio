@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASISTO — Presentación Junta Directiva 2026</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --indigo: #6366f1;
+      --indigo-dark: #4338ca;
+      --indigo-light: #818cf8;
+      --mint: #10b981;
+      --mint-light: #34d399;
+      --rose: #f43f5e;
+      --amber: #f59e0b;
+      --carbon: #0f172a;
+      --carbon-mid: #1e293b;
+      --carbon-light: #334155;
+      --slate: #64748b;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #475569;
+    }
+
+    html, body {
+      height: 100%;
+      background: #000;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      color: var(--text-primary);
+    }
+
+    /* ── SLIDE CONTAINER ── */
+    #presentation {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+    }
+
+    .slide {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 60px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      transform: translateX(60px);
+      background: var(--carbon);
+    }
+
+    .slide.active {
+      opacity: 1;
+      pointer-events: all;
+      transform: translateX(0);
+    }
+
+    .slide.exit {
+      opacity: 0;
+      transform: translateX(-60px);
+    }
+
+    /* ── STARS BACKGROUND ── */
+    .stars {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .star {
+      position: absolute;
+      border-radius: 50%;
+      background: white;
+      animation: twinkle var(--d, 4s) infinite alternate;
+      opacity: 0.3;
+    }
+    @keyframes twinkle {
+      from { opacity: 0.1; }
+      to { opacity: 0.6; }
+    }
+
+    /* ── SLIDE CONTENT WRAPPERS ── */
+    .slide-inner {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1100px;
+      text-align: center;
+    }
+
+    .slide-left {
+      text-align: left;
+    }
+
+    /* ── NAVIGATION ── */
+    #nav {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      z-index: 100;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 50px;
+      padding: 10px 20px;
+      backdrop-filter: blur(12px);
+    }
+
+    #nav button {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 22px;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 8px;
+      transition: all 0.2s;
+      line-height: 1;
+    }
+    #nav button:hover { background: rgba(99,102,241,0.2); color: white; }
+    #nav button:disabled { opacity: 0.25; cursor: default; }
+
+    #slide-counter {
+      font-size: 13px;
+      color: var(--text-secondary);
+      min-width: 80px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── PROGRESS BAR ── */
+    #progress-bar {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--indigo), var(--mint));
+      z-index: 200;
+      transition: width 0.4s ease;
+    }
+
+    /* ── SLIDE NUMBER BADGE ── */
+    .slide-number {
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      font-size: 11px;
+      color: var(--text-muted);
+      z-index: 100;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ── LOGO BADGE ── */
+    .logo-badge {
+      position: fixed;
+      top: 18px;
+      left: 24px;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      color: var(--indigo-light);
+      z-index: 100;
+    }
+
+    /* ── TYPOGRAPHY ── */
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 50px;
+      margin-bottom: 20px;
+    }
+    .tag-indigo { background: rgba(99,102,241,0.15); color: var(--indigo-light); border: 1px solid rgba(99,102,241,0.3); }
+    .tag-mint { background: rgba(16,185,129,0.15); color: var(--mint-light); border: 1px solid rgba(16,185,129,0.3); }
+    .tag-rose { background: rgba(244,63,94,0.15); color: #fb7185; border: 1px solid rgba(244,63,94,0.3); }
+    .tag-amber { background: rgba(245,158,11,0.15); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
+
+    h1.giant {
+      font-size: clamp(52px, 8vw, 96px);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.03em;
+      color: white;
+    }
+
+    h1.slide-title {
+      font-size: clamp(32px, 4vw, 52px);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: white;
+      margin-bottom: 12px;
+    }
+
+    h2.slide-subtitle {
+      font-size: clamp(15px, 2vw, 20px);
+      font-weight: 400;
+      color: var(--text-secondary);
+      margin-bottom: 40px;
+    }
+
+    /* ── GLASS CARD ── */
+    .glass {
+      background: rgba(30,41,59,0.6);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 20px;
+      backdrop-filter: blur(16px);
+      padding: 24px 28px;
+    }
+
+    .glass-indigo {
+      background: rgba(99,102,241,0.1);
+      border-color: rgba(99,102,241,0.2);
+    }
+    .glass-mint {
+      background: rgba(16,185,129,0.1);
+      border-color: rgba(16,185,129,0.2);
+    }
+    .glass-rose {
+      background: rgba(244,63,94,0.1);
+      border-color: rgba(244,63,94,0.2);
+    }
+    .glass-amber {
+      background: rgba(245,158,11,0.1);
+      border-color: rgba(245,158,11,0.2);
+    }
+
+    /* ── GRID LAYOUTS ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; width: 100%; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; width: 100%; }
+    .grid-4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 16px; width: 100%; }
+
+    /* ── KPI CARD ── */
+    .kpi-card {
+      border-radius: 20px;
+      padding: 28px 24px;
+      text-align: center;
+    }
+    .kpi-number {
+      font-size: clamp(36px, 5vw, 64px);
+      font-weight: 900;
+      line-height: 1;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    .kpi-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    /* ── BULLET LIST ── */
+    .bullet-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: left;
+    }
+    .bullet-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      font-size: 15px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .bullet-list li .icon {
+      flex-shrink: 0;
+      margin-top: 2px;
+      font-size: 16px;
+    }
+    .bullet-list li strong { color: white; }
+
+    /* ── TABLE ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th {
+      text-align: left;
+      padding: 10px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    td {
+      padding: 12px 16px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      line-height: 1.4;
+    }
+    td strong { color: white; }
+    td .pill {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 50px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .pill-mint { background: rgba(16,185,129,0.15); color: var(--mint-light); }
+    .pill-rose { background: rgba(244,63,94,0.15); color: #fb7185; }
+    .pill-amber { background: rgba(245,158,11,0.15); color: #fcd34d; }
+    .pill-indigo { background: rgba(99,102,241,0.15); color: var(--indigo-light); }
+
+    /* ── DIVIDER ── */
+    .divider {
+      width: 60px;
+      height: 3px;
+      border-radius: 999px;
+      margin: 0 auto 28px;
+    }
+
+    /* ── ACTOR NODE ── */
+    .actor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      width: 100%;
+    }
+    .actor-card {
+      border-radius: 18px;
+      padding: 20px 22px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .actor-icon {
+      font-size: 32px;
+      flex-shrink: 0;
+    }
+    .actor-info { text-align: left; }
+    .actor-role { font-size: 12px; color: var(--text-muted); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+    .actor-name { font-size: 16px; font-weight: 700; color: white; margin-bottom: 4px; }
+    .actor-benefit { font-size: 13px; color: var(--text-secondary); }
+
+    /* ── TIMELINE ── */
+    .timeline {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      width: 100%;
+      margin-top: 20px;
+    }
+    .tl-item {
+      flex: 1;
+      text-align: center;
+      position: relative;
+    }
+    .tl-item::after {
+      content: '';
+      position: absolute;
+      top: 14px;
+      right: 0;
+      width: 50%;
+      height: 2px;
+      background: linear-gradient(90deg, var(--indigo), transparent);
+    }
+    .tl-item:last-child::after { display: none; }
+    .tl-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--indigo);
+      margin: 0 auto 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+    }
+    .tl-label { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+    .tl-time { font-size: 15px; font-weight: 800; color: var(--mint-light); margin-bottom: 6px; }
+
+    /* ── GLOW ── */
+    .glow-bg {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(80px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── PRICING ROW ── */
+    .price-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-radius: 14px;
+      margin-bottom: 10px;
+    }
+    .price-segment { font-size: 14px; font-weight: 600; color: white; }
+    .price-market { font-size: 12px; color: var(--text-muted); }
+    .price-tag { font-size: 20px; font-weight: 900; color: var(--mint-light); }
+
+    /* ── QUOTE ── */
+    .quote {
+      font-size: clamp(16px, 2vw, 22px);
+      font-style: italic;
+      color: var(--text-secondary);
+      border-left: 3px solid var(--indigo);
+      padding-left: 24px;
+      text-align: left;
+      line-height: 1.6;
+    }
+    .quote em { color: white; font-style: normal; }
+
+    /* ── SLIDE 01 SPECIFIC ── */
+    .logo-giant {
+      font-size: clamp(72px, 12vw, 130px);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, white 30%, var(--indigo-light) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+
+    .checkmark-overlay {
+      display: inline-block;
+      color: var(--mint);
+    }
+
+    /* ── SEMAPHORE ── */
+    .semaphore {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 20px;
+      border-radius: 14px;
+      margin-bottom: 10px;
+    }
+    .sem-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .sem-dot.green { background: var(--mint); box-shadow: 0 0 10px var(--mint); }
+    .sem-dot.amber { background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: pulse-amber 1.5s infinite; }
+    .sem-dot.red { background: var(--rose); box-shadow: 0 0 10px var(--rose); animation: pulse-red 1s infinite; }
+    @keyframes pulse-amber { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+    @keyframes pulse-red { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+    /* ── PILLAR CARD ── */
+    .pillar {
+      border-radius: 20px;
+      padding: 28px 24px;
+      text-align: left;
+    }
+    .pillar-icon { font-size: 28px; margin-bottom: 14px; }
+    .pillar-name { font-size: 18px; font-weight: 800; color: white; margin-bottom: 8px; }
+    .pillar-sub { font-size: 12px; color: var(--indigo-light); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+    .pillar-bullets { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .pillar-bullets li { font-size: 13px; color: var(--text-secondary); display: flex; gap: 8px; }
+    .pillar-bullets li::before { content: '→'; color: var(--indigo-light); flex-shrink: 0; }
+
+    /* ── STAT ROW ── */
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .stat-row:last-child { border-bottom: none; }
+    .stat-label { font-size: 14px; color: var(--text-secondary); }
+    .stat-value { font-size: 16px; font-weight: 800; color: white; }
+
+    /* KEYBOARD HINT */
+    .key-hint {
+      position: fixed;
+      bottom: 90px;
+      right: 24px;
+      font-size: 11px;
+      color: var(--text-muted);
+      background: rgba(15,23,42,0.7);
+      border: 1px solid rgba(255,255,255,0.05);
+      padding: 6px 12px;
+      border-radius: 8px;
+      z-index: 100;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .slide { padding: 40px 24px; }
+      .grid-3 { grid-template-columns: 1fr; }
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+      .actor-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Stars -->
+<div class="stars" id="stars"></div>
+
+<!-- Glow accents -->
+<div class="glow-bg" style="width:400px;height:400px;background:rgba(99,102,241,0.12);top:-100px;left:-100px;"></div>
+<div class="glow-bg" style="width:350px;height:350px;background:rgba(16,185,129,0.08);bottom:-80px;right:-80px;"></div>
+
+<!-- Progress bar -->
+<div id="progress-bar"></div>
+
+<!-- Logo -->
+<div class="logo-badge">✦ ASISTO</div>
+
+<!-- Slide number -->
+<div class="slide-number" id="slide-number">1 / 14</div>
+
+<!-- Key hint -->
+<div class="key-hint">← → para navegar</div>
+
+<!-- PRESENTATION -->
+<div id="presentation">
+
+  <!-- ════════════════════════════════════════ SLIDE 01 ══ -->
+  <div class="slide active" id="slide-1">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at center, rgba(99,102,241,0.18) 0%, transparent 65%);"></div>
+    <div class="slide-inner" style="position:relative;z-index:1;">
+      <div class="tag tag-indigo" style="margin-bottom:28px;">Junta Directiva — Mayo 2026 · Confidencial</div>
+      <div class="logo-giant">A<span class="checkmark-overlay">✓</span>ISTO</div>
+      <h2 style="font-size:clamp(16px,2vw,22px);font-weight:400;color:var(--text-secondary);max-width:600px;margin:0 auto 40px;">
+        El Sistema Nervioso Digital de la Institución Educativa
+      </h2>
+      <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">
+        <div class="glass" style="padding:14px 24px;display:flex;align-items:center;gap:10px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint);animation:pulse-amber 2s infinite;"></div>
+          <span style="font-size:13px;color:var(--mint-light);font-weight:600;">Sistema en Producción</span>
+        </div>
+        <div class="glass" style="padding:14px 24px;">
+          <span style="font-size:13px;color:var(--text-secondary);">saas-asistencia-colegio.vercel.app</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 02 ══ -->
+  <div class="slide" id="slide-2">
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg, rgba(244,63,94,0.05) 0%, transparent 60%);"></div>
+    <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-rose">El Problema</div>
+      <h1 class="slide-title">El Caos que Nadie Quería Resolver</h1>
+      <h2 class="slide-subtitle">200 años sin cambiar. Hasta ahora.</h2>
+      <div class="grid-3" style="gap:20px;">
+        <div class="glass glass-rose">
+          <div style="font-size:32px;margin-bottom:12px;">📋</div>
+          <div style="font-size:13px;font-weight:700;color:#fb7185;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Lentitud Operativa</div>
+          <div style="font-size:28px;font-weight:900;color:white;margin-bottom:6px;">525 hrs</div>
+          <div style="font-size:13px;color:var(--text-secondary);">de instrucción perdidas al año en listas manuales de papel</div>
+        </div>
+        <div class="glass glass-amber">
+          <div style="font-size:32px;margin-bottom:12px;">🌫️</div>
+          <div style="font-size:13px;font-weight:700;color:#fcd34d;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Opacidad Total</div>
+          <div style="font-size:28px;font-weight:900;color:white;margin-bottom:6px;">7:15 AM</div>
+          <div style="font-size:13px;color:var(--text-secondary);">Nadie sabe cuántos docentes faltaron. La coordinación hace ronda manual.</div>
+        </div>
+        <div class="glass glass-rose">
+          <div style="font-size:32px;margin-bottom:12px;">📉</div>
+          <div style="font-size:13px;font-weight:700;color:#fb7185;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Deserción Invisible</div>
+          <div style="font-size:28px;font-weight:900;color:white;margin-bottom:6px;">0</div>
+          <div style="font-size:13px;color:var(--text-secondary);">sistemas de alerta temprana detectando patrones antes de que sea tarde</div>
+        </div>
+      </div>
+      <div class="quote" style="margin-top:28px;">
+        <em>"Un estudiante lleva 3 viernes faltando. Nadie lo detectó."</em> — El sistema manual no puede ver lo que no registra.
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 03 ══ -->
+  <div class="slide" id="slide-3">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 80% 50%, rgba(99,102,241,0.12) 0%, transparent 60%);"></div>
+    <div class="slide-inner" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-mint">La Solución</div>
+      <h1 class="slide-title">El Ecosistema Asisto</h1>
+      <h2 class="slide-subtitle">Cuatro actores. Una plataforma. Cero papel.</h2>
+      <div class="actor-grid">
+        <div class="actor-card glass glass-indigo">
+          <div class="actor-icon">🎓</div>
+          <div class="actor-info">
+            <div class="actor-role">Estudiante</div>
+            <div class="actor-name">Verificado en < 3 seg</div>
+            <div class="actor-benefit">QR único o cédula de identidad</div>
+          </div>
+        </div>
+        <div class="actor-card glass glass-mint">
+          <div class="actor-icon">📚</div>
+          <div class="actor-info">
+            <div class="actor-role">Docente</div>
+            <div class="actor-name">Lista digital en 90 seg</div>
+            <div class="actor-benefit">Terminal táctil por materia y sección</div>
+          </div>
+        </div>
+        <div class="actor-card glass glass-amber">
+          <div class="actor-icon">🏫</div>
+          <div class="actor-info">
+            <div class="actor-role">Coordinación / Directiva</div>
+            <div class="actor-name">Dashboard en vivo 7:00 AM</div>
+            <div class="actor-benefit">Datos reales, decisiones en tiempo real</div>
+          </div>
+        </div>
+        <div class="actor-card glass glass-indigo">
+          <div class="actor-icon">👨‍👩‍👧</div>
+          <div class="actor-info">
+            <div class="actor-role">Representante</div>
+            <div class="actor-name">Notificación en < 8 seg</div>
+            <div class="actor-benefit">Tranquilidad inmediata, sin llamadas</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 04 ══ -->
+  <div class="slide" id="slide-4">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 20% 80%, rgba(99,102,241,0.1) 0%, transparent 50%);"></div>
+    <div class="slide-inner" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-indigo">Arquitectura</div>
+      <h1 class="slide-title">La Tríada Tecnológica</h1>
+      <h2 class="slide-subtitle">Las mismas herramientas de Netflix, GitHub y el Pentágono.</h2>
+      <div class="grid-3">
+        <div class="pillar glass">
+          <div class="pillar-icon">⚡</div>
+          <div class="pillar-sub">Framework</div>
+          <div class="pillar-name">Next.js 16</div>
+          <ul class="pillar-bullets">
+            <li>Carga en &lt; 300 ms</li>
+            <li>PWA: sin App Store</li>
+            <li>Código fuente 100% seguro</li>
+            <li>Usado por Netflix y GitHub</li>
+          </ul>
+        </div>
+        <div class="pillar glass glass-mint">
+          <div class="pillar-icon">🛡️</div>
+          <div class="pillar-sub">Base de Datos</div>
+          <div class="pillar-name">Supabase</div>
+          <ul class="pillar-bullets">
+            <li>Nube global — sin hardware local</li>
+            <li>RLS: privacidad en código</li>
+            <li>WebSockets en tiempo real</li>
+            <li>Respaldo automático de datos</li>
+          </ul>
+        </div>
+        <div class="pillar glass">
+          <div class="pillar-icon">🌐</div>
+          <div class="pillar-sub">Infraestructura</div>
+          <div class="pillar-name">Vercel</div>
+          <ul class="pillar-bullets">
+            <li>99.99% uptime garantizado</li>
+            <li>40+ regiones en el mundo</li>
+            <li>SSL automático incluido</li>
+            <li>Actualizaciones sin cortes</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 05 ══ -->
+  <div class="slide" id="slide-5">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 70% 30%, rgba(16,185,129,0.1) 0%, transparent 55%);"></div>
+    <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-mint">Módulo Portería</div>
+      <h1 class="slide-title">La Portería Inteligente</h1>
+      <h2 class="slide-subtitle">De la fila y el papel al acceso verificado en 3 segundos.</h2>
+      <div class="grid-2" style="align-items:start;">
+        <div>
+          <div class="glass glass-mint" style="margin-bottom:16px;padding:20px 24px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--mint-light);margin-bottom:10px;">📱 Modalidad 1 — QR Ultrarrápido</div>
+            <ul class="bullet-list">
+              <li><span class="icon">✅</span><span>El estudiante presenta su carnet QR</span></li>
+              <li><span class="icon">⚡</span><span>Validación en <strong>menos de 3 segundos</strong></span></li>
+              <li><span class="icon">🔔</span><span>Notificación enviada al representante automáticamente</span></li>
+            </ul>
+          </div>
+          <div class="glass" style="padding:20px 24px;">
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--indigo-light);margin-bottom:10px;">⌨️ Modalidad 2 — Contingencia por Cédula</div>
+            <ul class="bullet-list">
+              <li><span class="icon">🪪</span><span>Si no porta el carnet, el portero teclea la cédula</span></li>
+              <li><span class="icon">↩️</span><span>Enter → mismo resultado que el QR</span></li>
+              <li><span class="icon">🚫</span><span><strong>Cero excusas</strong> para no registrar asistencia</span></li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <div class="timeline" style="flex-direction:column;gap:0;margin:0;">
+            <div style="display:flex;flex-direction:column;gap:0;width:100%;">
+              <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(16,185,129,0.2);border:2px solid var(--mint);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--mint-light);flex-shrink:0;">1</div>
+                <div><div style="font-size:14px;font-weight:600;color:white;">QR Presentado</div><div style="font-size:12px;color:var(--text-muted);">t = 0.0 seg</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(16,185,129,0.2);border:2px solid var(--mint);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--mint-light);flex-shrink:0;">2</div>
+                <div><div style="font-size:14px;font-weight:600;color:white;">Validado en Base de Datos</div><div style="font-size:12px;color:var(--text-muted);">t = &lt; 1 seg</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(16,185,129,0.2);border:2px solid var(--mint);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--mint-light);flex-shrink:0;">3</div>
+                <div><div style="font-size:14px;font-weight:600;color:white;">Asistencia Registrada</div><div style="font-size:12px;color:var(--text-muted);">t = &lt; 3 seg</div></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;padding:14px 0;">
+                <div style="width:36px;height:36px;border-radius:50%;background:rgba(99,102,241,0.2);border:2px solid var(--indigo);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--indigo-light);flex-shrink:0;">4</div>
+                <div><div style="font-size:14px;font-weight:600;color:white;">Representante Notificado</div><div style="font-size:12px;color:var(--indigo-light);font-weight:700;">t = &lt; 8 seg ⚡</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 06 ══ -->
+  <div class="slide" id="slide-6">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 70%, rgba(99,102,241,0.08) 0%, transparent 50%);"></div>
+    <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-indigo">Módulo RRHH</div>
+      <h1 class="slide-title">Control de Personal y Horarios</h1>
+      <h2 class="slide-subtitle">Evaluación automática, objetiva y sin errores humanos.</h2>
+      <div class="grid-2" style="align-items:start;">
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="glass glass-indigo" style="padding:20px 24px;">
+            <div style="font-size:13px;font-weight:700;color:var(--indigo-light);margin-bottom:10px;">⚙️ Motor de Evaluación Automática</div>
+            <ul class="bullet-list">
+              <li><span class="icon">📅</span><span>Horario personalizado por día para cada docente</span></li>
+              <li><span class="icon">🎯</span><span>Clasifica: <strong>Puntual</strong>, <strong>Retardo</strong> o <strong>Ausente</strong></span></li>
+              <li><span class="icon">⏱️</span><span>Calcula minutos exactos de retardo automáticamente</span></li>
+            </ul>
+          </div>
+          <div class="glass" style="padding:20px 24px;">
+            <div style="font-size:13px;font-weight:700;color:white;margin-bottom:14px;">📊 Exportación a Excel con 1 clic</div>
+            <div class="stat-row"><span class="stat-label">Días trabajados</span><span class="stat-value">23</span></div>
+            <div class="stat-row"><span class="stat-label">Puntuales</span><span class="stat-value" style="color:var(--mint-light);">20</span></div>
+            <div class="stat-row"><span class="stat-label">Retardos</span><span class="stat-value" style="color:#fb7185;">3</span></div>
+            <div class="stat-row"><span class="stat-label">% Puntualidad</span><span class="stat-value" style="color:var(--indigo-light);">87%</span></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">Calendario Visual del Mes</div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">
+            <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">L</div>
+            <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">M</div>
+            <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">X</div>
+            <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">J</div>
+            <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">V</div>
+            <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">S</div>
+            <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">D</div>
+            <!-- Calendario simulado -->
+            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">5<br>▲07:02<br>✓</div>
+            <div style="background:#450a0a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#fca5a5;">6<br>▲07:23<br>+8m</div>
+            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">7<br>▲07:00<br>✓</div>
+            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">8<br>▲07:05<br>✓</div>
+            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">9<br>▲07:01<br>✓</div>
+            <div style="background:#0f172a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#334155;">10<br>—</div>
+            <div style="background:#0f172a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#334155;">11<br>—</div>
+            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">12<br>▲07:00<br>✓</div>
+            <div style="background:#450a0a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#fca5a5;">13<br>▲07:41<br>+26m</div>
+            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">14<br>▲07:03<br>✓</div>
+            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">15<br>▲07:00<br>✓</div>
+            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">16<br>▲07:02<br>✓</div>
+            <div style="background:#0f172a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#334155;">17<br>—</div>
+            <div style="background:#0f172a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#334155;">18<br>—</div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
+              <div style="width:10px;height:10px;border-radius:3px;background:#052e16;border:1px solid #86efac;"></div> Puntual
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
+              <div style="width:10px;height:10px;border-radius:3px;background:#450a0a;border:1px solid #fca5a5;"></div> Retardo
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
+              <div style="width:10px;height:10px;border-radius:3px;background:#0f172a;border:1px solid #334155;"></div> Libre / Sin registro
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 07 ══ -->
+  <div class="slide" id="slide-7">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 60% 40%, rgba(99,102,241,0.1) 0%, transparent 55%);"></div>
+    <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-indigo">Analítica Académica</div>
+      <h1 class="slide-title">Asistencia por Materia</h1>
+      <h2 class="slide-subtitle">Detectando "Fugas Internas" — presente en portería, ausente en el aula.</h2>
+      <div class="grid-2" style="align-items:start;gap:20px;">
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">Ranking de Asistencia por Clase</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                <span style="font-size:13px;color:white;font-weight:600;">Castellano — 4to "A"</span>
+                <span style="font-size:13px;font-weight:800;color:var(--mint-light);">94%</span>
+              </div>
+              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
+                <div style="height:100%;width:94%;background:var(--mint);border-radius:99px;"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                <span style="font-size:13px;color:white;font-weight:600;">Matemáticas — 3ro "B"</span>
+                <span style="font-size:13px;font-weight:800;color:var(--mint-light);">89%</span>
+              </div>
+              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
+                <div style="height:100%;width:89%;background:var(--mint);border-radius:99px;"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                <span style="font-size:13px;color:white;font-weight:600;">Historia — 2do "C"</span>
+                <span style="font-size:13px;font-weight:800;color:var(--amber);">74%</span>
+              </div>
+              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
+                <div style="height:100%;width:74%;background:var(--amber);border-radius:99px;"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                <span style="font-size:13px;color:white;font-weight:600;">Inglés — 5to "A"</span>
+                <span style="font-size:13px;font-weight:800;color:var(--amber);">68%</span>
+              </div>
+              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
+                <div style="height:100%;width:68%;background:var(--amber);border-radius:99px;"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
+                <span style="font-size:13px;color:white;font-weight:600;">Física — 5to "B"</span>
+                <span style="font-size:13px;font-weight:800;color:#fb7185;">51%</span>
+              </div>
+              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
+                <div style="height:100%;width:51%;background:var(--rose);border-radius:99px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <div class="glass glass-mint" style="padding:20px 24px;">
+            <div style="font-size:32px;font-weight:900;color:var(--mint-light);margin-bottom:4px;">1,240</div>
+            <div style="font-size:13px;color:var(--text-secondary);">Presencias registradas este período</div>
+          </div>
+          <div class="glass glass-rose" style="padding:20px 24px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+              <span style="font-size:16px;">⚠️</span>
+              <span style="font-size:12px;font-weight:700;color:#fb7185;text-transform:uppercase;letter-spacing:0.08em;">Mayor Riesgo Detectado</span>
+            </div>
+            <div style="font-size:15px;font-weight:600;color:white;">Física — 5to "B"</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Solo el 51% de asistencia. Intervención sugerida.</div>
+          </div>
+          <div class="glass" style="padding:18px 22px;">
+            <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Presencia Global</div>
+            <div style="display:flex;justify-content:space-between;">
+              <div style="text-align:center;">
+                <div style="font-size:24px;font-weight:900;color:var(--mint-light);">79%</div>
+                <div style="font-size:11px;color:var(--text-muted);">Presentes</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-size:24px;font-weight:900;color:#fb7185;">21%</div>
+                <div style="font-size:11px;color:var(--text-muted);">Ausencias</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 08 ══ -->
+  <div class="slide" id="slide-8">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%, rgba(244,63,94,0.1) 0%, transparent 55%);"></div>
+    <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-rose">Alerta de Personal</div>
+      <h1 class="slide-title">Ausencias del Personal a las 7:15 AM</h1>
+      <h2 class="slide-subtitle">Saber quién faltó antes de que suene el primer timbre.</h2>
+      <div class="grid-2" style="align-items:start;gap:24px;">
+        <div>
+          <div class="quote" style="margin-bottom:20px;font-size:14px;">
+            <em>"Son las 7:32 AM. El coordinador descubrió que faltó el profesor de 1er año B. Los 38 estudiantes llevan 17 minutos sin supervisión."</em>
+            <br><span style="color:var(--text-muted);font-size:12px;font-style:normal;display:block;margin-top:8px;">Este escenario ya no existe con Asisto.</span>
+          </div>
+          <div class="glass" style="padding:20px 24px;margin-bottom:12px;">
+            <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:12px;">Sistema Semafórico de Urgencia</div>
+            <div class="semaphore" style="background:rgba(16,185,129,0.08);border-radius:12px;border:1px solid rgba(16,185,129,0.15);margin-bottom:8px;">
+              <div class="sem-dot green"></div>
+              <div style="font-size:13px;color:var(--text-secondary);">Todo el personal ha marcado. Sin novedades.</div>
+            </div>
+            <div class="semaphore" style="background:rgba(245,158,11,0.08);border-radius:12px;border:1px solid rgba(245,158,11,0.15);margin-bottom:8px;">
+              <div class="sem-dot amber"></div>
+              <div style="font-size:13px;color:var(--text-secondary);">1-2 docentes sin marcar. Atención requerida.</div>
+            </div>
+            <div class="semaphore" style="background:rgba(244,63,94,0.08);border-radius:12px;border:1px solid rgba(244,63,94,0.15);">
+              <div class="sem-dot red"></div>
+              <div style="font-size:13px;color:var(--text-secondary);">3+ docentes sin marcar. Acción inmediata.</div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div style="border-radius:20px;background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.2);padding:24px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+              <div>
+                <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#fb7185;margin-bottom:4px;">Ausencias Esta Mañana</div>
+                <div style="font-size:11px;color:var(--text-muted);">Viernes, 23 de Mayo</div>
+              </div>
+              <div style="width:10px;height:10px;border-radius:50%;background:var(--rose);animation:pulse-red 1s infinite;"></div>
+            </div>
+            <div style="font-size:72px;font-weight:900;color:#fb7185;line-height:1;margin-bottom:8px;">3</div>
+            <div style="font-size:16px;font-weight:600;color:white;margin-bottom:4px;">Profesores Ausentes</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;">18 de 21 han marcado</div>
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;align-items:center;gap:12px;background:rgba(0,0,0,0.3);border-radius:12px;padding:10px 14px;">
+                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7f1d1d,#991b1b);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;">PM</div>
+                <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:white;">Pérez, María</div><div style="font-size:11px;color:var(--text-muted);">Docente</div></div>
+                <div style="font-size:10px;padding:3px 8px;border-radius:50px;background:rgba(244,63,94,0.15);color:#fb7185;border:1px solid rgba(244,63,94,0.2);">Sin marcar</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;background:rgba(0,0,0,0.3);border-radius:12px;padding:10px 14px;">
+                <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7f1d1d,#991b1b);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;flex-shrink:0;">RJ</div>
+                <div style="flex:1;"><div style="font-size:13px;font-weight:600;color:white;">Rodríguez, Juan</div><div style="font-size:11px;color:var(--text-muted);">Coordinador</div></div>
+                <div style="font-size:10px;padding:3px 8px;border-radius:50px;background:rgba(244,63,94,0.15);color:#fb7185;border:1px solid rgba(244,63,94,0.2);">Sin marcar</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 09 ══ -->
+  <div class="slide" id="slide-9">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 40% 60%, rgba(244,63,94,0.08) 0%, transparent 55%);"></div>
+    <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-rose">Prevención de Deserción</div>
+      <h1 class="slide-title">Alerta Temprana Automática</h1>
+      <h2 class="slide-subtitle">El sistema detecta la deserción semanas antes de que ocurra.</h2>
+      <div class="grid-2" style="align-items:start;gap:20px;">
+        <div>
+          <div class="glass glass-rose" style="padding:20px 24px;margin-bottom:14px;">
+            <div style="font-size:13px;font-weight:700;color:#fb7185;margin-bottom:10px;">🔴 Criterio 1 — Tasa Mensual</div>
+            <p style="font-size:14px;color:var(--text-secondary);line-height:1.6;">Si un estudiante tiene menos del <strong style="color:white;">85% de asistencia</strong> en el mes actual (calculado sobre días hábiles reales), el sistema lo marca como <strong style="color:#fb7185;">En Riesgo</strong> automáticamente.</p>
+          </div>
+          <div class="glass glass-amber" style="padding:20px 24px;">
+            <div style="font-size:13px;font-weight:700;color:#fcd34d;margin-bottom:10px;">🟡 Criterio 2 — Patrón Semanal</div>
+            <p style="font-size:14px;color:var(--text-secondary);line-height:1.6;">Si un estudiante faltó el <strong style="color:white;">mismo día de la semana durante 3 semanas consecutivas</strong> (p.ej. 3 lunes seguidos), el algoritmo detecta el patrón y emite la alerta.</p>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--text-muted);margin-bottom:2px;">Panel de Alerta — Estudiantes en Riesgo</div>
+          <div style="background:rgba(244,63,94,0.06);border:1px solid rgba(244,63,94,0.15);border-radius:16px;padding:16px 18px;">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+              <div><div style="font-size:14px;font-weight:700;color:white;">García Ramírez, Luis A.</div><div style="font-size:12px;color:var(--text-muted);">4to Año "B"</div></div>
+              <div style="text-align:right;"><div style="font-size:18px;font-weight:900;color:#fb7185;">28%</div><div style="font-size:10px;color:var(--text-muted);">inasistencia</div></div>
+            </div>
+            <div style="background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.15);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#fb7185;display:flex;gap:6px;align-items:center;">
+              <span>⚠️</span><span>Ausente 3 Viernes seguidos</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <div style="flex:1;text-center;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:8px;text-align:center;font-size:11px;color:var(--indigo-light);font-weight:600;cursor:pointer;">📞 Ver Representante</div>
+              <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;text-align:center;font-size:11px;color:var(--text-secondary);font-weight:600;cursor:pointer;">📥 Historial</div>
+            </div>
+          </div>
+          <div style="background:rgba(244,63,94,0.06);border:1px solid rgba(244,63,94,0.15);border-radius:16px;padding:16px 18px;">
+            <div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:10px;">
+              <div><div style="font-size:14px;font-weight:700;color:white;">Martínez Torres, Ana K.</div><div style="font-size:12px;color:var(--text-muted);">5to Año "A"</div></div>
+              <div style="text-align:right;"><div style="font-size:18px;font-weight:900;color:var(--amber);">18%</div><div style="font-size:10px;color:var(--text-muted);">inasistencia</div></div>
+            </div>
+            <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.15);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#fcd34d;display:flex;gap:6px;align-items:center;">
+              <span>⚠️</span><span>Asistencia inferior al 85% (82%)</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <div style="flex:1;text-center;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);border-radius:8px;padding:8px;text-align:center;font-size:11px;color:var(--indigo-light);font-weight:600;cursor:pointer;">📞 Ver Representante</div>
+              <div style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;text-align:center;font-size:11px;color:var(--text-secondary);font-weight:600;cursor:pointer;">📥 Historial</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 10 ══ -->
+  <div class="slide" id="slide-10">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 70% 60%, rgba(16,185,129,0.08) 0%, transparent 55%);"></div>
+    <div class="slide-inner" style="position:relative;z-index:1;max-width:900px;">
+      <div class="tag tag-mint">Reportes</div>
+      <h1 class="slide-title">Reportes Ejecutivos en Excel</h1>
+      <h2 class="slide-subtitle">Un botón. Un clic. Un documento listo para firma en &lt; 10 segundos.</h2>
+      <div class="grid-2" style="align-items:center;gap:30px;margin-top:10px;">
+        <div style="text-align:left;">
+          <ul class="bullet-list" style="margin-bottom:20px;">
+            <li><span class="icon">📅</span><span>Cuadrícula de calendario visual con código de colores (verde/rojo/ámbar)</span></li>
+            <li><span class="icon">⏰</span><span>Hora de entrada y salida real de cada día</span></li>
+            <li><span class="icon">📊</span><span>Resumen estadístico: días trabajados, puntuales, retardos, % puntualidad</span></li>
+            <li><span class="icon">📋</span><span>Listo para evaluaciones de RRHH, auditorías y reuniones directivas</span></li>
+            <li><span class="icon">⚡</span><span>Descargado al dispositivo en <strong>menos de 10 segundos</strong></span></li>
+          </ul>
+          <div class="glass glass-mint" style="padding:16px 20px;display:inline-flex;align-items:center;gap:10px;">
+            <span style="font-size:18px;">📥</span>
+            <span style="font-size:14px;font-weight:700;color:var(--mint-light);">Exportar Reporte (.xlsx)</span>
+          </div>
+        </div>
+        <div>
+          <!-- Excel mockup -->
+          <div style="border-radius:16px;background:#1a2332;border:1px solid rgba(255,255,255,0.08);overflow:hidden;font-family:monospace;">
+            <div style="background:#0f172a;padding:10px 16px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,0.05);">
+              <div style="width:10px;height:10px;border-radius:50%;background:#ef4444;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b;"></div>
+              <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;"></div>
+              <span style="margin-left:8px;font-size:11px;color:var(--text-muted);">Reporte_Pérez_2026-05.xlsx</span>
+            </div>
+            <div style="padding:12px;">
+              <div style="background:#1e293b;padding:8px 12px;text-align:center;font-size:11px;font-weight:700;color:white;border-radius:6px;margin-bottom:6px;">REPORTE DE ASISTENCIA — PÉREZ, MARÍA</div>
+              <div style="background:#0f172a;padding:4px 12px;text-align:center;font-size:10px;color:var(--text-muted);border-radius:4px;margin-bottom:8px;">MAYO 2026</div>
+              <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:8px;">
+                <div style="text-align:center;color:var(--text-muted);padding:3px;">Lun</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Mar</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Mié</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Jue</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Vie</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Sáb</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Dom</div>
+                <div style="background:#052e16;border-radius:4px;padding:5px 3px;text-align:center;color:#86efac;">5<br>▲07:02</div>
+                <div style="background:#450a0a;border-radius:4px;padding:5px 3px;text-align:center;color:#fca5a5;">6<br>▲07:23</div>
+                <div style="background:#052e16;border-radius:4px;padding:5px 3px;text-align:center;color:#86efac;">7<br>▲07:00</div>
+                <div style="background:#052e16;border-radius:4px;padding:5px 3px;text-align:center;color:#86efac;">8<br>▲07:05</div>
+                <div style="background:#052e16;border-radius:4px;padding:5px 3px;text-align:center;color:#86efac;">9<br>▲07:01</div>
+                <div style="background:#0f172a;border-radius:4px;padding:5px 3px;text-align:center;color:#334155;">10<br>—</div>
+                <div style="background:#0f172a;border-radius:4px;padding:5px 3px;text-align:center;color:#334155;">11<br>—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 11 ══ -->
+  <div class="slide" id="slide-11">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 50%, rgba(99,102,241,0.1) 0%, transparent 60%);"></div>
+    <div class="slide-inner" style="position:relative;z-index:1;max-width:900px;">
+      <div class="tag tag-indigo">Super Admin</div>
+      <h1 class="slide-title">Monitor de Salud del Sistema</h1>
+      <h2 class="slide-subtitle">El panel de control que garantiza cero interrupciones operativas.</h2>
+      <div class="grid-3" style="margin-top:10px;">
+        <div class="glass glass-mint" style="padding:24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">🗄️</div>
+          <div style="width:14px;height:14px;border-radius:50%;background:var(--mint);box-shadow:0 0 14px var(--mint);margin:0 auto 12px;"></div>
+          <div style="font-size:14px;font-weight:700;color:white;margin-bottom:6px;">Base de Datos</div>
+          <div style="font-size:12px;color:var(--mint-light);font-weight:600;">Operativa — 12ms</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Supabase · PostgreSQL</div>
+        </div>
+        <div class="glass glass-mint" style="padding:24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">🔔</div>
+          <div style="width:14px;height:14px;border-radius:50%;background:var(--mint);box-shadow:0 0 14px var(--mint);margin:0 auto 12px;"></div>
+          <div style="font-size:14px;font-weight:700;color:white;margin-bottom:6px;">Notificaciones</div>
+          <div style="font-size:12px;color:var(--mint-light);font-weight:600;">Canal Activo</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Email · WhatsApp</div>
+        </div>
+        <div class="glass glass-mint" style="padding:24px;text-align:center;">
+          <div style="font-size:36px;margin-bottom:12px;">📷</div>
+          <div style="width:14px;height:14px;border-radius:50%;background:var(--mint);box-shadow:0 0 14px var(--mint);margin:0 auto 12px;"></div>
+          <div style="font-size:14px;font-weight:700;color:white;margin-bottom:6px;">Motor de Escaneo</div>
+          <div style="font-size:12px;color:var(--mint-light);font-weight:600;">Respondiendo — 8ms</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Validación QR + Cédula</div>
+        </div>
+      </div>
+      <div class="glass" style="padding:18px 24px;margin-top:20px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--mint);box-shadow:0 0 8px var(--mint);animation:pulse-amber 2s infinite;"></div>
+          <span style="font-size:13px;color:var(--mint-light);font-weight:600;">Sistema Operativo</span>
+        </div>
+        <div style="width:1px;height:20px;background:rgba(255,255,255,0.1);"></div>
+        <span style="font-size:13px;color:var(--text-secondary);">99.99% Uptime — Garantizado por Vercel</span>
+        <div style="width:1px;height:20px;background:rgba(255,255,255,0.1);"></div>
+        <span style="font-size:13px;color:var(--text-secondary);">40+ Regiones Globales</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 12 ══ -->
+  <div class="slide" id="slide-12">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%, rgba(99,102,241,0.12) 0%, transparent 60%);"></div>
+    <div class="slide-inner" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-mint">Impacto Real</div>
+      <h1 class="slide-title">El Impacto en Números</h1>
+      <h2 class="slide-subtitle">Antes y después de Asisto. La diferencia que se puede medir.</h2>
+      <div class="grid-4" style="margin-top:10px;">
+        <div class="kpi-card glass-indigo glass">
+          <div class="kpi-number" style="color:var(--indigo-light);">869</div>
+          <div class="kpi-label">Horas institucionales recuperadas por año</div>
+        </div>
+        <div class="kpi-card glass-mint glass">
+          <div class="kpi-number" style="color:var(--mint-light);">&lt;8s</div>
+          <div class="kpi-label">Notificación automática al representante</div>
+        </div>
+        <div class="kpi-card glass glass-amber">
+          <div class="kpi-number" style="color:#fcd34d;">100%</div>
+          <div class="kpi-label">Representantes notificados automáticamente</div>
+        </div>
+        <div class="kpi-card glass">
+          <div class="kpi-number" style="color:white;">0</div>
+          <div class="kpi-label">Reportes generados manualmente</div>
+        </div>
+      </div>
+      <div class="glass" style="padding:16px 24px;margin-top:20px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Proceso</th>
+              <th>Antes (Manual)</th>
+              <th>Con Asisto</th>
+              <th>Mejora</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Registro de 1 estudiante</td>
+              <td>3–5 minutos (lista papel)</td>
+              <td><strong>&lt; 3 segundos</strong> (QR)</td>
+              <td><span class="pill pill-mint">99.7% más rápido</span></td>
+            </tr>
+            <tr>
+              <td>Notificación al representante</td>
+              <td>Nunca / al final del día</td>
+              <td><strong>8 segundos automático</strong></td>
+              <td><span class="pill pill-mint">Capacidad nueva</span></td>
+            </tr>
+            <tr>
+              <td>Reporte mensual del docente</td>
+              <td>2–4 horas (compilación)</td>
+              <td><strong>&lt; 10 segundos</strong> (Export)</td>
+              <td><span class="pill pill-mint">99.9% más rápido</span></td>
+            </tr>
+            <tr>
+              <td>Detección de deserción</td>
+              <td>Nunca (sin herramientas)</td>
+              <td><strong>Automática en tiempo real</strong></td>
+              <td><span class="pill pill-mint">Capacidad nueva</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 13 ══ -->
+  <div class="slide" id="slide-13">
+    <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 60% 50%, rgba(99,102,241,0.15) 0%, transparent 60%);"></div>
+    <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
+      <div class="tag tag-indigo">Expansión Comercial</div>
+      <h1 class="slide-title">Asisto como Plataforma SaaS</h1>
+      <h2 class="slide-subtitle">De esta institución a un ecosistema educativo regional.</h2>
+      <div class="grid-2" style="align-items:start;gap:24px;">
+        <div>
+          <div class="glass" style="padding:20px 24px;margin-bottom:14px;">
+            <div style="font-size:13px;font-weight:700;color:white;margin-bottom:14px;">🎯 Mercado Potencial — Estado Lara</div>
+            <div class="price-row" style="background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.15);">
+              <div><div class="price-segment">Inst. Pequeña &lt;300 est.</div><div class="price-market">~180 instituciones</div></div>
+              <div class="price-tag">$49/mes</div>
+            </div>
+            <div class="price-row" style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.15);">
+              <div><div class="price-segment">Inst. Mediana 300–800</div><div class="price-market">~140 instituciones</div></div>
+              <div class="price-tag">$99/mes</div>
+            </div>
+            <div class="price-row" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.15);">
+              <div><div class="price-segment">Inst. Grande &gt;800 est.</div><div class="price-market">~60 instituciones</div></div>
+              <div class="price-tag">$199/mes</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <div class="glass glass-indigo" style="padding:20px 24px;text-align:center;">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--indigo-light);margin-bottom:6px;font-weight:700;">Proyección Año 1 — Lara</div>
+            <div style="font-size:42px;font-weight:900;color:white;line-height:1;">$38,400</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">USD Ingreso Recurrente Anual</div>
+          </div>
+          <div class="glass glass-mint" style="padding:20px 24px;text-align:center;">
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--mint-light);margin-bottom:6px;font-weight:700;">Proyección Año 3 — Venezuela</div>
+            <div style="font-size:42px;font-weight:900;color:white;line-height:1;">$288,000</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">USD Ingreso Recurrente Anual</div>
+          </div>
+          <div class="glass" style="padding:14px 20px;display:flex;align-items:center;gap:10px;">
+            <div style="width:8px;height:8px;border-radius:50%;background:var(--mint);flex-shrink:0;"></div>
+            <span style="font-size:12px;color:var(--text-secondary);">Nueva institución agregada al sistema: <strong style="color:white;">&lt; 60 segundos</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════ SLIDE 14 ══ -->
+  <div class="slide" id="slide-14">
+    <div style="position:absolute;inset:0;background:linear-gradient(135deg, var(--carbon) 0%, #1e1b4b 100%);"></div>
+    <div class="slide-inner" style="position:relative;z-index:1;max-width:900px;">
+      <div class="tag tag-indigo" style="margin-bottom:28px;">Llamada a la Acción</div>
+      <h1 class="slide-title" style="margin-bottom:12px;">Los Próximos Pasos</h1>
+      <p style="font-size:16px;color:var(--text-secondary);max-width:600px;margin:0 auto 36px;line-height:1.6;">
+        Asisto ya está vivo. Ya está en producción. La pregunta no es <em style="color:white;">si implementar</em> — es <em style="color:var(--indigo-light);">cuánto lejos queremos llegar.</em>
+      </p>
+      <div class="grid-3" style="gap:16px;margin-bottom:28px;">
+        <div class="glass glass-indigo" style="padding:24px 20px;text-align:center;">
+          <div style="font-size:28px;margin-bottom:12px;">🏫</div>
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--indigo-light);margin-bottom:8px;">Hoy</div>
+          <div style="font-size:15px;font-weight:700;color:white;margin-bottom:8px;">Consolidación</div>
+          <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">Despliegue oficial, capacitación del personal, activación de notificaciones</div>
+        </div>
+        <div class="glass glass-mint" style="padding:24px 20px;text-align:center;">
+          <div style="font-size:28px;margin-bottom:12px;">🚀</div>
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--mint-light);margin-bottom:8px;">Corto Plazo</div>
+          <div style="font-size:15px;font-weight:700;color:white;margin-bottom:8px;">Expansión Piloto</div>
+          <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">3-5 instituciones piloto en Lara, modelo de precios y contrato SaaS</div>
+        </div>
+        <div class="glass" style="padding:24px 20px;text-align:center;border-color:rgba(245,158,11,0.2);background:rgba(245,158,11,0.06);">
+          <div style="font-size:28px;margin-bottom:12px;">🌐</div>
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#fcd34d;margin-bottom:8px;">Mediano Plazo</div>
+          <div style="font-size:15px;font-weight:700;color:white;margin-bottom:8px;">Escala Nacional</div>
+          <div style="font-size:12px;color:var(--text-secondary);line-height:1.5;">WhatsApp API, módulo de calificaciones, Machine Learning, 5 estados</div>
+        </div>
+      </div>
+      <div style="font-size:15px;color:var(--text-muted);font-style:italic;margin-bottom:16px;">
+        "Esta plataforma es el activo tecnológico más valioso que esta institución posee."
+      </div>
+      <div class="glass" style="padding:12px 24px;display:inline-flex;align-items:center;gap:8px;">
+        <div style="width:6px;height:6px;border-radius:50%;background:var(--mint);animation:pulse-amber 2s infinite;"></div>
+        <span style="font-size:13px;color:var(--text-secondary);">saas-asistencia-colegio.vercel.app</span>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /presentation -->
+
+<!-- NAVIGATION -->
+<nav id="nav">
+  <button id="btn-prev" onclick="navigate(-1)" disabled>&#8592;</button>
+  <div id="slide-counter">1 / 14</div>
+  <button id="btn-next" onclick="navigate(1)">&#8594;</button>
+</nav>
+
+<script>
+  const TOTAL = 14;
+  let current = 1;
+
+  // Generate stars
+  const starsEl = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2 + 1;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      top:${Math.random()*100}%;
+      left:${Math.random()*100}%;
+      --d:${(Math.random()*4+2).toFixed(1)}s;
+      animation-delay:${(Math.random()*4).toFixed(1)}s;
+    `;
+    starsEl.appendChild(s);
+  }
+
+  function navigate(dir) {
+    const oldSlide = document.getElementById('slide-' + current);
+    oldSlide.classList.remove('active');
+    if (dir < 0) oldSlide.style.transform = 'translateX(60px)';
+    
+    current = Math.max(1, Math.min(TOTAL, current + dir));
+    
+    const newSlide = document.getElementById('slide-' + current);
+    if (dir > 0) {
+      newSlide.style.transform = 'translateX(60px)';
+    } else {
+      newSlide.style.transform = 'translateX(-60px)';
+    }
+    newSlide.offsetHeight; // force reflow
+    newSlide.classList.add('active');
+
+    // Reset old slide transform after transition
+    setTimeout(() => {
+      oldSlide.style.transform = 'translateX(60px)';
+    }, 600);
+
+    // Update UI
+    document.getElementById('slide-counter').textContent = `${current} / ${TOTAL}`;
+    document.getElementById('slide-number').textContent = `${current} / ${TOTAL}`;
+    document.getElementById('progress-bar').style.width = `${(current / TOTAL) * 100}%`;
+    document.getElementById('btn-prev').disabled = current === 1;
+    document.getElementById('btn-next').disabled = current === TOTAL;
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+      e.preventDefault();
+      if (current < TOTAL) navigate(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (current > 1) navigate(-1);
+    }
+  });
+
+  // Init progress bar
+  document.getElementById('progress-bar').style.width = `${(1/TOTAL)*100}%`;
+</script>
+</body>
+</html>

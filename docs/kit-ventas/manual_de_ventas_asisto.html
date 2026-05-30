@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ASISTO — Manual de Ventas | La Biblia de la Vendedora</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --indigo: #4f46e5;
+    --indigo-light: #818cf8;
+    --indigo-dark: #3730a3;
+    --mint: #059669;
+    --mint-light: #34d399;
+    --rose: #e11d48;
+    --amber: #d97706;
+    --carbon: #0f172a;
+    --carbon-mid: #1e293b;
+    --slate-600: #475569;
+    --slate-400: #94a3b8;
+    --text: #1e293b;
+    --text-light: #475569;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: #f8fafc;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── COVER PAGE ── */
+  .cover {
+    background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 60px 40px;
+    page-break-after: always;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .cover::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 30% 40%, rgba(99,102,241,0.2) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 70%, rgba(16,185,129,0.1) 0%, transparent 50%);
+  }
+
+  .cover-inner { position: relative; z-index: 1; }
+
+  .cover-tag {
+    display: inline-block;
+    background: rgba(99,102,241,0.2);
+    border: 1px solid rgba(99,102,241,0.4);
+    color: #a5b4fc;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 8px 20px;
+    border-radius: 50px;
+    margin-bottom: 32px;
+  }
+
+  .cover-logo {
+    font-size: 88px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    color: white;
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+  .cover-logo span { color: #34d399; }
+
+  .cover-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #e2e8f0;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+
+  .cover-subtitle {
+    font-size: 16px;
+    color: #64748b;
+    max-width: 500px;
+    margin: 0 auto 40px;
+    line-height: 1.6;
+  }
+
+  .cover-divider {
+    width: 60px;
+    height: 3px;
+    background: linear-gradient(90deg, #6366f1, #10b981);
+    border-radius: 99px;
+    margin: 0 auto 40px;
+  }
+
+  .cover-meta {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .cover-meta-item {
+    text-align: center;
+  }
+
+  .cover-meta-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 4px;
+  }
+
+  .cover-meta-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+  }
+
+  /* ── DOCUMENT BODY ── */
+  .document {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 60px 50px;
+    background: white;
+  }
+
+  /* ── TABLE OF CONTENTS ── */
+  .toc {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 32px;
+    margin-bottom: 48px;
+    page-break-after: always;
+  }
+
+  .toc-title {
+    font-size: 13px;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--indigo);
+    margin-bottom: 20px;
+  }
+
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px dashed #e2e8f0;
+    font-size: 13px;
+  }
+  .toc-item:last-child { border-bottom: none; }
+  .toc-item-num { color: var(--indigo); font-weight: 700; margin-right: 12px; width: 20px; flex-shrink: 0; }
+  .toc-item-name { flex: 1; color: var(--text); }
+  .toc-item-dots { flex: 1; border-bottom: 1px dotted #cbd5e1; margin: 0 8px; }
+  .toc-item-page { color: var(--slate-400); font-size: 12px; font-weight: 600; }
+
+  /* ── SECTION HEADERS ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-top: 40px;
+  }
+
+  .section-number {
+    width: 40px;
+    height: 40px;
+    background: var(--indigo);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    font-weight: 900;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .section-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  h2 { font-size: 16px; font-weight: 700; color: var(--text); margin: 28px 0 12px; }
+  h3 { font-size: 14px; font-weight: 700; color: var(--indigo); margin: 20px 0 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  p { margin-bottom: 12px; color: var(--text-light); line-height: 1.7; }
+  p strong { color: var(--text); }
+
+  /* ── CALLOUT BOXES ── */
+  .callout {
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin: 16px 0;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+
+  .callout-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+
+  .callout-indigo { background: #eef2ff; border-left: 4px solid var(--indigo); }
+  .callout-mint { background: #ecfdf5; border-left: 4px solid var(--mint); }
+  .callout-rose { background: #fff1f2; border-left: 4px solid var(--rose); }
+  .callout-amber { background: #fffbeb; border-left: 4px solid var(--amber); }
+
+  .callout p { margin: 0; color: var(--text-light); font-size: 13px; }
+  .callout p strong { color: var(--text); }
+
+  /* ── QUOTE ── */
+  .quote-block {
+    border-left: 4px solid var(--indigo);
+    padding: 16px 20px;
+    background: #eef2ff;
+    border-radius: 0 12px 12px 0;
+    margin: 20px 0;
+    font-style: italic;
+    font-size: 14px;
+    color: #3730a3;
+    line-height: 1.7;
+  }
+
+  .quote-block em { font-style: normal; font-weight: 700; color: var(--indigo-dark); }
+
+  /* ── PROFILE CARDS ── */
+  .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+
+  .profile-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 18px;
+    background: #f8fafc;
+  }
+
+  .profile-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .profile-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  .avatar-indigo { background: #eef2ff; }
+  .avatar-mint { background: #ecfdf5; }
+  .avatar-amber { background: #fffbeb; }
+  .avatar-rose { background: #fff1f2; }
+
+  .profile-name { font-size: 13px; font-weight: 700; color: var(--text); }
+  .profile-role { font-size: 11px; color: var(--slate-400); }
+
+  .profile-bullets { list-style: none; }
+  .profile-bullets li {
+    font-size: 12px;
+    color: var(--text-light);
+    padding: 3px 0;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    line-height: 1.5;
+  }
+  .profile-bullets li::before { content: '→'; color: var(--indigo); flex-shrink: 0; font-weight: 700; }
+
+  /* ── TABLE ── */
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th {
+    background: var(--carbon-mid);
+    color: white;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  th:first-child { border-radius: 8px 0 0 0; }
+  th:last-child { border-radius: 0 8px 0 0; }
+  td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--text-light);
+    vertical-align: top;
+  }
+  td strong { color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr:nth-child(even) td { background: #f8fafc; }
+
+  /* ── OBJECTION BLOCKS ── */
+  .objection-block {
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 20px 0;
+  }
+
+  .objection-header {
+    background: #fff1f2;
+    border-bottom: 1px solid #fecdd3;
+    padding: 14px 18px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .objection-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #be123c;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .objection-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #9f1239;
+    font-style: italic;
+  }
+
+  .objection-response {
+    background: #ecfdf5;
+    padding: 16px 18px;
+    border-bottom: 1px solid #d1fae5;
+  }
+
+  .response-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #065f46;
+    margin-bottom: 8px;
+  }
+
+  .objection-response p {
+    font-size: 13px;
+    color: #064e3b;
+    margin: 0;
+    line-height: 1.7;
+  }
+
+  .objection-tip {
+    background: #eff6ff;
+    padding: 12px 18px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .tip-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #1e40af;
+    flex-shrink: 0;
+  }
+
+  .objection-tip p { font-size: 12px; color: #1e3a8a; margin: 0; font-style: italic; }
+
+  /* ── STEP LIST ── */
+  .step-list { list-style: none; margin: 16px 0; }
+  .step-list li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 12px 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .step-list li:last-child { border-bottom: none; }
+  .step-num {
+    width: 28px;
+    height: 28px;
+    background: var(--indigo);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: white;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .step-content strong { color: var(--text); font-size: 13px; font-weight: 700; }
+  .step-content p { margin: 4px 0 0; font-size: 12px; }
+
+  /* ── ERROR TABLE ── */
+  .error-row-bad td { background: #fff1f2 !important; }
+  .error-row-bad td:first-child { color: #be123c; font-weight: 600; }
+  .error-row-good td { background: #ecfdf5 !important; }
+  .error-row-good td:first-child { color: #065f46; font-weight: 600; }
+
+  /* ── DIVIDER ── */
+  .section-divider {
+    height: 1px;
+    background: linear-gradient(90deg, var(--indigo), transparent);
+    margin: 32px 0;
+  }
+
+  /* ── CREDENTIALS BOX ── */
+  .creds-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 16px 0; }
+  .cred-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .cred-pin { font-size: 22px; font-weight: 900; color: var(--indigo); font-family: monospace; }
+  .cred-name { font-size: 10px; color: var(--slate-400); margin-top: 4px; line-height: 1.3; }
+  .cred-role { font-size: 9px; color: var(--mint); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+  /* ── PRINT STYLES ── */
+  @media print {
+    body { background: white; font-size: 12px; }
+    .document { padding: 0; }
+    .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .callout, .objection-block, .profile-card, .cred-card {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .section-header { page-break-before: auto; }
+    .objection-block { page-break-inside: avoid; }
+    .profile-grid { page-break-inside: avoid; }
+    h2, h3 { page-break-after: avoid; }
+  }
+
+  /* ── NAV BAR (screen only) ── */
+  @media screen {
+    .print-hint {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      background: var(--carbon);
+      color: white;
+      text-align: center;
+      padding: 10px;
+      font-size: 13px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .print-hint kbd {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 5px;
+      padding: 3px 8px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .print-btn {
+      background: var(--indigo);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .print-btn:hover { background: #4338ca; }
+    body { padding-top: 42px; }
+  }
+
+  @media print {
+    .print-hint { display: none !important; }
+    body { padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Screen-only print hint -->
+<div class="print-hint">
+  📄 Para guardar como PDF: presiona <kbd>Ctrl+P</kbd> → selecciona <strong>"Guardar como PDF"</strong> → Escala: 85%
+  <button class="print-btn" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+</div>
+
+<!-- ════════════════════════════ COVER PAGE ════════════════════════════ -->
+<div class="cover">
+  <div class="cover-inner">
+    <div class="cover-tag">Uso Exclusivo — Equipo Comercial Asisto</div>
+    <div class="cover-logo">A<span>✓</span>ISTO</div>
+    <div class="cover-title">Manual de Ventas</div>
+    <p class="cover-subtitle">La Biblia de la Vendedora — Guía maestra de persuasión comercial para la expansión de Asisto en instituciones educativas</p>
+    <div class="cover-divider"></div>
+    <div class="cover-meta">
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Versión</div>
+        <div class="cover-meta-value">1.0 — Mayo 2026</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Clasificación</div>
+        <div class="cover-meta-value">Confidencial Comercial</div>
+      </div>
+      <div class="cover-meta-item">
+        <div class="cover-meta-label">Equipo</div>
+        <div class="cover-meta-value">Expansión Asisto</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════ DOCUMENT ════════════════════════════ -->
+<div class="document">
+
+  <!-- TABLE OF CONTENTS -->
+  <div class="toc">
+    <div class="toc-title">📋 Índice de Contenidos</div>
+    <div class="toc-item"><span class="toc-item-num">1</span><span class="toc-item-name">El Mindset Correcto: No Vendes Software, Vendes Tranquilidad</span><span class="toc-item-dots"></span><span class="toc-item-page">3</span></div>
+    <div class="toc-item"><span class="toc-item-num">2</span><span class="toc-item-name">El Perfil del Cliente: ¿Quién Toma la Decisión?</span><span class="toc-item-dots"></span><span class="toc-item-page">4</span></div>
+    <div class="toc-item"><span class="toc-item-num">3</span><span class="toc-item-name">Propuesta de Valor por Stakeholder</span><span class="toc-item-dots"></span><span class="toc-item-page">5</span></div>
+    <div class="toc-item"><span class="toc-item-num">4</span><span class="toc-item-name">El Discurso de Ascensor (60 Segundos)</span><span class="toc-item-dots"></span><span class="toc-item-page">6</span></div>
+    <div class="toc-item"><span class="toc-item-num">5</span><span class="toc-item-name">La Demo en Vivo: Protocolo Paso a Paso</span><span class="toc-item-dots"></span><span class="toc-item-page">7</span></div>
+    <div class="toc-item"><span class="toc-item-num">6</span><span class="toc-item-name">Guía de Objeciones: Respuestas de Cierre</span><span class="toc-item-dots"></span><span class="toc-item-page">8</span></div>
+    <div class="toc-item"><span class="toc-item-num">7</span><span class="toc-item-name">Estrategia de Posicionamiento Institucional</span><span class="toc-item-dots"></span><span class="toc-item-page">10</span></div>
+    <div class="toc-item"><span class="toc-item-num">8</span><span class="toc-item-name">El Proceso de Cierre: De la Demo al Contrato</span><span class="toc-item-dots"></span><span class="toc-item-page">11</span></div>
+    <div class="toc-item"><span class="toc-item-num">9</span><span class="toc-item-name">Credenciales de Demo en Vivo</span><span class="toc-item-dots"></span><span class="toc-item-page">12</span></div>
+    <div class="toc-item"><span class="toc-item-num">10</span><span class="toc-item-name">Errores Comunes y Cómo Evitarlos</span><span class="toc-item-dots"></span><span class="toc-item-page">13</span></div>
+  </div>
+
+  <!-- ──────────────────── SECCIÓN 1 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">1</div>
+    <div class="section-title">El Mindset Correcto</div>
+  </div>
+
+  <h2>No vendes software. Vendes tranquilidad.</h2>
+
+  <div class="callout callout-indigo">
+    <div class="callout-icon">💡</div>
+    <div><p><strong>Regla de oro:</strong> Ningún director de colegio se levanta pensando: <em>"Necesito un sistema de asistencia digital."</em> Pero sí se levanta pensando en sus problemas. Tu trabajo es conectar Asisto con esos problemas.</p></div>
+  </div>
+
+  <p>Lo que sí piensan los directores y coordinadores de colegios privados en Venezuela, cada mañana:</p>
+
+  <div class="callout callout-rose">
+    <div class="callout-icon">😟</div>
+    <div>
+      <p>• <em>"¿Cuántos profesores van a faltar hoy sin avisarme?"</em></p>
+      <p>• <em>"¿El representante de ese niño que lleva semanas faltando ya llamó?"</em></p>
+      <p>• <em>"El mes que viene tengo inspección y necesito los reportes de asistencia."</em></p>
+      <p>• <em>"Otro colegio de la ciudad lanzó una app. ¿Cómo vamos nosotros?"</em></p>
+    </div>
+  </div>
+
+  <p><strong>Esas son las preguntas que Asisto responde.</strong> Cuando te sientes frente a un director, tu trabajo no es explicar tecnología. Es demostrar que Asisto elimina, uno por uno, los dolores que le generan ansiedad a esa persona todos los días.</p>
+
+  <div class="section-divider"></div>
+
+  <!-- ──────────────────── SECCIÓN 2 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">2</div>
+    <div class="section-title">El Perfil del Cliente</div>
+  </div>
+
+  <p>En las instituciones educativas privadas, la decisión de adoptar Asisto involucra hasta tres personas. Debes identificarlas antes de la reunión.</p>
+
+  <div class="profile-grid">
+    <div class="profile-card">
+      <div class="profile-card-header">
+        <div class="profile-avatar avatar-indigo">🏛️</div>
+        <div><div class="profile-name">El Director / Dueño</div><div class="profile-role">Tomador de decisión final</div></div>
+      </div>
+      <ul class="profile-bullets">
+        <li>La reputación de la institución frente a representantes</li>
+        <li>Diferenciación frente a la competencia</li>
+        <li>Control real de la operación con datos</li>
+        <li>Cumplimiento ante organismos reguladores</li>
+      </ul>
+      <div class="callout callout-indigo" style="margin-top:10px;padding:10px 12px;">
+        <div class="callout-icon" style="font-size:14px;">🎯</div>
+        <p style="font-size:11px;"><strong>Cómo hablarle:</strong> Con visión y datos de mercado. Posicionamiento competitivo.</p>
+      </div>
+    </div>
+    <div class="profile-card">
+      <div class="profile-card-header">
+        <div class="profile-avatar avatar-mint">📋</div>
+        <div><div class="profile-name">El Coordinador Académico</div><div class="profile-role">Tu aliado más poderoso</div></div>
+      </div>
+      <ul class="profile-bullets">
+        <li>No hacer rondas manuales de ausencias</li>
+        <li>Reportes instantáneos para el director</li>
+        <li>Actuar rápido ante ausencias de docentes</li>
+        <li>Detectar deserción antes de que escale</li>
+      </ul>
+      <div class="callout callout-mint" style="margin-top:10px;padding:10px 12px;">
+        <div class="callout-icon" style="font-size:14px;">🎯</div>
+        <p style="font-size:11px;"><strong>Cómo hablarle:</strong> Con practicidad. Hazle la demo. Si la enamoras, ella vende al director.</p>
+      </div>
+    </div>
+    <div class="profile-card">
+      <div class="profile-card-header">
+        <div class="profile-avatar avatar-amber">💼</div>
+        <div><div class="profile-name">La Secretaría / Admin</div><div class="profile-role">Influenciadora interna</div></div>
+      </div>
+      <ul class="profile-bullets">
+        <li>No transcribir listas manuales a Excel</li>
+        <li>No recibir llamadas de representantes preguntando si el hijo llegó</li>
+        <li>Herramientas que hagan su trabajo más ágil</li>
+      </ul>
+      <div class="callout callout-amber" style="margin-top:10px;padding:10px 12px;">
+        <div class="callout-icon" style="font-size:14px;">🎯</div>
+        <p style="font-size:11px;"><strong>Cómo hablarle:</strong> Con empatía. Reconoce años de trabajo manual. Asisto la libera.</p>
+      </div>
+    </div>
+    <div class="profile-card">
+      <div class="profile-card-header">
+        <div class="profile-avatar avatar-rose">👨‍👩‍👧</div>
+        <div><div class="profile-name">Los Representantes</div><div class="profile-role">No están en la reunión pero son el argumento más poderoso</div></div>
+      </div>
+      <ul class="profile-bullets">
+        <li>Saber en tiempo real que su hijo llegó al plantel</li>
+        <li>Canal directo de comunicación con la institución</li>
+        <li>Tranquilidad e información automática</li>
+      </ul>
+      <div class="callout callout-rose" style="margin-top:10px;padding:10px 12px;">
+        <div class="callout-icon" style="font-size:14px;">🎯</div>
+        <p style="font-size:11px;"><strong>Argumento clave:</strong> <em>"¿Cuántos representantes les piden saber si su hijo llegó?"</em></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <!-- ──────────────────── SECCIÓN 3 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">3</div>
+    <div class="section-title">Propuesta de Valor por Stakeholder</div>
+  </div>
+
+  <h2>Para el Director: Prestigio y Control</h2>
+  <div class="quote-block"><em>"Con Asisto, su institución se convierte en referente tecnológico en la región. Los representantes recibirán una notificación en menos de 8 segundos cuando su hijo entre al plantel. Eso no lo ofrece ningún otro colegio de la ciudad hoy."</em></div>
+
+  <table>
+    <thead><tr><th>Punto de Venta</th><th>Argumento Clave</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Diferenciación Competitiva</strong></td><td>Pregunta: <em>"¿Cuántos colegios de esta ciudad notifican al representante en tiempo real?"</em> La respuesta es: ninguno. Asisto convierte a su institución en el primero.</td></tr>
+      <tr><td><strong>Reducción de Riesgo Legal</strong></td><td>Los registros digitales con fecha y hora son auditables instantáneamente. En cualquier disputa con un representante, el registro está disponible en segundos.</td></tr>
+      <tr><td><strong>Control Real del Personal</strong></td><td>El director ya no depende de informes verbales. El sistema genera el reporte mensual de puntualidad de cada docente automáticamente.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Para la Coordinadora: Eficiencia y Poder de Acción</h2>
+  <div class="quote-block"><em>"Imagínate saber a las 7:10 AM exactamente quiénes de tus docentes no han llegado, sin moverte de tu escritorio."</em></div>
+
+  <table>
+    <thead><tr><th>Punto de Venta</th><th>Argumento Clave</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Panel de Ausencias en Tiempo Real</strong></td><td>Semáforo verde/ámbar/rojo visible a las 7:15 AM. Cero rondas manuales por pasillos.</td></tr>
+      <tr><td><strong>Detección Temprana de Deserción</strong></td><td>El algoritmo detecta patrones de riesgo automáticamente. La coordinadora actúa antes de que sea irreversible.</td></tr>
+      <tr><td><strong>Reportes en Segundos</strong></td><td>Haz que haga clic en "Exportar". Pregúntale cuánto tiempo toma ese reporte manualmente. La diferencia habla sola.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="section-divider"></div>
+
+  <!-- ──────────────────── SECCIÓN 4 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">4</div>
+    <div class="section-title">El Discurso de Ascensor (60 Segundos)</div>
+  </div>
+
+  <p>Memoriza este guión y adáptalo a tu estilo natural. Úsalo cuando tengas menos de un minuto para presentar Asisto.</p>
+
+  <div class="callout callout-indigo" style="flex-direction:column;gap:12px;">
+    <div style="display:flex;gap:14px;align-items:flex-start;">
+      <div class="callout-icon">🎤</div>
+      <p style="font-style:italic;color:#1e1b4b;font-size:14px;line-height:1.8;">
+        <em>"Buenos días. Soy [nombre] del equipo de Asisto. Asisto es una plataforma digital que reemplaza completamente el proceso de asistencia manual en colegios privados.<br><br>
+        Resuelve tres cosas: primero, cuando un estudiante entra al plantel, el representante recibe una notificación automática en menos de 8 segundos. Segundo, la coordinación tiene un panel en tiempo real que a las 7 de la mañana le dice exactamente cuántos profesores faltaron y quiénes son. Tercero, el reporte mensual de asistencia de toda la planta docente se genera en Excel con un solo clic.<br><br>
+        <strong>¿Cuánto tiempo lleva hoy en su institución saber quién faltó esta mañana?"</strong></em>
+      </p>
+    </div>
+    <div class="callout callout-amber" style="margin:0;padding:10px 14px;">
+      <div class="callout-icon" style="font-size:14px;">⚡</div>
+      <p style="font-size:12px;"><strong>Clave:</strong> Termina SIEMPRE con una pregunta que mueva al interlocutor a reflexionar sobre el problema, no con información.</p>
+    </div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <!-- ──────────────────── SECCIÓN 5 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">5</div>
+    <div class="section-title">La Demo en Vivo: Protocolo Paso a Paso</div>
+  </div>
+
+  <div class="callout callout-mint">
+    <div class="callout-icon">✅</div>
+    <div><p><strong>Regla de oro:</strong> La demo es el momento de cierre más poderoso que tienes. Hazla siempre. Nunca salgas de una reunión sin mostrar el sistema en pantalla.</p></div>
+  </div>
+
+  <h3>Checklist pre-reunión</h3>
+  <div class="callout callout-indigo" style="padding:14px 18px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;">
+      <div style="font-size:12px;color:#3730a3;">☐ Enlace demo cargado en la tablet/laptop</div>
+      <div style="font-size:12px;color:#3730a3;">☐ Sesión iniciada con PIN 3333 (Coordinador)</div>
+      <div style="font-size:12px;color:#3730a3;">☐ Dashboard con datos activos verificado</div>
+      <div style="font-size:12px;color:#3730a3;">☐ Escáner en segunda pestaña listo</div>
+      <div style="font-size:12px;color:#3730a3;">☐ WiFi o datos móviles verificados</div>
+      <div style="font-size:12px;color:#3730a3;">☐ URL: saas-asistencia-colegio.vercel.app</div>
+    </div>
+  </div>
+
+  <h3>Protocolo de demo (15–20 minutos)</h3>
+
+  <ul class="step-list">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Abrir con el dolor (2 min)</strong>
+        <p>Antes de mostrar pantalla, haz dos preguntas: <em>"¿Cómo saben hoy a qué hora llegó tal profesor el lunes pasado?"</em> y <em>"Si el representante llama ahora, ¿cuánto tardan en confirmarle si su hijo llegó?"</em> Deja que respondan. El silencio incómodo es tuyo.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Dashboard de Coordinación (4 min)</strong>
+        <p>Muestra el panel de Ausencias con el semáforo. Señala el número de ausentes, la lista expandible y la alerta de estudiantes en riesgo de deserción.</p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>El Escáner de Portería (5 min)</strong>
+        <p>Pídele al director que escriba cualquier cédula del listado demo. El sistema valida en verde. Di: <em>"Esto es lo que ve el portero. Y en este momento, el representante está recibiendo la notificación."</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>El Reporte Excel (4 min)</strong>
+        <p>Navega al calendario de RRHH. Haz clic en "Exportar Reporte". Muestra el archivo. Pregunta: <em>"Esto que se generó en 5 segundos, ¿cuánto tiempo toma hacerlo manualmente en su institución?"</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <strong>Pregunta de cierre (2 min)</strong>
+        <p>No expliques más funcionalidades. Cierra con: <em>"En base a lo que acaban de ver, ¿qué parte de su operación creen que Asisto puede impactar más rápidamente?"</em></p>
+      </div>
+    </li>
+  </ul>
+
+  <div class="section-divider"></div>
+
+  <!-- ──────────────────── SECCIÓN 6 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">6</div>
+    <div class="section-title">Guía de Objeciones: Respuestas de Cierre</div>
+  </div>
+
+  <!-- Objeción 1 -->
+  <div class="objection-block">
+    <div class="objection-header">
+      <span class="objection-label">⚡ Objeción 1</span>
+      <span class="objection-text">"En el colegio se va mucho la luz o el internet."</span>
+    </div>
+    <div class="objection-response">
+      <div class="response-label">✅ Respuesta de Cierre</div>
+      <p>Esa es una realidad que tomamos en cuenta desde el primer día. Asisto funciona con señal mínima de datos móviles — cualquier plan básico es suficiente para el escáner de portería. Además, todos los datos están en la nube: si la luz se va, los datos están seguros en múltiples centros de datos globales. Cuando regresa la conexión, el sistema continúa exactamente donde lo dejó sin pérdida de ningún registro. Y en desarrollo tenemos el modo offline, que sincroniza automáticamente al regresar la conexión.</p>
+    </div>
+    <div class="objection-tip">
+      <span class="tip-label">💡 Tip</span>
+      <p>Esta objeción suele venir de alguien que genuinamente intenta encontrar la razón para decir que sí. Trátala como solicitud de información, no como rechazo.</p>
+    </div>
+  </div>
+
+  <!-- Objeción 2 -->
+  <div class="objection-block">
+    <div class="objection-header">
+      <span class="objection-label">⚡ Objeción 2</span>
+      <span class="objection-text">"Los profesores se van a resistir al cambio tecnológico."</span>
+    </div>
+    <div class="objection-response">
+      <div class="response-label">✅ Respuesta de Cierre</div>
+      <p>El sistema del docente es un PIN de 4 dígitos en su propio teléfono. No necesitan instalar nada ni aprender ningún software nuevo. Si pueden usar WhatsApp, pueden usar Asisto. La capacitación completa dura 90 minutos — una sola sesión. Y cuando el docente descubre que Asisto le devuelve 5 a 10 minutos al inicio de cada clase — tiempo antes perdido en listas de papel — se convierte en el mayor defensor del sistema dentro del colegio.</p>
+    </div>
+    <div class="objection-tip">
+      <span class="tip-label">💡 Tip</span>
+      <p>Ofrece hacer la capacitación inicial gratuita como parte del onboarding. Eso elimina el riesgo percibido de la implementación.</p>
+    </div>
+  </div>
+
+  <!-- Objeción 3 -->
+  <div class="objection-block">
+    <div class="objection-header">
+      <span class="objection-label">⚡ Objeción 3</span>
+      <span class="objection-text">"¿Y la seguridad de los datos de los niños?"</span>
+    </div>
+    <div class="objection-response">
+      <div class="response-label">✅ Respuesta de Cierre</div>
+      <p>Es la pregunta más importante que puede hacer, y me alegra que la haga. Asisto implementa seguridad a nivel de fila en toda su base de datos: está programado en el código que ningún representante puede ver datos de otra familia, ningún docente puede acceder a secciones que no son las suyas, y ninguna institución puede ver datos de otra. Los únicos datos que almacenamos son los que ya tiene el colegio en sus listas: nombre, cédula, grado y correo del representante. No almacenamos fotos biométricas ni datos financieros.</p>
+    </div>
+    <div class="objection-tip">
+      <span class="tip-label">💡 Tip</span>
+      <p>Si siguen con dudas, ofrece mostrar la política de privacidad escrita antes de firmar cualquier contrato.</p>
+    </div>
+  </div>
+
+  <!-- Objeción 4 -->
+  <div class="objection-block">
+    <div class="objection-header">
+      <span class="objection-label">⚡ Objeción 4</span>
+      <span class="objection-text">"Ya tenemos un sistema que hacemos en Excel."</span>
+    </div>
+    <div class="objection-response">
+      <div class="response-label">✅ Respuesta de Cierre</div>
+      <p>Entiendo perfectamente. Y probablemente funciona — con mucho trabajo de parte del personal. La pregunta no es si funciona, es: ¿cuánto tiempo están invirtiendo para que funcione? Con ese Excel, ¿el representante recibe una notificación cuando su hijo llega? ¿La coordinación sabe a las 7:15 AM quién faltó? ¿Se genera automáticamente el reporte mensual? Asisto no reemplaza el Excel. Lo hace innecesario. Eso es tiempo de su equipo que puede redirigir hacia lo que realmente importa: la gestión pedagógica.</p>
+    </div>
+    <div class="objection-tip">
+      <span class="tip-label">💡 Tip</span>
+      <p>Pregunta directamente: <em>"¿Cuántas horas al mes dedica su equipo a compilar reportes de asistencia?"</em> El número que digan será tu argumento más poderoso.</p>
+    </div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <!-- ──────────────────── SECCIÓN 7 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">7</div>
+    <div class="section-title">Estrategia de Posicionamiento Institucional</div>
+  </div>
+
+  <h2>Cómo Asisto incrementa el valor percibido del colegio</h2>
+
+  <table>
+    <thead><tr><th>Impacto</th><th>Descripción</th><th>Argumento para el director</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>📈 Mayor Retención</strong></td>
+        <td>Los representantes que se sienten informados renuevan. Los que sienten desconexión buscan alternativas.</td>
+        <td>La comunicación oportuna es el factor #1 en la renovación de matrícula en Latinoamérica.</td>
+      </tr>
+      <tr>
+        <td><strong>📣 Boca a Boca</strong></td>
+        <td>Cuando una mamá le cuenta a otra que recibe notificaciones en tiempo real, ese es el mejor marketing.</td>
+        <td>Convierte a cada representante satisfecho en promotor activo de la institución.</td>
+      </tr>
+      <tr>
+        <td><strong>🏆 Referente Regional</strong></td>
+        <td>Ser el primero en adoptar Asisto posiciona a la institución como referente en innovación educativa.</td>
+        <td>Los mejores docentes quieren trabajar en instituciones que los valoran con herramientas modernas.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout callout-mint">
+    <div class="callout-icon">🎯</div>
+    <div><p><strong>Pregunta de posicionamiento:</strong> <em>"¿Cuántos colegios de esta ciudad están notificando al representante en tiempo real cuando su hijo entra al plantel?"</em> La respuesta —ninguno— es tu argumento más poderoso.</p></div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <!-- ──────────────────── SECCIÓN 8 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">8</div>
+    <div class="section-title">El Proceso de Cierre</div>
+  </div>
+
+  <h2>De la demo al contrato en 5 pasos</h2>
+
+  <ul class="step-list">
+    <li>
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <strong>Confirma el interés</strong>
+        <p><em>"En base a lo que vieron hoy, ¿ven a Asisto como una solución que encaja con las necesidades de su institución?"</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <strong>Identifica al tomador de decisión</strong>
+        <p>Si en la reunión solo está la coordinadora: <em>"¿El director necesita estar presente? ¿Cuándo podría tener 15 minutos con él?"</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <strong>Propón el período de prueba</strong>
+        <p><em>"¿Qué les parece si configuramos la plataforma con sus datos reales y la usan 30 días sin compromiso?"</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <strong>Define la fecha de inicio</strong>
+        <p><em>"La configuración y capacitación toman 3 días hábiles. ¿Cuándo sería el mejor momento para iniciar?"</em></p>
+      </div>
+    </li>
+    <li>
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <strong>Seguimiento en 48 horas</strong>
+        <p>Envía: resumen de beneficios + captura del reporte Excel demo + propuesta formal + fecha de llamada de seguimiento.</p>
+      </div>
+    </li>
+  </ul>
+
+  <div class="section-divider"></div>
+
+  <!-- ──────────────────── SECCIÓN 9 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">9</div>
+    <div class="section-title">Credenciales de Demo en Vivo</div>
+  </div>
+
+  <div class="callout callout-indigo" style="margin-bottom:16px;">
+    <div class="callout-icon">🔗</div>
+    <div><p><strong>URL de la plataforma demo:</strong> <a href="https://saas-asistencia-colegio.vercel.app" style="color:var(--indigo);font-weight:700;">saas-asistencia-colegio.vercel.app</a><br>Institución de acceso: <strong>Colegio Demo Innovación</strong> — código corto: <strong>demo</strong></p></div>
+  </div>
+
+  <div class="creds-grid">
+    <div class="cred-card">
+      <div class="cred-pin">1111</div>
+      <div class="cred-name">c.rodriguez<br>Carlos Rodríguez</div>
+      <div class="cred-role">Docente</div>
+    </div>
+    <div class="cred-card">
+      <div class="cred-pin">2222</div>
+      <div class="cred-name">m.gonzalez<br>María González</div>
+      <div class="cred-role">Docente</div>
+    </div>
+    <div class="cred-card">
+      <div class="cred-pin">3333</div>
+      <div class="cred-name">j.martinez<br>José Martínez</div>
+      <div class="cred-role">Coordinador</div>
+    </div>
+    <div class="cred-card">
+      <div class="cred-pin">4444</div>
+      <div class="cred-name">l.herrera<br>Luisa Herrera</div>
+      <div class="cred-role">Docente</div>
+    </div>
+    <div class="cred-card">
+      <div class="cred-pin">5555</div>
+      <div class="cred-name">r.torres<br>Roberto Torres</div>
+      <div class="cred-role">Director</div>
+    </div>
+  </div>
+
+  <div class="callout callout-amber" style="margin-top:16px;">
+    <div class="callout-icon">⚠️</div>
+    <div><p><strong>Para la demo:</strong> Usa el PIN <strong>3333</strong> (Coordinador) — muestra el dashboard con semáforo de ausencias, los 2 estudiantes en riesgo de deserción ya cargados, el calendario de RRHH con datos de 2 semanas y el botón de exportación a Excel.</p></div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <!-- ──────────────────── SECCIÓN 10 ──────────────────── -->
+  <div class="section-header">
+    <div class="section-number">10</div>
+    <div class="section-title">Errores Comunes y Cómo Evitarlos</div>
+  </div>
+
+  <table>
+    <thead><tr><th>Error</th><th>Por qué es fatal</th><th>Corrección</th></tr></thead>
+    <tbody>
+      <tr class="error-row-bad">
+        <td>Hablar de tecnología en vez de beneficios</td>
+        <td>El director no es técnico y se desconecta</td>
+        <td>Traduce siempre: "base de datos en la nube" → "datos seguros aunque se vaya la luz"</td>
+      </tr>
+      <tr class="error-row-bad">
+        <td>Hacer demo sin internet de respaldo</td>
+        <td>La demo falla y destruye la credibilidad</td>
+        <td>Lleva siempre un hotspot móvil de respaldo</td>
+      </tr>
+      <tr class="error-row-bad">
+        <td>No identificar al tomador de decisión</td>
+        <td>Convences a alguien que no puede decir que sí</td>
+        <td>Pregunta antes: "¿Quién más está involucrado en decisiones de esta naturaleza?"</td>
+      </tr>
+      <tr class="error-row-bad">
+        <td>Dar el precio antes de establecer el valor</td>
+        <td>El precio parece caro sin contexto</td>
+        <td>Primero la demo, primero el dolor, primero el valor. El precio al final.</td>
+      </tr>
+      <tr class="error-row-bad">
+        <td>Terminar la reunión sin próxima acción</td>
+        <td>La oportunidad muere sin seguimiento</td>
+        <td>Siempre cierra con: "¿Cuándo hacemos la próxima llamada?"</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:48px;padding:24px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;text-align:center;">
+    <div style="font-size:32px;margin-bottom:12px;">✦</div>
+    <div style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:8px;">ASISTO — Manual de Ventas v1.0</div>
+    <p style="font-size:12px;color:var(--slate-400);margin:0;">Documento confidencial de uso exclusivo del equipo comercial de Asisto. Mayo 2026.<br>No distribuir externamente sin autorización del equipo de expansión.</p>
+  </div>
+
+</div><!-- /document -->
+
+</body>
+</html>

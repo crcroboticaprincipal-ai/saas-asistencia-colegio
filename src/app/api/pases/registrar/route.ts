@@ -126,10 +126,12 @@ export async function POST(request: Request) {
         .eq('id', pase.id);
     }
 
+    type PersonalJoin = { nombres: string; apellidos: string; correo: string | null } | null;
+    const profe = asignacion?.personal as PersonalJoin | undefined;
     const profesorInfo = asignacion
       ? {
           id: asignacion.personal_id,
-          nombre: `${(asignacion.personal as any)?.nombres} ${(asignacion.personal as any)?.apellidos}`,
+          nombre: profe ? `${profe.nombres} ${profe.apellidos}` : 'Profesor',
           notificado: true,
         }
       : null;

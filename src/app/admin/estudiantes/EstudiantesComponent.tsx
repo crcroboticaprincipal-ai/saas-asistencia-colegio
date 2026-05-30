@@ -16,6 +16,7 @@ type Estudiante = {
   correo_representante: string;
   estado: 'Activo' | 'Retirado' | 'Graduado';
   foto_url?: string | null;
+  institucion_id: string;
 };
 
 export default function EstudiantesComponent() {
@@ -128,9 +129,10 @@ export default function EstudiantesComponent() {
 
       await fetchEstudiantes();
       handleCloseModal();
-    } catch (error: any) {
-      console.error("Error al guardar estudiante:", error);
-      alert(error.message || "Error al guardar los datos del estudiante.");
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Error al guardar los datos del estudiante.';
+      console.error('Error al guardar estudiante:', error);
+      alert(msg);
     } finally {
       setIsSaving(false);
     }
@@ -141,7 +143,8 @@ export default function EstudiantesComponent() {
     if (!file || !editingStudent?.id) return;
     setUploadingPhoto(true);
     try {
-      const institucion_id = 'c4e8711a-f035-428c-b98f-69555a819ec7';
+      // Usar el institucion_id real del estudiante (no hardcodeado)
+      const institucion_id = editingStudent.institucion_id;
       const filePath = `${institucion_id}/${editingStudent.id}.jpg`;
       const { error: upErr } = await supabase.storage
         .from('fotos-estudiantes')
@@ -151,8 +154,9 @@ export default function EstudiantesComponent() {
         .from('fotos-estudiantes')
         .getPublicUrl(filePath);
       setFormData(prev => ({ ...prev, foto_url: urlData.publicUrl }));
-    } catch (err: any) {
-      alert('Error al subir foto: ' + err.message);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al subir foto';
+      alert('Error al subir foto: ' + msg);
     } finally {
       setUploadingPhoto(false);
     }

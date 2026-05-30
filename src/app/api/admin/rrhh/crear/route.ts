@@ -50,8 +50,12 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      if (authError && !authError.message.includes("already been registered")) {
-        throw new Error(authError.message);
+      if (authError) {
+        if (authError.message.includes("already been registered")) {
+          // Auth user exists — still try to link to personal table below
+        } else {
+          throw new Error(authError.message);
+        }
       }
 
       if (authData?.user) {
@@ -78,7 +82,20 @@ export async function POST(req: NextRequest) {
       institucion_id,
     }]).select().single();
 
-    if (dbError) throw new Error(dbError.message);
+    if (dbError) {
+      // Detectar violaciones de restricción única (cédula, username, correo duplicados)
+      if (
+        dbError.message.includes('duplicate key') ||
+        dbError.message.includes('unique constraint') ||
+        dbError.code === '23505'
+      ) {
+        return NextResponse.json(
+          { error: "\u26a0\ufe0f Error: El documento o usuario ya se encuentra registrado" },
+          { status: 409 }
+        );
+      }
+      throw new Error(dbError.message);
+    }
 
     return NextResponse.json({ ok: true, personal: personalData });
   } catch (err: unknown) {
