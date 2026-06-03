@@ -129,41 +129,24 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Error al registrar asistencia del estudiante' }, { status: 500 });
       }
 
-      // Notificación email asíncrona (fire & forget)
-      if (process.env.RESEND_API_KEY) {
-        const horaLocal = now.toLocaleTimeString('es-VE', { hour12: true, timeZone: 'America/Caracas' });
-        Promise.resolve().then(async () => {
-          try {
-            const { data: institucion } = await supabaseAdmin
-              .from('instituciones')
-              .select('nombre')
-              .eq('id', estudiante.institucion_id)
-              .maybeSingle();
+      // Notificación email vía endpoint dedicado (confiable en Vercel serverless)
+      // No usamos await para no bloquear la respuesta al escáner
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL
+        || (request.headers.get('origin') ?? '')
+        || (request.headers.get('x-forwarded-host')
+            ? `https://${request.headers.get('x-forwarded-host')}`
+            : '');
 
-            const nombreColegio = institucion?.nombre || 'Colegio Rafael Castillo';
-            const { Resend } = await import('resend');
-            const { generarHtmlCorreoAsistencia } = await import('@/lib/email');
-            const resend = new Resend(process.env.RESEND_API_KEY);
-            const emailHtml = generarHtmlCorreoAsistencia({
-              nombreRepresentante: estudiante.nombre_representante ?? '',
-              nombreEstudiante: estudiante.nombre_completo ?? '',
-              tipo,
-              horaLocal,
-              fotoUrl: estudiante.foto_url,
-              nombreColegio,
-              grado: estudiante.grado || '',
-              seccion: estudiante.seccion || '',
-            });
-
-            await resend.emails.send({
-              from: `${nombreColegio} <notificaciones@aulascolegiorafaelcastillo.com>`,
-              to: estudiante.correo_representante ?? '',
-              subject: `Notificación de ${tipo} - ${estudiante.nombre_completo}`,
-              html: emailHtml,
-            });
-          } catch (emailErr) {
-            console.error('[escaner/validar] Error enviando correo:', emailErr);
-          }
+      if (baseUrl && estudiante.correo_representante) {
+        fetch(`${baseUrl}/api/notificar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            estudiante_id: estudiante.id,
+            tipo,
+          }),
+        }).catch((err) => {
+          console.error('[escaner/validar] Error disparando notificación:', err);
         });
       }
 
