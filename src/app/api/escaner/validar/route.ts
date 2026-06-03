@@ -138,7 +138,7 @@ export async function POST(request: Request) {
             : '');
 
       if (baseUrl && estudiante.correo_representante) {
-        fetch(`${baseUrl}/api/notificar`, {
+        await fetch(`${baseUrl}/api/notificar`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
