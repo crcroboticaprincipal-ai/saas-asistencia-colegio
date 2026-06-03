@@ -140,72 +140,32 @@ export default function ImportarComponent() {
   }, []);
 
   const handleImport = async () => {
-    if (data.length === 0) return;
+    if (data.length === 0 || !file) return;
     setIsUploading(true);
     setStatus({ type: null, message: "" });
     setImportedStudents([]);
 
     try {
-      // Check for duplicate cedulas in the upload
-      const cedulaSet = new Set<string>();
-      const duplicates: string[] = [];
-      for (const row of data) {
-        if (cedulaSet.has(row.Cedula)) {
-          duplicates.push(row.Cedula);
-        }
-        cedulaSet.add(row.Cedula);
+      const fd = new FormData();
+      fd.append('archivo', file);
+      const res = await fetch('/api/admin/estudiantes/bulk', { method: 'POST', body: fd });
+      const resData = await res.json();
+      if (!res.ok || !resData.ok) {
+        throw new Error(resData.error || 'Error al procesar el archivo');
       }
 
-      if (duplicates.length > 0) {
-        throw new Error(`Cédulas duplicadas en el archivo: ${duplicates.join(', ')}. Corrige el Excel.`);
-      }
+      setStatus({ type: "success", message: `✅ Se importaron ${resData.resumen.insertados} estudiantes correctamente.` });
 
-      // Resolve institucion_id using client session (instantaneous) or authenticated DB query
-      const { data: { session } } = await supabase.auth.getSession();
-      let institucionId = session?.user?.app_metadata?.institucion_id;
-
-      if (!institucionId) {
-        const { data: insts } = await supabase
-          .from("instituciones")
-          .select("id")
-          .limit(1);
-        institucionId = insts?.[0]?.id;
-      }
-
-      // Hardcoded fallback for Colegio Rafael Castillo (CRC)
-      if (!institucionId) {
-        institucionId = "c4e8711a-f035-428c-b98f-69555a819ec7";
-      }
-
-      const recordsToInsert = data.map((row) => ({
-        cedula: row.Cedula,
-        nombre_completo: row.Nombre_Completo,
-        grado: row.Grado,
-        seccion: row.Seccion,
-        nombre_representante: row.Nombre_Representante,
-        correo_representante: row.Correo_Representante,
-        qr_code: generateUniqueQR(row.Cedula),
-        institucion_id: institucionId,
-      }));
-
-      const { data: insertedData, error } = await supabase
-        .from("estudiantes")
-        .upsert(recordsToInsert, { onConflict: "cedula", ignoreDuplicates: false })
-        .select();
-
-      if (error) throw error;
-
-      setStatus({ type: "success", message: `✅ Se importaron ${data.length} estudiantes correctamente. ¡Los QR fueron generados automáticamente!` });
-
-      if (insertedData) {
+      if (resData.resultados) {
+        const insertadosOk = resData.resultados.filter((r: any) => r.estado === 'ok' || r.estado === 'duplicado');
         setImportedStudents(
-          insertedData.map((d) => ({
-            id: d.id,
-            qr_code: d.qr_code,
+          insertadosOk.map((d: any) => ({
+            id: d.cedula,
+            qr_code: `RC-${d.cedula}`,
             cedula: d.cedula,
-            nombre: d.nombre_completo,
-            grado: d.grado,
-            seccion: d.seccion,
+            nombre: d.nombre,
+            grado: d.grado || '',
+            seccion: d.seccion || '',
           }))
         );
       }
