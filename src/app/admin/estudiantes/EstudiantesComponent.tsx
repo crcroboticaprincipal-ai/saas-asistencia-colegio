@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
-import { Printer, QrCode, Search, ChevronLeft, ChevronRight, Edit, Plus, X, Save, Camera, Loader2 } from "lucide-react";
+import { Printer, QrCode, Search, ChevronLeft, ChevronRight, Edit, Plus, X, Save, Camera, Loader2, Upload, Download, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle } from "lucide-react";
 import Image from "next/image";
+import * as XLSX from 'xlsx';
 
 type Estudiante = {
   id: string;
@@ -21,6 +22,21 @@ type Estudiante = {
 
 const PAGE_SIZE = 50;
 
+type BulkResultado = {
+  fila: number;
+  nombre: string;
+  cedula: string;
+  estado: 'ok' | 'error' | 'duplicado';
+  mensaje?: string;
+};
+
+type BulkResumen = {
+  total: number;
+  insertados: number;
+  duplicados: number;
+  errores: number;
+};
+
 export default function EstudiantesComponent() {
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +51,15 @@ export default function EstudiantesComponent() {
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // Bulk upload state
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkFile, setBulkFile] = useState<File | null>(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkResumen, setBulkResumen] = useState<BulkResumen | null>(null);
+  const [bulkResultados, setBulkResultados] = useState<BulkResultado[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const bulkFileRef = useRef<HTMLInputElement>(null);
 
   // Server-side pagination state
   const [currentPage, setCurrentPage] = useState(0); // 0-indexed for API
@@ -207,6 +232,64 @@ export default function EstudiantesComponent() {
     }
   };
 
+  // ── Bulk Upload handlers ──
+  const descargarPlantilla = () => {
+    const cabeceras = [
+      ['cedula', 'nombre_completo', 'grado', 'seccion', 'nombre_representante', 'correo_representante', 'estado']
+    ];
+    const ejemplos = [
+      ['34123456', 'JUAN CARLOS PÉREZ GARCÍA', '5T', 'A', 'MARIA GARCÍA', 'maria@gmail.com', 'Activo'],
+      ['34123457', 'ANA SOFÍA RODRÍGUEZ LÓPEZ', '5T', 'B', 'PEDRO RODRÍGUEZ', 'pedro@hotmail.com', 'Activo'],
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([...cabeceras, ...ejemplos]);
+    // Ancho de columnas
+    ws['!cols'] = [{ wch: 14 }, { wch: 38 }, { wch: 8 }, { wch: 8 }, { wch: 30 }, { wch: 32 }, { wch: 10 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Estudiantes');
+    XLSX.writeFile(wb, 'plantilla_estudiantes_asisto.xlsx');
+  };
+
+  const handleBulkFileSelect = (file: File) => {
+    setBulkFile(file);
+    setBulkResumen(null);
+    setBulkResultados([]);
+  };
+
+  const handleBulkDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleBulkFileSelect(file);
+  };
+
+  const handleBulkUpload = async () => {
+    if (!bulkFile) return;
+    setBulkUploading(true);
+    setBulkResumen(null);
+    setBulkResultados([]);
+    try {
+      const fd = new FormData();
+      fd.append('archivo', bulkFile);
+      const res = await fetch('/api/admin/estudiantes/bulk', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error al procesar el archivo');
+      setBulkResumen(data.resumen);
+      setBulkResultados(data.resultados);
+      // Refrescar lista si hubo inserciones
+      if (data.resumen.insertados > 0) {
+        await fetchEstudiantes(0, '');
+        setCurrentPage(0);
+        setSearchTerm('');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      setBulkResumen({ total: 0, insertados: 0, duplicados: 0, errores: 1 });
+      setBulkResultados([{ fila: 0, nombre: '', cedula: '', estado: 'error', mensaje: msg }]);
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
   if (showPrintView && selectedStudents.length > 0) {
     return <CarnetsView students={selectedStudents} onClose={() => setShowPrintView(false)} />;
   }
@@ -219,6 +302,13 @@ export default function EstudiantesComponent() {
           <p className="text-slate-400 mt-1 text-sm">Gestiona alumnos, códigos QR y correos de notificación.</p>
         </div>
         <div className="flex flex-wrap w-full sm:w-auto gap-3">
+          <button
+            onClick={() => setShowBulkModal(true)}
+            className="px-4 py-2 bg-violet-600 text-white hover:bg-violet-500 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-500/20 text-sm flex-1 sm:flex-none"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Carga Masiva
+          </button>
           <button
             onClick={() => handleOpenModal()}
             className="px-4 py-2 bg-emerald-600 text-white hover:bg-emerald-500 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/20 text-sm flex-1 sm:flex-none"
@@ -546,6 +636,193 @@ export default function EstudiantesComponent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Carga Masiva Excel ── */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl animate-slide-up flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-white/5 flex-shrink-0">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-violet-400" />
+                  Carga Masiva de Estudiantes
+                </h2>
+                <p className="text-slate-400 text-xs mt-1">Sube un archivo Excel o CSV con los datos de los alumnos</p>
+              </div>
+              <button
+                onClick={() => { setShowBulkModal(false); setBulkFile(null); setBulkResumen(null); setBulkResultados([]); }}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-5">
+              {/* Descargar Plantilla */}
+              <div className="flex items-center justify-between p-4 bg-violet-500/10 border border-violet-500/20 rounded-xl">
+                <div>
+                  <p className="text-sm font-semibold text-violet-300">📥 Paso 1 — Descarga la plantilla oficial</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Rellena con los datos de tus alumnos y guarda como .xlsx</p>
+                </div>
+                <button
+                  onClick={descargarPlantilla}
+                  className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ml-4"
+                >
+                  <Download className="w-4 h-4" />
+                  Descargar
+                </button>
+              </div>
+
+              {/* Zona Drag & Drop */}
+              <div>
+                <p className="text-sm font-semibold text-slate-300 mb-2">📤 Paso 2 — Sube el archivo completado</p>
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={handleBulkDrop}
+                  onClick={() => bulkFileRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
+                    dragOver
+                      ? 'border-violet-400 bg-violet-500/10'
+                      : bulkFile
+                      ? 'border-emerald-500/50 bg-emerald-500/5'
+                      : 'border-white/10 hover:border-white/20 hover:bg-white/5'
+                  }`}
+                >
+                  <input
+                    ref={bulkFileRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleBulkFileSelect(f); }}
+                  />
+                  {bulkFile ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <FileSpreadsheet className="w-10 h-10 text-emerald-400" />
+                      <p className="text-emerald-300 font-semibold text-sm">{bulkFile.name}</p>
+                      <p className="text-slate-500 text-xs">{(bulkFile.size / 1024).toFixed(1)} KB · Click para cambiar</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="w-10 h-10 text-slate-500" />
+                      <p className="text-slate-400 font-medium text-sm">Arrastra el archivo aquí o haz click</p>
+                      <p className="text-slate-600 text-xs">.xlsx · .xls · .csv — máx. 500 alumnos</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Columnas esperadas */}
+              {!bulkResumen && (
+                <div className="bg-slate-800/40 rounded-xl p-4 border border-white/5">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Columnas requeridas en la plantilla</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {[
+                      { col: 'cedula', desc: 'Solo números' },
+                      { col: 'nombre_completo', desc: 'Nombres y apellidos' },
+                      { col: 'grado', desc: 'Ej: 5T, 1T' },
+                      { col: 'seccion', desc: 'A, B, C...' },
+                      { col: 'nombre_representante', desc: 'Nombre del rep.' },
+                      { col: 'correo_representante', desc: 'Email válido' },
+                    ].map(({ col, desc }) => (
+                      <div key={col} className="bg-slate-900/50 rounded-lg px-3 py-2">
+                        <p className="text-violet-300 text-xs font-mono font-semibold">{col}</p>
+                        <p className="text-slate-500 text-[10px]">{desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-slate-500 text-xs mt-2">La columna <span className="text-slate-400 font-mono">estado</span> es opcional (Activo por defecto). El QR se genera automáticamente.</p>
+                </div>
+              )}
+
+              {/* Resumen de resultados */}
+              {bulkResumen && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-4 gap-3">
+                    <div className="bg-slate-800/60 rounded-xl p-3 text-center border border-white/5">
+                      <p className="text-2xl font-bold text-white">{bulkResumen.total}</p>
+                      <p className="text-xs text-slate-400 mt-1">Total filas</p>
+                    </div>
+                    <div className="bg-emerald-500/10 rounded-xl p-3 text-center border border-emerald-500/20">
+                      <p className="text-2xl font-bold text-emerald-400">{bulkResumen.insertados}</p>
+                      <p className="text-xs text-emerald-500 mt-1">Insertados</p>
+                    </div>
+                    <div className="bg-amber-500/10 rounded-xl p-3 text-center border border-amber-500/20">
+                      <p className="text-2xl font-bold text-amber-400">{bulkResumen.duplicados}</p>
+                      <p className="text-xs text-amber-500 mt-1">Duplicados</p>
+                    </div>
+                    <div className="bg-rose-500/10 rounded-xl p-3 text-center border border-rose-500/20">
+                      <p className="text-2xl font-bold text-rose-400">{bulkResumen.errores}</p>
+                      <p className="text-xs text-rose-500 mt-1">Errores</p>
+                    </div>
+                  </div>
+
+                  {/* Detalle fila por fila */}
+                  {bulkResultados.filter(r => r.estado !== 'ok').length > 0 && (
+                    <div className="bg-slate-800/40 rounded-xl border border-white/5 overflow-hidden">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-4 py-2 border-b border-white/5">Detalle de errores y duplicados</p>
+                      <div className="divide-y divide-white/5 max-h-48 overflow-y-auto">
+                        {bulkResultados.filter(r => r.estado !== 'ok').map((r, i) => (
+                          <div key={i} className="flex items-center gap-3 px-4 py-2">
+                            {r.estado === 'error'
+                              ? <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                              : <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs text-white truncate">{r.nombre || r.cedula || `Fila ${r.fila}`}</p>
+                              <p className="text-[10px] text-slate-500">{r.mensaje}</p>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                              r.estado === 'error' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'
+                            }`}>{r.estado}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {bulkResumen.insertados > 0 && (
+                    <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                      <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                      <p className="text-sm text-emerald-300 font-medium">
+                        ¡{bulkResumen.insertados} estudiante{bulkResumen.insertados !== 1 ? 's' : ''} registrado{bulkResumen.insertados !== 1 ? 's' : ''} exitosamente!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/5 flex-shrink-0">
+              <button
+                onClick={() => { setShowBulkModal(false); setBulkFile(null); setBulkResumen(null); setBulkResultados([]); }}
+                className="px-5 py-2.5 rounded-xl font-medium text-slate-300 hover:bg-white/5 transition-colors text-sm"
+              >
+                {bulkResumen ? 'Cerrar' : 'Cancelar'}
+              </button>
+              {!bulkResumen && (
+                <button
+                  onClick={handleBulkUpload}
+                  disabled={!bulkFile || bulkUploading}
+                  className="px-6 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium flex items-center gap-2 transition-all text-sm"
+                >
+                  {bulkUploading ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Procesando...</>
+                  ) : (
+                    <><Upload className="w-4 h-4" /> Subir y Registrar</>
+                  )}
+                </button>
+              )}
+              {bulkResumen && bulkResumen.errores === 0 && bulkResumen.duplicados === 0 && (
+                <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
+                  <CheckCircle className="w-4 h-4" /> Todo procesado sin errores
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
