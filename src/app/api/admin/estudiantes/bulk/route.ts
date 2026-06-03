@@ -32,6 +32,25 @@ function getAdmin() {
     );
   }
 
+  // Validar rol del JWT
+  let role = 'unknown';
+  try {
+    const parts = key.split('.');
+    if (parts.length === 3) {
+      const payload = Buffer.from(parts[1], 'base64').toString('utf8');
+      role = JSON.parse(payload).role;
+    }
+  } catch (e) {
+    console.error('Error decodificando JWT de service_role:', e);
+  }
+
+  if (role !== 'service_role') {
+    throw new Error(
+      `⚠️ Error crítico: La llave configurada como SUPABASE_SERVICE_ROLE_KEY tiene el rol "${role}" en lugar de "service_role". ` +
+      'Por favor, asegúrate de configurar la llave service_role correcta (no la anon_key) en tus variables de entorno y reiniciar el servidor.'
+    );
+  }
+
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
