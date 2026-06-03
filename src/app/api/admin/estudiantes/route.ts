@@ -1,9 +1,34 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
 
 function getAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  let key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!key) {
+    try {
+      const envPath = path.resolve(process.cwd(), '.env.local');
+      if (fs.existsSync(envPath)) {
+        const envContent = fs.readFileSync(envPath, 'utf8');
+        const match = envContent.match(/SUPABASE_SERVICE_ROLE_KEY\s*=\s*([^\r\n]+)/);
+        if (match && match[1]) {
+          key = match[1].trim().replace(/^"|"$/g, '');
+        }
+      }
+    } catch (e) {
+      console.warn('Manual reading of .env.local failed:', e);
+    }
+  }
+
+  if (!key) {
+    throw new Error(
+      '⚠️ Error crítico: La variable SUPABASE_SERVICE_ROLE_KEY no está configurada en el servidor. ' +
+      'Si estás en desarrollo local, por favor reinicia tu servidor (npm run dev) para cargar las variables del archivo .env.local.'
+    );
+  }
+
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
