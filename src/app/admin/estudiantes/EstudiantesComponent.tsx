@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/lib/supabase/client";
 import { Printer, QrCode, Search, ChevronLeft, ChevronRight, Edit, Plus, X, Save, Camera, Loader2 } from "lucide-react";
 import Image from "next/image";
@@ -19,6 +19,8 @@ type Estudiante = {
   institucion_id: string;
 };
 
+const PAGE_SIZE = 50;
+
 export default function EstudiantesComponent() {
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,21 +36,24 @@ export default function EstudiantesComponent() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // Paginación
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  // Server-side pagination state
+  const [currentPage, setCurrentPage] = useState(0); // 0-indexed for API
+  const [totalEstudiantes, setTotalEstudiantes] = useState(0);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    fetchEstudiantes();
-  }, []);
-
-  const fetchEstudiantes = async () => {
+  const fetchEstudiantes = useCallback(async (page = 0, search = "") => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/estudiantes");
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+        ...(search ? { search } : {}),
+      });
+      const res = await fetch(`/api/admin/estudiantes?${params}`);
       const resData = await res.json();
       if (resData.ok && resData.data) {
         setEstudiantes(resData.data as Estudiante[]);
+        setTotalEstudiantes(resData.total ?? 0);
       } else {
         console.error("Error fetching students:", resData.error);
       }
@@ -57,7 +62,13 @@ export default function EstudiantesComponent() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchEstudiantes(0, "");
+  }, [fetchEstudiantes]);
+
+
 
   const handleOpenModal = (student?: Estudiante) => {
     if (student) {
@@ -127,7 +138,7 @@ export default function EstudiantesComponent() {
         }
       }
 
-      await fetchEstudiantes();
+      await fetchEstudiantes(currentPage, searchTerm);
       handleCloseModal();
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Error al guardar los datos del estudiante.';
@@ -162,25 +173,29 @@ export default function EstudiantesComponent() {
     }
   };
 
-  const filteredEstudiantes = estudiantes.filter(e => 
-    e.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.cedula.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.grado.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    e.seccion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (e.correo_representante && e.correo_representante.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Server-side data is already filtered and paginated — no client-side slicing needed
+  const currentEstudiantes = estudiantes;
+  const totalPages = Math.ceil(totalEstudiantes / PAGE_SIZE);
 
-  const totalPages = Math.ceil(filteredEstudiantes.length / itemsPerPage);
-  const currentEstudiantes = filteredEstudiantes.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setCurrentPage(0);
+      fetchEstudiantes(0, value);
+    }, 400);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setCurrentPage(newPage);
+    fetchEstudiantes(newPage, searchTerm);
+  };
 
   const toggleSelectAll = () => {
-    if (selectedStudents.length === filteredEstudiantes.length) {
+    if (selectedStudents.length === currentEstudiantes.length) {
       setSelectedStudents([]);
     } else {
-      setSelectedStudents([...filteredEstudiantes]);
+      setSelectedStudents([...currentEstudiantes]);
     }
   };
 
@@ -231,12 +246,9 @@ export default function EstudiantesComponent() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           <input
             type="text"
-            placeholder="Buscar por cédula, nombre, correo..."
+            placeholder="Buscar por cédula, nombre, grado, sección..."
             value={searchTerm}
-            onChange={(e) => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full bg-slate-900/50 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-sm"
           />
         </div>
@@ -248,7 +260,7 @@ export default function EstudiantesComponent() {
                 <th className="px-4 py-3 text-center w-12">
                   <input 
                     type="checkbox" 
-                    checked={selectedStudents.length > 0 && selectedStudents.length === filteredEstudiantes.length}
+                    checked={selectedStudents.length > 0 && selectedStudents.length === currentEstudiantes.length}
                     onChange={toggleSelectAll}
                     className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-blue-500 focus:ring-blue-500 focus:ring-offset-slate-900"
                   />
@@ -339,26 +351,26 @@ export default function EstudiantesComponent() {
           </table>
         </div>
 
-        {/* Paginación */}
-        {!loading && filteredEstudiantes.length > 0 && (
+        {/* Paginación server-side */}
+        {!loading && totalEstudiantes > 0 && (
           <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-400">
             <div>
-              Mostrando {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, filteredEstudiantes.length)} de {filteredEstudiantes.length}
+              Mostrando {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalEstudiantes)} de {totalEstudiantes} estudiantes
             </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                onClick={() => handlePageChange(Math.max(0, currentPage - 1))}
+                disabled={currentPage === 0}
                 className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="px-4 py-2 bg-white/5 rounded-lg font-medium text-white">
-                {currentPage} / {totalPages}
+                {currentPage + 1} / {Math.max(1, totalPages)}
               </span>
               <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
+                onClick={() => handlePageChange(Math.min(totalPages - 1, currentPage + 1))}
+                disabled={currentPage >= totalPages - 1}
                 className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />

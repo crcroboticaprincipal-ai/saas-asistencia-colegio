@@ -1,13 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import {
   Users, Activity, LogIn, LogOut, ShieldAlert, AlertCircle,
-  Building2, Plus, X, Save, Loader2, CheckCircle, Globe, FileText, TrendingUp
+  Building2, Plus, X, Save, Loader2, CheckCircle, Globe, FileText, TrendingUp, ChevronDown
 } from "lucide-react";
-import AusenciasAlertCard from "@/components/AusenciasAlertCard";
-import AlertasDesercionCard from "@/components/AlertasDesercionCard";
+
+const cardSkeleton = () => <div className="animate-pulse h-32 rounded-2xl bg-slate-800/40" />;
+
+const AusenciasAlertCard = dynamic(
+  () => import("@/components/AusenciasAlertCard"),
+  { loading: cardSkeleton, ssr: false }
+);
+
+const AlertasDesercionCard = dynamic(
+  () => import("@/components/AlertasDesercionCard"),
+  { loading: cardSkeleton, ssr: false }
+);
 
 type Asistencia = {
   id: string;
@@ -32,6 +43,12 @@ type Institucion = {
   created_at: string;
 };
 
+// ── Module-level cache for instituciones ──────────────────────────────────
+let _cachedInstituciones: Institucion[] | null = null;
+let _cacheTimestamp = 0;
+const CACHE_TTL = 2 * 60 * 60 * 1000; // 2 horas
+// ───────────────────────────────────────────────────────────────────────────
+
 const NIVEL_LABELS: Record<string, string> = {
   basica: "Básica",
   media: "Media / Bachillerato",
@@ -54,6 +71,7 @@ export default function AdminDashboardPage() {
   const [instituciones, setInstituciones] = useState<Institucion[]>([]);
   const [loadingInst, setLoadingInst] = useState(true);
   const [showInstModal, setShowInstModal] = useState(false);
+  const [showInstituciones, setShowInstituciones] = useState(false);
   const [instForm, setInstForm] = useState({
     nombre: "",
     nombre_corto: "",
@@ -62,6 +80,9 @@ export default function AdminDashboardPage() {
   const [savingInst, setSavingInst] = useState(false);
   const [instError, setInstError] = useState("");
   const [instSuccess, setInstSuccess] = useState("");
+
+  // Collapsible sections
+  const [showSemaforo, setShowSemaforo] = useState(false);
 
   // Pases state
   const [pasesPeriod, setPasesPeriod] = useState<'dia' | 'semana' | 'mes'>('dia');
@@ -122,11 +143,21 @@ export default function AdminDashboardPage() {
   };
 
   const fetchInstituciones = async () => {
+    // SWR-style cache: skip network call if data is still fresh
+    if (_cachedInstituciones !== null && Date.now() - _cacheTimestamp < CACHE_TTL) {
+      setInstituciones(_cachedInstituciones);
+      setLoadingInst(false);
+      return;
+    }
     setLoadingInst(true);
     try {
       const res = await fetch("/api/admin/instituciones");
       const { data } = await res.json();
-      if (data) setInstituciones(data as Institucion[]);
+      if (data) {
+        _cachedInstituciones = data as Institucion[];
+        _cacheTimestamp = Date.now();
+        setInstituciones(_cachedInstituciones);
+      }
     } catch (e) {
       console.error("Error cargando instituciones:", e);
     } finally {
@@ -349,13 +380,22 @@ export default function AdminDashboardPage() {
       {/* ── GESTIÓN DE INSTITUCIONES (Multi-tenant) ── */}
       <div className="glass-panel rounded-xl sm:rounded-2xl p-4 sm:p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowInstituciones((v) => !v)}
+            className="flex items-center gap-2 group"
+            aria-expanded={showInstituciones}
+          >
             <Building2 className="w-5 h-5 text-violet-400" />
             <h2 className="text-base sm:text-lg font-semibold text-white">Instituciones Registradas</h2>
             <span className="ml-1 text-xs bg-violet-500/20 text-violet-300 border border-violet-500/30 px-2 py-0.5 rounded-full font-medium">
               Multi-tenant
             </span>
-          </div>
+            <ChevronDown
+              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${
+                showInstituciones ? "rotate-180" : ""
+              }`}
+            />
+          </button>
           <button
             onClick={() => { setInstError(""); setInstForm({ nombre: "", nombre_corto: "", nivel_educativo: "completa" }); setShowInstModal(true); }}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold transition-all shadow-lg shadow-violet-500/20"
@@ -365,6 +405,15 @@ export default function AdminDashboardPage() {
           </button>
         </div>
 
+        {/* Compact summary when collapsed */}
+        {!showInstituciones && !loadingInst && (
+          <p className="text-sm text-slate-400">
+            {instituciones.length === 0
+              ? "No hay instituciones registradas."
+              : `${instituciones.length} institución(es) registrada(s)`}
+          </p>
+        )}
+
         {instSuccess && (
           <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm">
             <CheckCircle className="w-4 h-4 flex-shrink-0" />
@@ -372,44 +421,46 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {loadingInst ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
-          </div>
-        ) : instituciones.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
-            <Globe className="w-10 h-10 mx-auto mb-2 opacity-30" />
-            <p className="text-sm">No hay instituciones registradas.</p>
-            <p className="text-xs mt-1">Crea la primera institución con el botón &quot;Nueva Institución&quot;.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {instituciones.map((inst) => (
-              <div key={inst.id} className="glass-card p-4 rounded-xl border border-white/[0.06] flex flex-col gap-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{inst.nombre}</p>
-                    {inst.nombre_corto && (
-                      <p className="text-slate-500 text-xs font-mono">@{inst.nombre_corto}</p>
-                    )}
+        {showInstituciones && (
+          loadingInst ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
+            </div>
+          ) : instituciones.length === 0 ? (
+            <div className="text-center py-8 text-slate-500">
+              <Globe className="w-10 h-10 mx-auto mb-2 opacity-30" />
+              <p className="text-sm">No hay instituciones registradas.</p>
+              <p className="text-xs mt-1">Crea la primera institución con el botón &quot;Nueva Institución&quot;.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {instituciones.map((inst) => (
+                <div key={inst.id} className="glass-card p-4 rounded-xl border border-white/[0.06] flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-white font-semibold text-sm truncate">{inst.nombre}</p>
+                      {inst.nombre_corto && (
+                        <p className="text-slate-500 text-xs font-mono">@{inst.nombre_corto}</p>
+                      )}
+                    </div>
+                    <span className={`flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+                      inst.activo
+                        ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+                        : "bg-slate-500/15 text-slate-400 border-slate-500/25"
+                    }`}>
+                      {inst.activo ? "Activa" : "Inactiva"}
+                    </span>
                   </div>
-                  <span className={`flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full border font-medium ${
-                    inst.activo
-                      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
-                      : "bg-slate-500/15 text-slate-400 border-slate-500/25"
-                  }`}>
-                    {inst.activo ? "Activa" : "Inactiva"}
+                  <span className={`text-[11px] px-2.5 py-1 rounded-full border font-medium self-start ${NIVEL_COLORS[inst.nivel_educativo] || "bg-slate-500/20 text-slate-300 border-slate-500/30"}`}>
+                    {NIVEL_LABELS[inst.nivel_educativo] || inst.nivel_educativo}
                   </span>
+                  <p className="text-[10px] text-slate-600 mt-auto pt-1">
+                    Plan: <span className="capitalize text-slate-500">{inst.plan_suscripcion}</span>
+                  </p>
                 </div>
-                <span className={`text-[11px] px-2.5 py-1 rounded-full border font-medium self-start ${NIVEL_COLORS[inst.nivel_educativo] || "bg-slate-500/20 text-slate-300 border-slate-500/30"}`}>
-                  {NIVEL_LABELS[inst.nivel_educativo] || inst.nivel_educativo}
-                </span>
-                <p className="text-[10px] text-slate-600 mt-auto pt-1">
-                  Plan: <span className="capitalize text-slate-500">{inst.plan_suscripcion}</span>
-                </p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
         )}
       </div>
 
@@ -461,41 +512,55 @@ export default function AdminDashboardPage() {
 
         {/* Semáforo */}
         <div className="glass-panel rounded-xl sm:rounded-2xl p-4 sm:p-6 flex flex-col">
-          <h2 className="text-base sm:text-lg font-semibold text-white mb-1.5 flex items-center gap-2">
+          <button
+            onClick={() => setShowSemaforo((v) => !v)}
+            className="flex items-center gap-2 mb-1.5 w-full text-left"
+            aria-expanded={showSemaforo}
+          >
             <ShieldAlert className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
-            Semáforo Conductual
-          </h2>
+            <h2 className="text-base sm:text-lg font-semibold text-white">Semáforo Conductual</h2>
+            <ChevronDown
+              className={`w-4 h-4 text-slate-400 ml-auto transition-transform duration-200 ${
+                showSemaforo ? "rotate-180" : ""
+              }`}
+            />
+          </button>
           <p className="text-[10px] sm:text-xs text-slate-500 mb-3 sm:mb-4">Incidencias del mes en curso</p>
-          <div className="flex gap-3 mb-3 sm:mb-4 text-[10px] sm:text-xs">
-            <span className="text-emerald-400">🟢 ≤1</span>
-            <span className="text-amber-400">🟡 2-3</span>
-            <span className="text-red-400">🔴 &gt;3</span>
-          </div>
 
-          <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[350px] sm:max-h-[380px]">
-            {semaforoData.length === 0 ? (
-              <p className="text-slate-500 text-center py-8 text-sm">Sin datos este mes.</p>
-            ) : (
-              semaforoData.map((est: any, i: number) => {
-                const { bg, emoji, label } = getSemaforoColor(est.count);
-                return (
-                  <div key={i} className={`p-2.5 sm:p-3 rounded-xl border flex items-center justify-between ${bg}`}>
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <span className="text-base sm:text-lg">{emoji}</span>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium truncate">{est.nombre_completo}</p>
-                        <p className="text-[10px] sm:text-xs opacity-60">{est.grado} &ldquo;{est.seccion}&rdquo;</p>
+          {showSemaforo && (
+            <>
+              <div className="flex gap-3 mb-3 sm:mb-4 text-[10px] sm:text-xs">
+                <span className="text-emerald-400">🟢 ≤1</span>
+                <span className="text-amber-400">🟡 2-3</span>
+                <span className="text-red-400">🔴 &gt;3</span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[350px] sm:max-h-[380px]">
+                {semaforoData.length === 0 ? (
+                  <p className="text-slate-500 text-center py-8 text-sm">Sin datos este mes.</p>
+                ) : (
+                  semaforoData.map((est: any, i: number) => {
+                    const { bg, emoji, label } = getSemaforoColor(est.count);
+                    return (
+                      <div key={i} className={`p-2.5 sm:p-3 rounded-xl border flex items-center justify-between ${bg}`}>
+                        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                          <span className="text-base sm:text-lg">{emoji}</span>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-medium truncate">{est.nombre_completo}</p>
+                            <p className="text-[10px] sm:text-xs opacity-60">{est.grado} &ldquo;{est.seccion}&rdquo;</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-2">
+                          <div className="text-lg sm:text-xl font-bold">{est.count}</div>
+                          <p className="text-[8px] sm:text-[10px] uppercase tracking-wider opacity-60">{label}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-2">
-                      <div className="text-lg sm:text-xl font-bold">{est.count}</div>
-                      <p className="text-[8px] sm:text-[10px] uppercase tracking-wider opacity-60">{label}</p>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                    );
+                  })
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 

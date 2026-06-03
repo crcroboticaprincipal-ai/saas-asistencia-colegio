@@ -1,5 +1,70 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
+
+const COLEGIO_ID = 'c4e8711a-f035-428c-b98f-69555a819ec7';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DbClient = SupabaseClient<any, any, any>;
+
+interface EstudianteRow {
+  id: string;
+  cedula: string;
+  nombre_completo: string;
+  grado: string | null;
+  seccion: string | null;
+  estado: string | null;
+  foto_url: string | null;
+  qr_code: string | null;
+  institucion_id: string;
+  nombre_representante: string | null;
+  correo_representante: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * Búsqueda robusta de estudiante por QR o cédula.
+ * Evita el uso de .or() con valores que contienen guiones (V-, E-, RC-)
+ * que pueden romper el parser de filtros de Supabase PostgREST.
+ * Usa búsquedas secuenciales corto-circuitadas en su lugar.
+ */
+async function buscarEstudiante(supabase: DbClient, input: string): Promise<EstudianteRow | null> {
+  // Normalización: mayúsculas, sin espacios
+  const raw = input.trim().toUpperCase().replace(/\s+/g, '');
+
+  // Extraer el número de cédula puro (sin prefijos V-, E-, RC-, QR-)
+  const soloNumeros = raw.replace(/^(RC-|QR-|V-|E-)/, '').replace(/[^0-9]/g, '');
+
+  // Lista de variantes a buscar en orden de probabilidad
+  const candidatos: { campo: 'qr_code' | 'cedula'; valor: string }[] = [
+    { campo: 'qr_code', valor: raw },                    // RC-12345678 exacto
+    { campo: 'cedula',  valor: soloNumeros },             // 12345678
+    { campo: 'cedula',  valor: `V-${soloNumeros}` },      // V-12345678
+    { campo: 'cedula',  valor: `E-${soloNumeros}` },      // E-12345678
+    { campo: 'qr_code', valor: `QR-${soloNumeros}` },    // QR-12345678 (formato alternativo)
+  ];
+
+  // Eliminar duplicados y candidatos vacíos
+  const unicos = candidatos.filter(
+    (c, i, arr) => c.valor && arr.findIndex(x => x.campo === c.campo && x.valor === c.valor) === i
+  );
+
+  for (const { campo, valor } of unicos) {
+    const { data, error } = await supabase
+      .from('estudiantes')
+      .select('*')
+      .eq('institucion_id', COLEGIO_ID)
+      .eq(campo, valor)
+      .maybeSingle();
+
+    if (error) {
+      console.error(`[escaner/validar] Error buscando ${campo}=${valor}:`, error.message);
+      continue;
+    }
+    if (data) return data;
+  }
+
+  return null;
+}
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +85,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Datos insuficientes en la solicitud' }, { status: 400 });
     }
 
+    // Sanitización básica
+    const inputCleaned = qrCode.trim().toUpperCase().replace(/\s+/g, '');
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inputCleaned);
+    const hasKnownPrefix = /^(RC-|QR-|V-|E-)/.test(inputCleaned);
+    const isOnlyNumbers = /^\d+$/.test(inputCleaned);
+
+    if (!isUUID && !hasKnownPrefix && !isOnlyNumbers) {
+      return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
+    }
+
+    // Fecha y hora en zona Venezuela
     const now = new Date();
     const fechaSQL = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Caracas',
@@ -30,20 +106,14 @@ export async function POST(request: Request) {
       hour: '2-digit', minute: '2-digit', second: '2-digit',
     }).format(now);
 
-    // ── 1. Buscar como ESTUDIANTE por qr_code o cédula ──
-    const inputCleaned = qrCode.trim().toUpperCase().replace(/\s+/g, '');
-    const { data: estudiante, error: estError } = await supabaseAdmin
-      .from('estudiantes')
-      .select('*')
-      .or(`qr_code.eq.${inputCleaned},cedula.eq.${inputCleaned},cedula.eq.V-${inputCleaned},cedula.eq.E-${inputCleaned}`)
-      .maybeSingle();
+    // ── 1. Buscar como ESTUDIANTE ──
+    const estudiante = await buscarEstudiante(supabaseAdmin, inputCleaned);
 
-    if (!estError && estudiante) {
+    if (estudiante) {
       if (estudiante.estado && estudiante.estado !== 'Activo') {
         return NextResponse.json({ error: '❌ Acceso Denegado: Estudiante Inactivo / Retirado' }, { status: 403 });
       }
 
-      // Registrar en tabla asistencias
       const { error: errAsis } = await supabaseAdmin
         .from('asistencias')
         .insert([{
@@ -55,46 +125,46 @@ export async function POST(request: Request) {
         }]);
 
       if (errAsis) {
+        console.error('[escaner/validar] Error insertando asistencia:', errAsis.message);
         return NextResponse.json({ error: 'Error al registrar asistencia del estudiante' }, { status: 500 });
       }
 
-      // Notificar por correo de forma asíncrona (fire & forget)
+      // Notificación email asíncrona (fire & forget)
       if (process.env.RESEND_API_KEY) {
         const horaLocal = now.toLocaleTimeString('es-VE', { hour12: true, timeZone: 'America/Caracas' });
-        try {
-          // Obtener datos de la institución
-          const { data: institucion } = await supabaseAdmin
-            .from('instituciones')
-            .select('nombre')
-            .eq('id', estudiante.institucion_id)
-            .maybeSingle();
+        Promise.resolve().then(async () => {
+          try {
+            const { data: institucion } = await supabaseAdmin
+              .from('instituciones')
+              .select('nombre')
+              .eq('id', estudiante.institucion_id)
+              .maybeSingle();
 
-          const nombreColegio = institucion?.nombre || 'Colegio Rafael Castillo';
+            const nombreColegio = institucion?.nombre || 'Colegio Rafael Castillo';
+            const { Resend } = await import('resend');
+            const { generarHtmlCorreoAsistencia } = await import('@/lib/email');
+            const resend = new Resend(process.env.RESEND_API_KEY);
+            const emailHtml = generarHtmlCorreoAsistencia({
+              nombreRepresentante: estudiante.nombre_representante ?? '',
+              nombreEstudiante: estudiante.nombre_completo ?? '',
+              tipo,
+              horaLocal,
+              fotoUrl: estudiante.foto_url,
+              nombreColegio,
+              grado: estudiante.grado || '',
+              seccion: estudiante.seccion || '',
+            });
 
-          const { Resend } = await import('resend');
-          const { generarHtmlCorreoAsistencia } = await import('@/lib/email');
-
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          const emailHtml = generarHtmlCorreoAsistencia({
-            nombreRepresentante: estudiante.nombre_representante,
-            nombreEstudiante: estudiante.nombre_completo,
-            tipo,
-            horaLocal,
-            fotoUrl: estudiante.foto_url,
-            nombreColegio,
-            grado: estudiante.grado || '',
-            seccion: estudiante.seccion || ''
-          });
-
-          await resend.emails.send({
-            from: `${nombreColegio} <notificaciones@aulascolegiorafaelcastillo.com>`,
-            to: estudiante.correo_representante,
-            subject: `Notificación de ${tipo} - ${estudiante.nombre_completo}`,
-            html: emailHtml,
-          });
-        } catch (emailErr) { 
-          console.error('Error enviando correo asíncrono:', emailErr);
-        }
+            await resend.emails.send({
+              from: `${nombreColegio} <notificaciones@aulascolegiorafaelcastillo.com>`,
+              to: estudiante.correo_representante ?? '',
+              subject: `Notificación de ${tipo} - ${estudiante.nombre_completo}`,
+              html: emailHtml,
+            });
+          } catch (emailErr) {
+            console.error('[escaner/validar] Error enviando correo:', emailErr);
+          }
+        });
       }
 
       return NextResponse.json({
@@ -107,22 +177,22 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── 2. Buscar como PERSONAL (el QR contiene el UUID del registro en personal) ──
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(qrCode);
+    // ── 2. Buscar como PERSONAL (UUID directo) ──
     if (!isUUID) {
-      return NextResponse.json({ error: 'Código QR no reconocido en el sistema' }, { status: 404 });
+      return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
     }
 
     const { data: personal, error: perError } = await supabaseAdmin
       .from('personal')
       .select('*')
-      .eq('id', qrCode)
+      .eq('id', inputCleaned)
+      .eq('institucion_id', COLEGIO_ID)
       .maybeSingle();
 
     if (perError || !personal) {
       return NextResponse.json(
-        { error: 'Código QR no pertenece a ningún estudiante ni empleado registrado' },
-        { status: 404 }
+        { error: '⚠️ Código no reconocido por el sistema Asisto' },
+        { status: 400 }
       );
     }
 
@@ -133,7 +203,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Registrar en tabla asistencia_personal
     const { error: errAsisPer } = await supabaseAdmin
       .from('asistencia_personal')
       .insert([{
@@ -146,6 +215,7 @@ export async function POST(request: Request) {
       }]);
 
     if (errAsisPer) {
+      console.error('[escaner/validar] Error insertando asistencia personal:', errAsisPer.message);
       return NextResponse.json({ error: 'Error al registrar asistencia del empleado' }, { status: 500 });
     }
 
@@ -158,7 +228,8 @@ export async function POST(request: Request) {
     });
 
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Error interno del servidor';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const msg = error instanceof Error ? error.message : 'Error desconocido';
+    console.error('[escaner/validar] Error inesperado:', msg);
+    return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
   }
 }

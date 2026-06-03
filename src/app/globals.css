@@ -100,11 +100,11 @@
 }
 
 .animate-fade-in {
-  animation: fadeIn 0.45s ease-out forwards;
+  animation: fadeIn 0.2s ease-out forwards;
 }
 
 .animate-slide-up {
-  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-glow {

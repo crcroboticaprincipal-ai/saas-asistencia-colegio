@@ -7,17 +7,39 @@ function getAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-// GET — Lista todos los estudiantes
-export async function GET() {
+// GET — Lista estudiantes con paginación server-side via .range()
+export async function GET(request: Request) {
   try {
     const sb = getAdmin();
-    const { data, error } = await sb
+    const { searchParams } = new URL(request.url);
+    const page = Math.max(0, parseInt(searchParams.get('page') ?? '0', 10));
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10)));
+    const search = searchParams.get('search')?.trim() ?? '';
+    const from = page * limit;
+    const to = from + limit - 1;
+
+    let query = sb
       .from('estudiantes')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('nombre_completo');
-    
+
+    // Filtro de búsqueda server-side (ilike en columnas indexadas)
+    if (search) {
+      query = query.or(
+        `nombre_completo.ilike.%${search}%,cedula.ilike.%${search}%,grado.ilike.%${search}%,seccion.ilike.%${search}%`
+      );
+    }
+
+    const { data, error, count } = await query.range(from, to);
+
     if (error) throw new Error(error.message);
-    return NextResponse.json({ ok: true, data: data ?? [] });
+    return NextResponse.json({
+      ok: true,
+      data: data ?? [],
+      total: count ?? 0,
+      page,
+      limit,
+    });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Error al obtener estudiantes' }, { status: 500 });
   }

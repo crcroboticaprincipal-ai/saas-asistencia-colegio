@@ -41,16 +41,56 @@ export async function POST(request: Request) {
       now.toLocaleString('en-US', { timeZone: 'America/Caracas' })
     ).getDay();
 
-    // Buscar estudiante
+    // Sanitización del Payload y Validación de Formato
     const inputCleaned = qrCode.trim().toUpperCase().replace(/\s+/g, '');
-    const { data: estudiante, error: estError } = await supabaseAdmin
-      .from('estudiantes')
-      .select('*')
-      .or(`qr_code.eq.${inputCleaned},cedula.eq.${inputCleaned},cedula.eq.V-${inputCleaned},cedula.eq.E-${inputCleaned}`)
-      .maybeSingle();
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inputCleaned);
+    const hasAsistoPrefix = /^(RC-|QR-)/.test(inputCleaned);
+    const isOnlyNumbers = /^\d+$/.test(inputCleaned);
+
+    if (!isUUID && !hasAsistoPrefix && !isOnlyNumbers) {
+      return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
+    }
+
+    const COLEGIO_ID = 'c4e8711a-f035-428c-b98f-69555a819ec7';
+
+    // Buscar estudiante
+    let estudiante = null;
+    let estError = null;
+
+    try {
+      const resEst = await supabaseAdmin
+        .from('estudiantes')
+        .select('*')
+        .eq('institucion_id', COLEGIO_ID)
+        .or(`qr_code.eq.${inputCleaned},cedula.eq.${inputCleaned},cedula.eq.V-${inputCleaned},cedula.eq.E-${inputCleaned}`)
+        .maybeSingle();
+
+      estudiante = resEst.data;
+      estError = resEst.error;
+
+      // Búsqueda Fallback por Cédula extraída si falla la búsqueda directa
+      if (!estError && !estudiante) {
+        const cedulaExtraida = inputCleaned.replace(/^(RC-|QR-)/, '').replace(/[^0-9]/g, '');
+        if (cedulaExtraida) {
+          const resFallback = await supabaseAdmin
+            .from('estudiantes')
+            .select('*')
+            .eq('institucion_id', COLEGIO_ID)
+            .or(`cedula.eq.${cedulaExtraida},cedula.eq.V-${cedulaExtraida},cedula.eq.E-${cedulaExtraida}`)
+            .maybeSingle();
+
+          if (!resFallback.error && resFallback.data) {
+            estudiante = resFallback.data;
+          }
+        }
+      }
+    } catch (dbErr) {
+      console.error('Error en búsqueda de estudiante para pase:', dbErr);
+      return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
+    }
 
     if (estError || !estudiante) {
-      return NextResponse.json({ error: 'Estudiante no encontrado en el sistema' }, { status: 404 });
+      return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
     }
 
     if (estudiante.estado !== 'Activo') {

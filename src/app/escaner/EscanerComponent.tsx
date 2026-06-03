@@ -34,12 +34,14 @@ export default function EscanerComponent() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error" | null; text: string }>({ type: null, text: "" });
   const scannerRef = useRef<any>(null);
+  const processingRef = useRef(false);
   const [showCedulaInput, setShowCedulaInput] = useState(false);
   const [cedulaInput, setCedulaInput] = useState("");
 
-  // Init scanner only after mode is selected and no result yet
+  // Scanner runs CONTINUOUSLY — never destroyed between scans.
+  // processingRef gates duplicate reads. Only stops on mode change.
   useEffect(() => {
-    if (!mode || scanResult || showCedulaInput) return;
+    if (!mode || showCedulaInput) return;
 
     let scanner: any;
 
@@ -48,23 +50,23 @@ export default function EscanerComponent() {
       scanner = new Html5QrcodeScanner(
         "reader",
         {
-          fps: 10,
-          qrbox: { width: 220, height: 220 },
+          fps: 20,
+          qrbox: { width: 180, height: 180 },
           aspectRatio: 1,
           rememberLastUsedCamera: true,
+          supportedScanTypes: [],
         },
         false
       );
 
       scanner.render(
         (decodedText: string) => {
-          scanner.clear();
+          // processingRef gates: skip if a scan is already being handled
+          if (processingRef.current) return;
           setScanResult(decodedText);
           processScannedCode(decodedText);
         },
-        () => {
-          // Ignore continuous scan errors silently
-        }
+        () => {}
       );
 
       scannerRef.current = scanner;
@@ -78,11 +80,24 @@ export default function EscanerComponent() {
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, scanResult]);
+  }, [mode, showCedulaInput]);
 
   const processScannedCode = async (qrCode: string) => {
+    if (processingRef.current) return;
+    processingRef.current = true;
+
+    // Optimistic UI: show immediate feedback before fetch resolves
+    const tipoPaseLabel = tipoPase === "ENTRADA" ? "Entrada" : tipoPase === "SALIDA" ? "Salida" : "Especial";
+    setScannedData(
+      mode === "PASE"
+        ? { tipo_usuario: "pase", nombre: qrCode, grado: "", seccion: "", foto_url: null, profesor_notificado: null, tipo_pase: tipoPase, motivo: motivoPase || null }
+        : { tipo_usuario: "estudiante", nombre: qrCode, grado: "", seccion: "", foto_url: null }
+    );
+    setMessage({
+      type: "success",
+      text: mode === "PASE" ? `Registrando pase de ${tipoPaseLabel}…` : `Registrando ${mode?.toLowerCase()}…`,
+    });
     setLoading(true);
-    setMessage({ type: null, text: "" });
 
     try {
       let response: Response;
@@ -108,7 +123,6 @@ export default function EscanerComponent() {
           tipo_pase: data.tipo_pase,
           motivo: data.motivo,
         });
-        const tipoPaseLabel = tipoPase === "ENTRADA" ? "Entrada" : tipoPase === "SALIDA" ? "Salida" : "Especial";
         setMessage({ type: "success", text: `Pase de ${tipoPaseLabel} registrado para ${data.estudiante?.nombre}` });
       } else {
         response = await fetch("/api/escaner/validar", {
@@ -132,14 +146,16 @@ export default function EscanerComponent() {
         setScanResult(null);
         setScannedData(null);
         setMessage({ type: null, text: "" });
-      }, 3000);
+        processingRef.current = false; // unlock scanner for next student
+      }, 1200);
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
       setTimeout(() => {
         setScanResult(null);
         setScannedData(null);
         setMessage({ type: null, text: "" });
-      }, 3000);
+        processingRef.current = false; // unlock on error too
+      }, 1200);
     } finally {
       setLoading(false);
     }
@@ -157,6 +173,7 @@ export default function EscanerComponent() {
       scannerRef.current.clear().catch(() => {});
       scannerRef.current = null;
     }
+    processingRef.current = false;
   };
 
   const handleCedulaSubmit = (e: React.FormEvent) => {
@@ -415,158 +432,122 @@ export default function EscanerComponent() {
         </button>
       </div>
 
-      {/* Scanner or Result */}
-      {!scanResult ? (
-        <div className="space-y-4">
-          {showCedulaInput ? (
-            <div className="glass-panel p-6 rounded-2xl border border-white/10 shadow-2xl text-center space-y-4">
-              <p className="text-sm font-semibold text-white">⌨️ Marcar por Cédula / ID</p>
-              <form onSubmit={handleCedulaSubmit} className="max-w-xs mx-auto">
-                <input
-                  type="text"
-                  placeholder="Ej: V-12345678"
-                  value={cedulaInput}
-                  onChange={(e) => setCedulaInput(e.target.value)}
-                  className="w-full bg-slate-900 border border-white/10 rounded-xl py-3 px-4 text-center text-xl font-bold tracking-wider text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                  autoFocus
-                />
-                <button
-                  type="submit"
-                  className="mt-3 w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-all"
-                >
-                  Procesar Asistencia
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className={`glass-panel p-3 sm:p-4 rounded-2xl overflow-hidden border-2 shadow-2xl ${
-              mode === "ENTRADA"
-                ? "border-blue-500/20 shadow-blue-500/10"
-                : "border-red-500/20 shadow-red-500/10"
-            }`}>
-              <div id="reader" className="w-full rounded-xl overflow-hidden [&>video]:rounded-xl bg-black" />
-            </div>
-          )}
-
-          <div className="flex justify-center">
-            <button
-              onClick={() => {
-                setShowCedulaInput(!showCedulaInput);
-                setCedulaInput("");
-                if (scannerRef.current) {
-                  scannerRef.current.clear().catch(() => {});
-                  scannerRef.current = null;
-                }
-              }}
-              className="px-4 py-2 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-all shadow-md flex items-center gap-2"
-            >
-              {showCedulaInput ? "📷 Volver al Escáner QR" : "⌨️ Marcar por Cédula / ID"}
-            </button>
+      {/* Scanner + result overlay: scanner NEVER stops, result floats on top */}
+      <div className="relative space-y-4">
+        {showCedulaInput ? (
+          <div className="glass-panel p-6 rounded-2xl border border-white/10 shadow-2xl text-center space-y-4">
+            <p className="text-sm font-semibold text-white">⌨️ Marcar por Cédula / ID</p>
+            <form onSubmit={handleCedulaSubmit} className="max-w-xs mx-auto">
+              <input
+                type="text"
+                placeholder="Ej: V-12345678"
+                value={cedulaInput}
+                onChange={(e) => setCedulaInput(e.target.value)}
+                className="w-full bg-slate-900 border border-white/10 rounded-xl py-3 px-4 text-center text-xl font-bold tracking-wider text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="mt-3 w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-all"
+              >
+                Procesar Asistencia
+              </button>
+            </form>
           </div>
-        </div>
-      ) : (
-        <div className="glass-panel rounded-2xl p-6 sm:p-8 space-y-5 animate-slide-up">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-10 space-y-4">
-              <div className={`animate-spin w-10 h-10 border-4 rounded-full border-t-transparent ${
-                mode === "ENTRADA" ? "border-blue-500" : "border-red-500"
-              }`} />
-              <p className="text-slate-300 font-medium text-sm">Registrando {mode?.toLowerCase()}…</p>
-            </div>
-          ) : scannedData ? (
-            <div className="flex flex-col items-center text-center space-y-4 animate-fade-in">
-              {/* Foto del estudiante si existe */}
-              {(scannedData.tipo_usuario === "estudiante" || scannedData.tipo_usuario === "pase") && scannedData.foto_url ? (
-                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-4 border-white/20 shadow-xl">
-                  <Image
-                    src={scannedData.foto_url}
-                    alt={scannedData.nombre}
-                    width={128}
-                    height={128}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ) : (
-                <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex items-center justify-center border ${
-                  scannedData.tipo_usuario === "personal"
-                    ? "bg-emerald-500/15 border-emerald-500/30"
-                    : scannedData.tipo_usuario === "pase"
-                    ? "bg-amber-500/15 border-amber-500/30"
-                    : mode === "ENTRADA"
-                    ? "bg-blue-500/15 border-blue-500/30"
-                    : "bg-red-500/15 border-red-500/30"
-                }`}>
-                  {scannedData.tipo_usuario === "personal"
-                    ? <Briefcase className="w-9 h-9 sm:w-11 sm:h-11 text-emerald-400" />
-                    : scannedData.tipo_usuario === "pase"
-                    ? <FileText className="w-9 h-9 sm:w-11 sm:h-11 text-amber-400" />
-                    : <User className={`w-9 h-9 sm:w-11 sm:h-11 ${mode === "ENTRADA" ? "text-blue-400" : "text-red-400"}`} />
-                  }
-                </div>
-              )}
+        ) : (
+          <div className={`glass-panel p-3 sm:p-4 rounded-2xl overflow-hidden border-2 shadow-2xl ${
+            mode === "ENTRADA"
+              ? "border-blue-500/20 shadow-blue-500/10"
+              : "border-red-500/20 shadow-red-500/10"
+          }`}>
+            <div id="reader" className="w-full rounded-xl overflow-hidden [&>video]:rounded-xl bg-black" />
+          </div>
+        )}
 
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white uppercase">{scannedData.nombre}</h2>
-                {scannedData.tipo_usuario === "estudiante" && (
-                  <>
-                    <p className={`font-medium mt-1 ${mode === "ENTRADA" ? "text-blue-300" : "text-red-300"}`}>
+        <div className="flex justify-center">
+          <button
+            onClick={() => {
+              setShowCedulaInput(!showCedulaInput);
+              setCedulaInput("");
+              if (scannerRef.current) {
+                scannerRef.current.clear().catch(() => {});
+                scannerRef.current = null;
+              }
+            }}
+            className="px-4 py-2 bg-slate-800/40 hover:bg-slate-800/80 border border-white/5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white transition-all shadow-md flex items-center gap-2"
+          >
+            {showCedulaInput ? "📷 Volver al Escáner QR" : "⌨️ Marcar por Cédula / ID"}
+          </button>
+        </div>
+
+        {/* Result overlay — floats over the camera, scanner stays live */}
+        {scanResult && (
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center rounded-2xl bg-slate-950/90 backdrop-blur-sm animate-fade-in p-6 space-y-4">
+            {loading ? (
+              <div className="flex flex-col items-center justify-center space-y-4">
+                <div className={`animate-spin w-10 h-10 border-4 rounded-full border-t-transparent ${
+                  mode === "ENTRADA" ? "border-blue-500" : "border-red-500"
+                }`} />
+                <p className="text-slate-300 font-medium text-sm">Registrando {mode?.toLowerCase()}…</p>
+              </div>
+            ) : scannedData ? (
+              <div className="flex flex-col items-center text-center space-y-3 animate-fade-in">
+                {(scannedData.tipo_usuario === "estudiante" || scannedData.tipo_usuario === "pase") && scannedData.foto_url ? (
+                  <div className="w-24 h-24 rounded-2xl overflow-hidden border-4 border-white/20 shadow-xl">
+                    <Image src={scannedData.foto_url} alt={scannedData.nombre} width={96} height={96} className="w-full h-full object-cover" />
+                  </div>
+                ) : (
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center border ${
+                    scannedData.tipo_usuario === "personal"
+                      ? "bg-emerald-500/15 border-emerald-500/30"
+                      : scannedData.tipo_usuario === "pase"
+                      ? "bg-amber-500/15 border-amber-500/30"
+                      : mode === "ENTRADA"
+                      ? "bg-blue-500/15 border-blue-500/30"
+                      : "bg-red-500/15 border-red-500/30"
+                  }`}>
+                    {scannedData.tipo_usuario === "personal"
+                      ? <Briefcase className="w-8 h-8 text-emerald-400" />
+                      : scannedData.tipo_usuario === "pase"
+                      ? <FileText className="w-8 h-8 text-amber-400" />
+                      : <User className={`w-8 h-8 ${mode === "ENTRADA" ? "text-blue-400" : "text-red-400"}`} />
+                    }
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white uppercase leading-tight">{scannedData.nombre}</h2>
+                  {scannedData.tipo_usuario === "estudiante" && (
+                    <p className={`font-medium text-sm mt-0.5 ${mode === "ENTRADA" ? "text-blue-300" : "text-red-300"}`}>
                       {scannedData.grado} &ldquo;{scannedData.seccion}&rdquo;
                     </p>
-                    <p className="text-slate-400 text-xs sm:text-sm mt-1">Estudiante</p>
-                  </>
-                )}
-                {scannedData.tipo_usuario === "personal" && (
-                  <>
-                    <p className="font-medium mt-1 text-emerald-300">{scannedData.cargo}</p>
-                    <p className="text-emerald-400/80 font-semibold text-xs sm:text-sm mt-1">Personal</p>
-                  </>
-                )}
-                {scannedData.tipo_usuario === "pase" && (
-                  <>
-                    <p className="font-medium mt-1 text-amber-300">
-                      {scannedData.grado} &ldquo;{scannedData.seccion}&rdquo;
-                    </p>
-                    <p className="text-amber-400/80 font-semibold text-xs sm:text-sm mt-1">
+                  )}
+                  {scannedData.tipo_usuario === "personal" && (
+                    <p className="font-medium text-sm mt-0.5 text-emerald-300">{scannedData.cargo}</p>
+                  )}
+                  {scannedData.tipo_usuario === "pase" && (
+                    <p className="font-medium text-sm mt-0.5 text-amber-300">
                       Pase de {scannedData.tipo_pase === "ENTRADA" ? "Entrada" : scannedData.tipo_pase === "SALIDA" ? "Salida" : "Especial"}
                     </p>
-                    {scannedData.motivo && (
-                      <p className="text-slate-400 text-xs mt-1">Motivo: {scannedData.motivo}</p>
-                    )}
-                    {scannedData.profesor_notificado && (
-                      <p className="text-emerald-400 text-xs mt-1">
-                        ✅ Profesor notificado: {scannedData.profesor_notificado.nombre}
-                      </p>
-                    )}
-                    {!scannedData.profesor_notificado && (
-                      <p className="text-slate-500 text-xs mt-1">Sin bloque activo en este horario</p>
-                    )}
-                  </>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          {/* Message */}
-          {message.type && (
-            <div className={`p-4 rounded-xl flex items-center justify-center gap-3 text-center animate-slide-up ${
-              message.type === "success"
-                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/25"
-                : "bg-red-500/15 text-red-400 border border-red-500/25"
-            }`}>
-              {message.type === "success"
-                ? <CheckCircle className="w-6 h-6 flex-shrink-0" />
-                : <AlertTriangle className="w-6 h-6 flex-shrink-0" />}
-              <p className="font-semibold text-sm sm:text-base">{message.text}</p>
-            </div>
-          )}
-
-          {message.type === "success" && (
-            <p className="text-center text-xs text-slate-500 animate-fade-in">
-              Escaneando siguiente en unos segundos…
-            </p>
-          )}
-        </div>
-      )}
+            {message.type && (
+              <div className={`px-4 py-3 rounded-xl flex items-center gap-2 text-sm font-semibold ${
+                message.type === "success"
+                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                  : "bg-red-500/20 text-red-300 border border-red-500/30"
+              }`}>
+                {message.type === "success"
+                  ? <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                  : <AlertTriangle className="w-5 h-5 flex-shrink-0" />}
+                <span>{message.text}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
