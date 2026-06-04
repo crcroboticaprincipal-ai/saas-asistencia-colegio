@@ -6,6 +6,7 @@ import {
   RotateCcw, Briefcase, FileText, ArrowLeft, ChevronDown
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 type ScanMode = "ENTRADA" | "SALIDA" | "PASE" | null;
 type TipoPase = "ENTRADA" | "SALIDA" | "ESPECIAL";
@@ -265,6 +266,16 @@ export default function EscanerComponent() {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Acceso a Modo ExpoInnovación */}
+        <div className="pt-2 flex justify-center">
+          <Link
+            href="/escaner/expo-local"
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-blue-900/40 to-slate-900 border border-blue-500/20 hover:border-orange-500/40 hover:from-blue-900/60 transition-all text-blue-400 hover:text-orange-400 font-semibold text-xs shadow-md active:scale-[0.98]"
+          >
+            <span>🚀 Modo ExpoInnovación</span>
+          </Link>
         </div>
       </div>
     );
