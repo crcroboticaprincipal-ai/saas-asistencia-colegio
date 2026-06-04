@@ -59,6 +59,8 @@ export async function GET(request: Request) {
     const page = Math.max(0, parseInt(searchParams.get('page') ?? '0', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '50', 10)));
     const search = searchParams.get('search')?.trim() ?? '';
+    const gradoFilter = searchParams.get('grado')?.trim() ?? '';
+    const seccionFilter = searchParams.get('seccion')?.trim() ?? '';
     const from = page * limit;
     const to = from + limit - 1;
 
@@ -72,6 +74,14 @@ export async function GET(request: Request) {
       query = query.or(
         `nombre_completo.ilike.%${search}%,cedula.ilike.%${search}%,grado.ilike.%${search}%,seccion.ilike.%${search}%`
       );
+    }
+
+    // Filtros jerárquicos exactos por grado y sección
+    if (gradoFilter) {
+      query = query.eq('grado', gradoFilter);
+    }
+    if (seccionFilter) {
+      query = query.eq('seccion', seccionFilter.toUpperCase());
     }
 
     const { data, error, count } = await query.range(from, to);
