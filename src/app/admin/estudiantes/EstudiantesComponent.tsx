@@ -24,6 +24,7 @@ import {
   Filter,
   GraduationCap,
   ArrowUpCircle,
+  ImageIcon,
 } from "lucide-react";
 import Image from "next/image";
 import * as XLSX from "xlsx";
@@ -146,6 +147,18 @@ export default function EstudiantesComponent() {
   const [seccionSeccionDestino, setSeccionSeccionDestino] = useState("");
   const [seccionConfirm, setSeccionConfirm] = useState("");
   const [seccionLoading, setSeccionLoading] = useState(false);
+
+  // Bulk photo upload state
+  const [showFotoModal, setShowFotoModal] = useState(false);
+  const [fotoFiles, setFotoFiles] = useState<File[]>([]);
+  const [fotoDragOver, setFotoDragOver] = useState(false);
+  const [fotoUploading, setFotoUploading] = useState(false);
+  const [fotoProgress, setFotoProgress] = useState(0);   // 0-100
+  const [fotoResultados, setFotoResultados] = useState<
+    { nombre: string; cedula: string; estado: 'ok' | 'no_encontrado' | 'error'; mensaje?: string }[]
+  >([]);
+  const [fotoDone, setFotoDone] = useState(false);
+  const fotoInputRef = useRef<HTMLInputElement>(null);
 
   // Server-side pagination state
   const [currentPage, setCurrentPage] = useState(0);
@@ -496,6 +509,102 @@ export default function EstudiantesComponent() {
     setShowSeccionModal(true);
   };
 
+  // ── Bulk Photo Upload ──
+  const handleBulkPhotoUpload = async () => {
+    if (fotoFiles.length === 0) return;
+    setFotoUploading(true);
+    setFotoProgress(0);
+    setFotoResultados([]);
+    setFotoDone(false);
+
+    try {
+      // 1. Load cedula → {id, institucion_id} map from server
+      const mapRes = await fetch("/api/admin/estudiantes/cedula-map");
+      const mapData = await mapRes.json();
+      if (!mapData.ok) throw new Error(mapData.error || "Error al cargar mapa de cédulas");
+      const cedulaMap: Record<string, { id: string; institucion_id: string; cedula: string }> =
+        mapData.map;
+
+      const results: typeof fotoResultados = [];
+      const total = fotoFiles.length;
+
+      for (let i = 0; i < total; i++) {
+        const file = fotoFiles[i];
+        // Extract cedula from filename: strip extension and any V-, v- prefix
+        const rawName = file.name.replace(/\.[^.]+$/, "").trim(); // remove extension
+        const normalized = rawName.replace(/[^0-9]/g, "");        // digits only
+
+        const student = cedulaMap[normalized];
+        if (!student) {
+          results.push({
+            nombre: file.name,
+            cedula: rawName,
+            estado: "no_encontrado",
+            mensaje: `Ningún alumno activo tiene la cédula "${rawName}"`,
+          });
+          setFotoProgress(Math.round(((i + 1) / total) * 100));
+          setFotoResultados([...results]);
+          continue;
+        }
+
+        try {
+          // 2. Upload to Supabase Storage
+          const filePath = `${student.institucion_id}/${student.id}.jpg`;
+          const { error: upErr } = await supabase.storage
+            .from("fotos-estudiantes")
+            .upload(filePath, file, { upsert: true, contentType: "image/jpeg" });
+          if (upErr) throw new Error(upErr.message);
+
+          // 3. Get public URL
+          const { data: urlData } = supabase.storage
+            .from("fotos-estudiantes")
+            .getPublicUrl(filePath);
+
+          // 4. Update foto_url via API
+          const updateRes = await fetch("/api/admin/estudiantes", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: student.id, foto_url: urlData.publicUrl }),
+          });
+          const updateData = await updateRes.json();
+          if (!updateRes.ok || !updateData.ok) throw new Error(updateData.error || "Error al actualizar");
+
+          results.push({
+            nombre: updateData.data?.nombre_completo ?? student.cedula,
+            cedula: student.cedula,
+            estado: "ok",
+          });
+        } catch (err: unknown) {
+          results.push({
+            nombre: file.name,
+            cedula: student.cedula,
+            estado: "error",
+            mensaje: err instanceof Error ? err.message : "Error desconocido",
+          });
+        }
+
+        setFotoProgress(Math.round(((i + 1) / total) * 100));
+        setFotoResultados([...results]);
+      }
+
+      // Refresh student list to show new photos
+      await fetchEstudiantes(currentPage, searchTerm, filterGrado, filterSeccion);
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Error en carga masiva de fotos", "error");
+    } finally {
+      setFotoUploading(false);
+      setFotoDone(true);
+    }
+  };
+
+  const openFotoModal = () => {
+    setFotoFiles([]);
+    setFotoProgress(0);
+    setFotoResultados([]);
+    setFotoDone(false);
+    setShowFotoModal(true);
+  };
+
   if (showPrintView && selectedStudents.length > 0) {
     return <CarnetsView students={selectedStudents} onClose={() => setShowPrintView(false)} />;
   }
@@ -524,6 +633,13 @@ export default function EstudiantesComponent() {
           >
             <Zap className="w-4 h-4" />
             Acciones Masivas
+          </button>
+          <button
+            onClick={openFotoModal}
+            className="px-4 py-2 bg-sky-600 text-white hover:bg-sky-500 rounded-xl font-medium flex items-center justify-center gap-2 transition-all shadow-lg shadow-sky-500/20 text-sm flex-1 sm:flex-none"
+          >
+            <ImageIcon className="w-4 h-4" />
+            Fotos Masivas
           </button>
           <button
             onClick={() => setShowBulkModal(true)}
@@ -1214,6 +1330,208 @@ export default function EstudiantesComponent() {
                 <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
                   <CheckCircle className="w-4 h-4" /> Todo procesado sin errores
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Carga Masiva de Fotos ── */}
+      {showFotoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl animate-slide-up flex flex-col max-h-[92vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-white/5 flex-shrink-0">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-sky-400" />
+                  Carga Masiva de Fotos
+                </h2>
+                <p className="text-slate-400 text-xs mt-1">
+                  Sube todas las fotos a la vez — el sistema las asigna automáticamente por cédula
+                </p>
+              </div>
+              <button
+                onClick={() => { if (!fotoUploading) setShowFotoModal(false); }}
+                disabled={fotoUploading}
+                className="text-slate-400 hover:text-white transition-colors disabled:opacity-40"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-6 space-y-5 flex-1">
+              {/* Instrucciones */}
+              {!fotoDone && (
+                <div className="p-4 bg-sky-950/40 border border-sky-500/20 rounded-xl space-y-2">
+                  <p className="text-sky-300 text-sm font-semibold flex items-center gap-2">
+                    <span className="text-base">📋</span> Instrucciones antes de subir
+                  </p>
+                  <ul className="text-slate-400 text-xs space-y-1.5">
+                    <li className="flex items-start gap-2">
+                      <span className="text-sky-400 font-bold flex-shrink-0">1.</span>
+                      Nombra cada foto con la <strong className="text-white">cédula del alumno</strong> (solo los números)
+                    </li>
+                    <li className="flex items-start gap-2 pl-4">
+                      Ejemplos válidos:{" "}
+                      <code className="bg-slate-800 px-1.5 py-0.5 rounded text-sky-300">34123456.jpg</code>{" "}
+                      <code className="bg-slate-800 px-1.5 py-0.5 rounded text-sky-300">V-34123456.jpg</code>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-sky-400 font-bold flex-shrink-0">2.</span>
+                      Formato recomendado: <strong className="text-white">JPG</strong> — máx. 500 KB por foto
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-sky-400 font-bold flex-shrink-0">3.</span>
+                      Selecciona <strong className="text-white">todas las fotos a la vez</strong> en el área de abajo
+                    </li>
+                  </ul>
+                </div>
+              )}
+
+              {/* Drop zone */}
+              {!fotoUploading && !fotoDone && (
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setFotoDragOver(true); }}
+                  onDragLeave={() => setFotoDragOver(false)}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setFotoDragOver(false);
+                    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith("image/"));
+                    setFotoFiles(files);
+                  }}
+                  onClick={() => fotoInputRef.current?.click()}
+                  className={`border-2 border-dashed rounded-xl p-10 text-center cursor-pointer transition-all ${
+                    fotoDragOver
+                      ? "border-sky-400 bg-sky-500/10"
+                      : fotoFiles.length > 0
+                      ? "border-emerald-500/50 bg-emerald-500/5"
+                      : "border-white/10 hover:border-white/20 hover:bg-white/5"
+                  }`}
+                >
+                  <input
+                    ref={fotoInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setFotoFiles(Array.from(e.target.files ?? []))}
+                  />
+                  {fotoFiles.length > 0 ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <ImageIcon className="w-10 h-10 text-emerald-400" />
+                      <p className="text-emerald-300 font-semibold text-sm">
+                        {fotoFiles.length} foto{fotoFiles.length !== 1 ? "s" : ""} seleccionada{fotoFiles.length !== 1 ? "s" : ""}
+                      </p>
+                      <p className="text-slate-500 text-xs">
+                        {(fotoFiles.reduce((s, f) => s + f.size, 0) / 1024 / 1024).toFixed(1)} MB · Click para cambiar
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2">
+                      <Upload className="w-10 h-10 text-slate-500" />
+                      <p className="text-slate-400 font-medium text-sm">
+                        Arrastra las fotos aquí o haz click para seleccionar
+                      </p>
+                      <p className="text-slate-600 text-xs">Selecciona múltiples archivos de una sola vez</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Progress */}
+              {fotoUploading && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-300 font-medium flex items-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-sky-400" />
+                      Procesando fotos...
+                    </span>
+                    <span className="text-sky-400 font-bold">{fotoProgress}%</span>
+                  </div>
+                  <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-sky-500 to-blue-500 rounded-full transition-all duration-300"
+                      style={{ width: `${fotoProgress}%` }}
+                    />
+                  </div>
+                  <p className="text-slate-500 text-xs text-center">
+                    {fotoResultados.length} de {fotoFiles.length} procesadas
+                  </p>
+                </div>
+              )}
+
+              {/* Results */}
+              {fotoResultados.length > 0 && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: "✅ Subidas", count: fotoResultados.filter((r) => r.estado === "ok").length, color: "emerald" },
+                      { label: "⚠️ No encontradas", count: fotoResultados.filter((r) => r.estado === "no_encontrado").length, color: "amber" },
+                      { label: "❌ Errores", count: fotoResultados.filter((r) => r.estado === "error").length, color: "rose" },
+                    ].map((s) => (
+                      <div key={s.label} className={`bg-${s.color}-500/10 border border-${s.color}-500/20 rounded-xl p-3 text-center`}>
+                        <p className={`text-2xl font-bold text-${s.color}-400`}>{s.count}</p>
+                        <p className={`text-xs text-${s.color}-600 mt-1`}>{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {fotoResultados.filter((r) => r.estado !== "ok").length > 0 && (
+                    <div className="bg-slate-800/40 rounded-xl border border-white/5 overflow-hidden">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide px-4 py-2 border-b border-white/5">
+                        Archivos con problemas
+                      </p>
+                      <div className="divide-y divide-white/5 max-h-44 overflow-y-auto">
+                        {fotoResultados.filter((r) => r.estado !== "ok").map((r, i) => (
+                          <div key={i} className="flex items-start gap-3 px-4 py-2.5">
+                            {r.estado === "no_encontrado"
+                              ? <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                              : <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />}
+                            <div className="min-w-0">
+                              <p className="text-xs text-white truncate font-mono">{r.nombre}</p>
+                              <p className="text-[10px] text-slate-500">{r.mensaje}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {fotoDone && fotoResultados.filter((r) => r.estado === "ok").length > 0 && (
+                    <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                      <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+                      <p className="text-sm text-emerald-300 font-medium">
+                        ¡{fotoResultados.filter((r) => r.estado === "ok").length} foto
+                        {fotoResultados.filter((r) => r.estado === "ok").length !== 1 ? "s" : ""} cargada
+                        {fotoResultados.filter((r) => r.estado === "ok").length !== 1 ? "s" : ""} exitosamente!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-white/5 flex-shrink-0">
+              <button
+                onClick={() => { if (!fotoUploading) setShowFotoModal(false); }}
+                disabled={fotoUploading}
+                className="px-5 py-2.5 rounded-xl font-medium text-slate-300 hover:bg-white/5 transition-colors text-sm disabled:opacity-40"
+              >
+                {fotoDone ? "Cerrar" : "Cancelar"}
+              </button>
+              {!fotoDone && (
+                <button
+                  onClick={handleBulkPhotoUpload}
+                  disabled={fotoFiles.length === 0 || fotoUploading}
+                  className="px-6 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium flex items-center gap-2 transition-all text-sm shadow-lg shadow-sky-500/20"
+                >
+                  {fotoUploading
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Subiendo...</>
+                    : <><Upload className="w-4 h-4" /> Subir {fotoFiles.length > 0 ? `${fotoFiles.length} foto${fotoFiles.length !== 1 ? "s" : ""}` : "fotos"}</>
+                  }
+                </button>
               )}
             </div>
           </div>
