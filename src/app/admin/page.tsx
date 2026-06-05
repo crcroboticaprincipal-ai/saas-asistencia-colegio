@@ -82,7 +82,7 @@ export default function AdminDashboardPage() {
   const [instSuccess, setInstSuccess] = useState("");
 
   // Collapsible sections
-  const [showSemaforo, setShowSemaforo] = useState(false);
+  const [showSemaforo, setShowSemaforo] = useState(true);
 
   // Pases state
   const [pasesPeriod, setPasesPeriod] = useState<'dia' | 'semana' | 'mes'>('dia');

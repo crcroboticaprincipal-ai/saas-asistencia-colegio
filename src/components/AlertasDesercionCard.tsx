@@ -30,7 +30,6 @@ export default function AlertasDesercionCard() {
       const json = await res.json();
       if (json.ok) {
         setAlertas(json.alertas as AlertaDesercion[]);
-        if (json.alertas?.length > 0) setPanelOpen(true);
       }
     } catch (e) {
       console.error("Error cargando alertas de deserción:", e);
