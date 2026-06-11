@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
     const resend = new Resend(resendApiKey);
     const { data, error } = await resend.emails.send({
-      from: 'Asisto Expo <notificaciones@aulascolegiorafaelcastillo.com>',
+      from: 'Colegio Rafael Castillo <notificaciones@aulascolegiorafaelcastillo.com>',
       to: correo.trim(),
       subject: `Notificación de Demo (${tipo === 'ENTRADA' ? 'Entrada' : 'Salida'}) — ${nombre}`,
       html: emailHtml,
