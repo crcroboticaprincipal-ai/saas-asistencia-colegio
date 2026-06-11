@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
 import {
   Users, Activity, LogIn, LogOut, ShieldAlert, AlertCircle,
-  Building2, Plus, X, Save, Loader2, CheckCircle, Globe, FileText, TrendingUp, ChevronDown
+  Building2, Plus, X, Save, Loader2, CheckCircle, Globe, FileText, TrendingUp, ChevronDown, Search
 } from "lucide-react";
 
 const cardSkeleton = () => <div className="animate-pulse h-32 rounded-2xl bg-slate-800/40" />;
@@ -26,10 +26,12 @@ type Asistencia = {
   tipo: "ENTRADA" | "SALIDA";
   fecha: string;
   hora: string;
+  metodo?: string;
   estudiantes: {
     nombre_completo: string;
     grado: string;
     seccion: string;
+    cedula: string;
   };
 };
 
@@ -67,6 +69,15 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [configError, setConfigError] = useState(false);
 
+  // Today's counts and stats
+  const [entradasHoy, setEntradasHoy] = useState(0);
+  const [salidasHoy, setSalidasHoy] = useState(0);
+  const [registrosHoy, setRegistrosHoy] = useState(0);
+  const [semaforoData, setSemaforoData] = useState<any[]>([]);
+  const [pendingResets, setPendingResets] = useState<any[]>([]);
+  const [currentInstId, setCurrentInstId] = useState<string | null>(null);
+  const [timelineSearch, setTimelineSearch] = useState("");
+
   // Instituciones state
   const [instituciones, setInstituciones] = useState<Institucion[]>([]);
   const [loadingInst, setLoadingInst] = useState(true);
@@ -100,21 +111,46 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    fetchInitialData();
-    fetchTotalEstudiantes();
-    fetchInstituciones();
-    fetchPasesStats('dia');
+    // Load initial data including auth, KPIs, semaforo, resets
+    const init = async () => {
+      try {
+        const authRes = await fetch("/api/auth");
+        const authData = await authRes.json();
+        const instId = authData.institucion_id;
+        setCurrentInstId(instId);
 
-    const channel = supabase
-      .channel("schema-db-changes")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias" }, () => {
-        fetchInitialData();
-      })
-      .subscribe();
+        await Promise.all([
+          fetchInitialData(instId),
+          fetchTotalEstudiantes(),
+          fetchInstituciones(),
+          fetchPasesStats('dia'),
+          fetchTodayStats(instId),
+          fetchSemaforoData(instId),
+          fetchPendingResets(instId)
+        ]);
 
-    return () => {
-      supabase.removeChannel(channel);
+        // Realtime Subscription
+        const channel = supabase
+          .channel("schema-db-changes")
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "asistencias" }, () => {
+            fetchInitialData(instId);
+            fetchTodayStats(instId);
+            fetchSemaforoData(instId);
+          })
+          .on("postgres_changes", { event: "*", schema: "public", table: "personal" }, () => {
+            fetchPendingResets(instId);
+          })
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      } catch (e) {
+        console.error("Error initializing dashboard data:", e);
+      }
     };
+
+    init();
   }, []);
 
   const fetchTotalEstudiantes = async () => {
@@ -122,16 +158,132 @@ export default function AdminDashboardPage() {
     setTotalEstudiantes(count || 0);
   };
 
-  const fetchInitialData = async () => {
+  const fetchTodayStats = async (instId: string | null) => {
     try {
-      const { data, error } = await supabase
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+      
+      let queryEntradas = supabase
+        .from("asistencias")
+        .select("id", { count: "exact", head: true })
+        .eq("fecha", todayStr)
+        .eq("tipo", "ENTRADA");
+
+      let querySalidas = supabase
+        .from("asistencias")
+        .select("id", { count: "exact", head: true })
+        .eq("fecha", todayStr)
+        .eq("tipo", "SALIDA");
+
+      if (instId) {
+        queryEntradas = queryEntradas.eq("institucion_id", instId);
+        querySalidas = querySalidas.eq("institucion_id", instId);
+      }
+
+      const [resEnt, resSal] = await Promise.all([queryEntradas, querySalidas]);
+      setEntradasHoy(resEnt.count || 0);
+      setSalidasHoy(resSal.count || 0);
+      setRegistrosHoy((resEnt.count || 0) + (resSal.count || 0));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchSemaforoData = async (instId: string | null) => {
+    try {
+      const now = new Date();
+      const firstDayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
+      let query = supabase
         .from("asistencias")
         .select(`
-          id, estudiante_id, tipo, fecha, hora,
+          estudiante_id,
           estudiantes ( nombre_completo, grado, seccion )
         `)
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .gte("fecha", firstDayStr);
+
+      if (instId) {
+        query = query.eq("institucion_id", instId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      const grouped = (data || []).reduce((acc, curr) => {
+        const key = curr.estudiante_id;
+        const estudiante = curr.estudiantes as any;
+        if (!key || !estudiante) return acc;
+        if (!acc[key]) {
+          acc[key] = {
+            nombre_completo: estudiante.nombre_completo,
+            grado: estudiante.grado,
+            seccion: estudiante.seccion,
+            count: 0,
+            id: key
+          };
+        }
+        acc[key].count += 1;
+        return acc;
+      }, {} as Record<string, any>);
+
+      const sorted = Object.values(grouped).sort((a: any, b: any) => b.count - a.count);
+      setSemaforoData(sorted);
+    } catch (e) {
+      console.error("Error fetching semaforo data:", e);
+    }
+  };
+
+  const fetchPendingResets = async (instId: string | null) => {
+    try {
+      let query = supabase
+        .from("personal")
+        .select("id, nombres, apellidos, username, cargo, solicita_restablecer")
+        .eq("solicita_restablecer", true);
+
+      if (instId) {
+        query = query.eq("institucion_id", instId);
+      }
+
+      const { data, error } = await query;
+      if (!error && data) {
+        setPendingResets(data);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleResetPin = async (personalId: string) => {
+    try {
+      const res = await fetch("/api/admin/personal/reset-pin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personalId })
+      });
+      if (res.ok) {
+        fetchPendingResets(currentInstId);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchInitialData = async (instId?: string | null) => {
+    try {
+      let query = supabase
+        .from("asistencias")
+        .select(`
+          id, estudiante_id, tipo, fecha, hora, metodo,
+          estudiantes ( nombre_completo, grado, seccion, cedula )
+        `)
+        .order("created_at", { ascending: false });
+
+      const targetInstId = instId !== undefined ? instId : currentInstId;
+      if (targetInstId) {
+        query = query.eq("institucion_id", targetInstId);
+      }
+
+      // Limit to 20
+      query = query.limit(20);
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setAsistencias((data as unknown) as Asistencia[]);
@@ -211,33 +363,20 @@ export default function AdminDashboardPage() {
     return { bg: "bg-red-500/15 text-red-400 border-red-500/25", emoji: "🔴", label: "Crítico" };
   };
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayRecords = asistencias.filter((a) => a.fecha === todayStr);
-  const entradasHoy = todayRecords.filter((a) => a.tipo === "ENTRADA").length;
-  const salidasHoy = todayRecords.filter((a) => a.tipo === "SALIDA").length;
-
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const monthRecords = asistencias.filter((a) => {
-    const d = new Date(a.fecha);
-    return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-  });
-
-  const incidenciasPorEstudiante = monthRecords.reduce((acc, curr) => {
-    const key = curr.estudiante_id;
-    if (!acc[key]) acc[key] = { ...curr.estudiantes, count: 0, id: key };
-    acc[key].count += 1;
-    return acc;
-  }, {} as Record<string, any>);
-
-  const semaforoData = Object.values(incidenciasPorEstudiante).sort((a: any, b: any) => b.count - a.count);
-
   const kpis = [
     { label: "Estudiantes", value: totalEstudiantes, icon: Users, colorClass: "text-blue-400", bgClass: "bg-blue-500/15 border-blue-500/25" },
-    { label: "Registros Hoy", value: todayRecords.length, icon: Activity, colorClass: "text-sky-400", bgClass: "bg-sky-500/15 border-sky-500/25" },
+    { label: "Registros Hoy", value: registrosHoy, icon: Activity, colorClass: "text-sky-400", bgClass: "bg-sky-500/15 border-sky-500/25" },
     { label: "Entradas", value: entradasHoy, icon: LogIn, colorClass: "text-emerald-400", bgClass: "bg-emerald-500/15 border-emerald-500/25" },
     { label: "Salidas", value: salidasHoy, icon: LogOut, colorClass: "text-red-400", bgClass: "bg-red-500/15 border-red-500/25" },
   ];
+
+  const filteredTimeline = asistencias.filter((a) => {
+    if (!timelineSearch) return true;
+    const term = timelineSearch.toLowerCase();
+    const nombre = a.estudiantes?.nombre_completo?.toLowerCase() || "";
+    const cedula = a.estudiantes?.cedula?.toLowerCase() || "";
+    return nombre.includes(term) || cedula.includes(term);
+  });
 
   return (
     <div className="space-y-5 sm:space-y-6 animate-fade-in">
@@ -255,6 +394,24 @@ export default function AdminDashboardPage() {
           <span className="text-xs font-medium text-emerald-400">En vivo</span>
         </div>
       </div>
+
+      {/* Pending Reset Requests Alerts */}
+      {pendingResets.map((r) => (
+        <div key={r.id} className="glass-panel p-4 rounded-xl border border-amber-500/25 bg-amber-500/5 flex flex-col sm:flex-row items-center justify-between gap-3 animate-pulse">
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="w-5 h-5 text-amber-500" />
+            <p className="text-white text-xs sm:text-sm font-medium">
+              ⚠️ Solicitud: El profesor <strong className="text-amber-400">{r.nombres} {r.apellidos}</strong> (@{r.username}) solicita restablecer su acceso.
+            </p>
+          </div>
+          <button
+            onClick={() => handleResetPin(r.id)}
+            className="px-4 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold transition-all shadow-md shadow-amber-600/10 whitespace-nowrap"
+          >
+            Blanquear PIN
+          </button>
+        </div>
+      ))}
 
       {/* Config Error */}
       {configError && (
@@ -467,11 +624,23 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         {/* Realtime Feed */}
         <div className="lg:col-span-2 glass-panel rounded-xl sm:rounded-2xl p-4 sm:p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
             <h2 className="text-base sm:text-lg font-semibold text-white flex items-center gap-2">
               <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
               Actividad Reciente
             </h2>
+            
+            {/* Search Input */}
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre o cédula..."
+                value={timelineSearch}
+                onChange={(e) => setTimelineSearch(e.target.value)}
+                className="w-full bg-slate-950/40 border border-white/[0.06] rounded-xl py-1.5 pl-9 pr-4 text-white text-xs placeholder-slate-600 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+              />
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto pr-1 space-y-2 max-h-[400px] sm:max-h-[450px]">
@@ -480,16 +649,16 @@ export default function AdminDashboardPage() {
                 <div className="animate-spin w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full" />
                 <p className="text-slate-500 text-sm">Cargando…</p>
               </div>
-            ) : asistencias.length === 0 ? (
+            ) : filteredTimeline.length === 0 ? (
               <p className="text-slate-500 text-center py-12 text-sm">No hay registros recientes.</p>
             ) : (
-              asistencias.map((a) => (
+              filteredTimeline.map((a) => (
                 <div key={a.id} className="glass-card p-3 sm:p-4 rounded-xl flex items-center justify-between">
                   <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
                     <div className={`p-1.5 sm:p-2 rounded-full border flex-shrink-0 ${
                       a.tipo === "ENTRADA"
-                        ? "bg-blue-500/15 border-blue-500/25 text-blue-400"
-                        : "bg-red-500/15 border-red-500/25 text-red-400"
+                        ? "bg-emerald-500/15 border-emerald-500/25 text-emerald-400"
+                        : "bg-rose-500/15 border-rose-500/25 text-rose-400"
                     }`}>
                       {a.tipo === "ENTRADA" ? <LogIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                     </div>
@@ -499,10 +668,15 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0 ml-2">
-                    <span className={`text-[10px] sm:text-xs font-semibold px-2 py-0.5 sm:py-1 rounded-md ${
-                      a.tipo === "ENTRADA" ? "bg-blue-500/10 text-blue-400" : "bg-red-500/10 text-red-400"
-                    }`}>{a.tipo}</span>
-                    <p className="text-[9px] sm:text-[11px] text-slate-500 mt-0.5">{a.fecha} · {a.hora}</p>
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <span className={`text-[10px] sm:text-xs font-semibold px-2 py-0.5 sm:py-1 rounded-md ${
+                        a.tipo === "ENTRADA" ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"
+                      }`}>{a.tipo}</span>
+                      <span className="text-[9px] text-slate-500 bg-slate-900 border border-white/[0.04] px-1 py-0.5 rounded font-mono uppercase">
+                        {a.metodo || 'QR'}
+                      </span>
+                    </div>
+                    <p className="text-[9px] sm:text-[11px] text-slate-500 mt-1">{a.fecha} · {a.hora}</p>
                   </div>
                 </div>
               ))

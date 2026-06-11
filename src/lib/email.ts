@@ -159,3 +159,83 @@ export function generarHtmlCorreoAsistencia(data: EmailNotificationData): string
     </html>
   `;
 }
+
+export interface RecoveryEmailData {
+  nombreUsuario: string;
+  codigoRestablecimiento: string;
+  nombreColegio: string;
+  enlaceRestablecimiento: string;
+}
+
+export function generarHtmlCorreoRecuperacion(data: RecoveryEmailData): string {
+  const { nombreUsuario, codigoRestablecimiento, nombreColegio, enlaceRestablecimiento } = data;
+  return `
+    <!DOCTYPE html>
+    <html lang="es">
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Restablecer tu Acceso - Asisto</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 40px 10px;">
+        <tr>
+          <td align="center">
+            <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 540px; background-color: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); border: 1px solid #f1f5f9;">
+              <tr>
+                <td style="padding: 30px 40px 20px 40px; text-align: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);">
+                  <div style="display: inline-block; width: 56px; height: 56px; background-color: #f59e0b; border-radius: 16px; line-height: 56px; font-size: 28px; text-align: center; margin-bottom: 12px; color: #ffffff;">
+                    🔑
+                  </div>
+                  <h1 style="margin: 0; font-size: 20px; font-weight: 700; color: #ffffff;">
+                    ${nombreColegio}
+                  </h1>
+                  <p style="margin: 4px 0 0 0; font-size: 13px; color: #94a3b8; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600;">
+                    Recuperación de Credenciales
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 40px 40px 30px 40px;">
+                  <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #334155;">
+                    Hola <strong>${nombreUsuario}</strong>,
+                  </p>
+                  <p style="margin: 0 0 25px 0; font-size: 14px; line-height: 1.6; color: #475569;">
+                    Recibimos una solicitud para restablecer el acceso a tu cuenta en Asisto. Utiliza el siguiente código temporal de restablecimiento para configurar un nuevo PIN o contraseña:
+                  </p>
+                  <div style="text-align: center; margin-bottom: 30px; background-color: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px dashed #cbd5e1;">
+                    <span style="font-size: 28px; font-weight: 800; color: #0f172a; letter-spacing: 0.25em;">
+                      ${codigoRestablecimiento}
+                    </span>
+                  </div>
+                  <p style="margin: 0 0 25px 0; font-size: 14px; line-height: 1.6; color: #475569; text-align: center;">
+                    O haz clic en el siguiente botón para restablecerlo directamente:
+                  </p>
+                  <div style="text-align: center; margin-bottom: 30px;">
+                    <a href="${enlaceRestablecimiento}" style="display: inline-block; background-color: #4f46e5; color: #ffffff; font-size: 14px; font-weight: 700; padding: 12px 24px; border-radius: 8px; text-decoration: none; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
+                      Restablecer PIN / Contraseña
+                    </a>
+                  </div>
+                  <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
+                    * Este código de seguridad vencerá en 2 horas. Si tú no solicitaste este cambio, puedes ignorar este correo de forma segura.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 25px 40px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
+                  <div style="margin-bottom: 10px; font-size: 16px; font-weight: 800; color: #1e293b;">
+                    ✦ ASISTO
+                  </div>
+                  <p style="margin: 0; font-size: 11px; color: #94a3b8;">
+                    Canal oficial de soporte institucional.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `;
+}

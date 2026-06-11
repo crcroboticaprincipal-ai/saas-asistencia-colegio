@@ -15,6 +15,7 @@ export function AdminSidebar() {
     { name: "Importar Alumnos", path: "/admin/importar", icon: Users },
     { name: "Estudiantes / QR", path: "/admin/estudiantes", icon: QrCode },
     { name: "Reportes", path: "/admin/reportes", icon: FileText },
+    { name: "Mi Perfil", path: "/admin/perfil", icon: UserCog },
   ];
 
   const routesRRHH = [

@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Shield, Eye, EyeOff, AlertCircle, ArrowLeft,
-  Building2, UserCog, Key, Lock, Mail
+  Building2, UserCog, Key, Lock, Mail, X, CheckCircle, Loader2
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -26,6 +26,15 @@ function LoginForm() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Recovery modal states
+  const [showRecoverModal, setShowRecoverModal] = useState(false);
+  const [recoverUsername, setRecoverUsername] = useState("");
+  const [recoverUser, setRecoverUser] = useState<any | null>(null);
+  const [recovering, setRecovering] = useState(false);
+  const [recoverError, setRecoverError] = useState("");
+  const [recoverSuccess, setRecoverSuccess] = useState("");
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from") || "/admin";
@@ -80,6 +89,80 @@ function LoginForm() {
       setError("Error de conexión al servidor");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCheckUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoverUsername.trim()) return;
+    setRecovering(true);
+    setRecoverError("");
+    setRecoverSuccess("");
+    setRecoverUser(null);
+    try {
+      const res = await fetch("/api/auth/recuperar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "GET_USER", username: recoverUsername.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRecoverError(data.error || "No se pudo encontrar el usuario");
+        return;
+      }
+      setRecoverUser(data.user);
+    } catch {
+      setRecoverError("Error de conexión al servidor");
+    } finally {
+      setRecovering(false);
+    }
+  };
+
+  const handleRecoverViaA = async () => {
+    if (!recoverUser) return;
+    setRecovering(true);
+    setRecoverError("");
+    setRecoverSuccess("");
+    try {
+      const res = await fetch("/api/auth/recuperar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "VIA_A", personalId: recoverUser.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRecoverError(data.error || "Error al enviar código");
+        return;
+      }
+      setRecoverSuccess("¡Código enviado! Revisa tu correo electrónico registrado.");
+    } catch {
+      setRecoverError("Error de conexión al servidor");
+    } finally {
+      setRecovering(false);
+    }
+  };
+
+  const handleRecoverViaB = async () => {
+    if (!recoverUser) return;
+    setRecovering(true);
+    setRecoverError("");
+    setRecoverSuccess("");
+    try {
+      const res = await fetch("/api/auth/recuperar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "VIA_B", personalId: recoverUser.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setRecoverError(data.error || "Error al enviar solicitud");
+        return;
+      }
+      setRecoverSuccess("Solicitud enviada al administrador. Orlando podrá blanquear tu PIN a 1234.");
+    } catch {
+      setRecoverError("Error de conexión al servidor");
+    } finally {
+      setRecovering(false);
     }
   };
 
@@ -278,7 +361,154 @@ function LoginForm() {
               </>
             )}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setShowRecoverModal(true)}
+            className="text-xs text-slate-500 hover:text-indigo-600 hover:underline text-center block mx-auto mt-4 font-semibold transition-colors"
+          >
+            ¿Olvidó su clave o PIN?
+          </button>
         </form>
+      )}
+
+      {showRecoverModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="glass-panel w-full max-w-md rounded-2xl p-6 border border-slate-200/60 shadow-2xl space-y-4 text-slate-900 bg-white">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-indigo-600" />
+                Recuperación de Acceso
+              </h2>
+              <button
+                onClick={() => {
+                  setShowRecoverModal(false);
+                  setRecoverUsername("");
+                  setRecoverUser(null);
+                  setRecoverError("");
+                  setRecoverSuccess("");
+                }}
+                className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {recoverSuccess ? (
+              <div className="space-y-4 py-4 text-center">
+                <CheckCircle className="w-12 h-12 text-emerald-500 mx-auto" />
+                <h3 className="font-bold text-slate-800">Solicitud Procesada</h3>
+                <p className="text-sm text-slate-600">{recoverSuccess}</p>
+                <button
+                  onClick={() => {
+                    setShowRecoverModal(false);
+                    setRecoverUsername("");
+                    setRecoverUser(null);
+                    setRecoverError("");
+                    setRecoverSuccess("");
+                  }}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold shadow-md"
+                >
+                  Volver al Login
+                </button>
+              </div>
+            ) : (
+              <>
+                {!recoverUser ? (
+                  <form onSubmit={handleCheckUser} className="space-y-4">
+                    <p className="text-xs text-slate-500">
+                      Introduce tu nombre de usuario de personal para buscar tus opciones de restablecimiento.
+                    </p>
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 uppercase mb-1.5">
+                        Nombre de Usuario
+                      </label>
+                      <input
+                        required
+                        type="text"
+                        placeholder="ej: profe_garcia"
+                        value={recoverUsername}
+                        onChange={(e) => setRecoverUsername(e.target.value.toLowerCase().replace(/\s/g, "_"))}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 px-4 text-slate-900 focus:outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600 text-sm font-mono"
+                      />
+                    </div>
+
+                    {recoverError && (
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <p>{recoverError}</p>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={recovering || !recoverUsername.trim()}
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-md disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    >
+                      {recovering ? <Loader2 className="w-4 h-4 animate-spin" /> : "Buscar Usuario"}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl text-xs">
+                      <p className="text-slate-600">Usuario Encontrado:</p>
+                      <p className="text-sm font-bold text-indigo-900 mt-0.5">{recoverUser.nombres} {recoverUser.apellidos}</p>
+                    </div>
+
+                    <p className="text-xs text-slate-500">
+                      Elige uno de los mecanismos disponibles para restablecer tu PIN / contraseña:
+                    </p>
+
+                    <div className="grid grid-cols-1 gap-2.5 pt-2">
+                      {/* Vía A (Email) */}
+                      <button
+                        onClick={handleRecoverViaA}
+                        disabled={recovering || !recoverUser.hasEmail}
+                        className={`w-full p-3.5 rounded-xl border text-left flex items-start gap-3 transition-all ${
+                          recoverUser.hasEmail 
+                            ? "bg-slate-50 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/20" 
+                            : "bg-slate-50/50 border-slate-100 opacity-60 cursor-not-allowed"
+                        }`}
+                      >
+                        <Mail className={`w-5 h-5 mt-0.5 ${recoverUser.hasEmail ? "text-indigo-600" : "text-slate-400"}`} />
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">Vía A: Correo Electrónico</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {recoverUser.hasEmail 
+                              ? `Enviar código temporal a ${recoverUser.correo.replace(/(.{2})(.*)(@.*)/, "$1***$3")}` 
+                              : "No tienes un correo registrado en tu ficha."}
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* Vía B (Admin Fallback) */}
+                      <button
+                        onClick={handleRecoverViaB}
+                        disabled={recovering}
+                        className="w-full p-3.5 rounded-xl border bg-slate-50 border-slate-200 hover:border-indigo-500 hover:bg-indigo-50/20 text-left flex items-start gap-3 transition-all"
+                      >
+                        <UserCog className="w-5 h-5 text-emerald-600 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">Vía B: Solicitud Digital al Administrador</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Enviar alerta de restablecimiento a Orlando para blanquear el PIN a 1234.
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+
+                    {recoverError && (
+                      <div className="flex items-center gap-2 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 text-xs">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <p>{recoverError}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
       )}
 
       <p className="text-center text-[10px] sm:text-xs text-slate-500 mt-6">

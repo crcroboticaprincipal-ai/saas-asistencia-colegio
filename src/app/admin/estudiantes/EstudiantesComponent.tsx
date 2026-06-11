@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import {
   Printer,
@@ -17,6 +18,7 @@ import {
   Upload,
   Download,
   FileSpreadsheet,
+  FileText,
   CheckCircle,
   AlertCircle,
   AlertTriangle,
@@ -99,6 +101,7 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
 }
 
 export default function EstudiantesComponent() {
+  const router = useRouter();
   const [estudiantes, setEstudiantes] = useState<Estudiante[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -837,6 +840,13 @@ export default function EstudiantesComponent() {
                       {estudiante.correo_representante || "-"}
                     </td>
                     <td className="px-4 py-3 text-center space-x-1">
+                      <button
+                        onClick={() => router.push(`/admin/estudiantes/${estudiante.id}`)}
+                        className="p-2 text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors inline-flex items-center justify-center"
+                        title="Ver Ficha / Historial"
+                      >
+                        <FileText className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleOpenModal(estudiante)}
                         className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors inline-flex items-center justify-center"

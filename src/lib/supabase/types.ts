@@ -54,6 +54,7 @@ export interface Asistencia {
   fecha: string;
   hora: string;
   created_at: string;
+  metodo?: string;
   estudiantes?: Estudiante;
 }
 
