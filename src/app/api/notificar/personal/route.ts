@@ -10,7 +10,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Supabase credentials missing' }, { status: 500 });
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
+      auth: { persistSession: false },
+    });
     const { personal_id, tipo } = await request.json();
 
     if (!personal_id || !tipo) {
@@ -19,7 +21,7 @@ export async function POST(request: Request) {
 
     const { data: personal, error: errorPersonal } = await supabaseAdmin
       .from('personal')
-      .select('*')
+      .select('id, nombres, apellidos, correo, institucion_id')
       .eq('id', personal_id)
       .single();
 
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Error interno' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Error interno' }, { status: 500 });
   }
 }

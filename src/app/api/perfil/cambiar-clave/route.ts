@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       // 1. Obtener datos del personal
       const { data: personalUser, error: perErr } = await supabaseAdmin
         .from('personal')
-        .select('*')
+        .select('id, pin_hash, password_hash, usa_password_alfanumerico, auth_user_id')
         .eq('id', userId)
         .eq('activo', true)
         .maybeSingle();
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       // 3. Determinar si la nueva clave es PIN (solo números entre 4 y 6 dígitos) o alfanumérica
       const esPin = /^\d{4,6}$/.test(nuevaClave);
 
-      const updates: any = {
+      const updates: Record<string, string | boolean | null> = {
         updated_at: new Date().toISOString()
       };
 
@@ -119,7 +119,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Tipo de usuario no válido' }, { status: 400 });
     }
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Error del servidor' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Error del servidor' }, { status: 500 });
   }
 }

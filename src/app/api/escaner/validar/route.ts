@@ -51,7 +51,7 @@ async function buscarEstudiante(supabase: DbClient, input: string): Promise<Estu
   for (const { campo, valor } of unicos) {
     const { data, error } = await supabase
       .from('estudiantes')
-      .select('*')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, correo_representante')
       .eq('institucion_id', COLEGIO_ID)
       .eq(campo, valor)
       .maybeSingle();
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
 
     const { data: personal, error: perError } = await supabaseAdmin
       .from('personal')
-      .select('*')
+      .select('id, nombres, apellidos, cargo, rol, activo, institucion_id, auth_user_id')
       .eq('id', inputCleaned)
       .eq('institucion_id', COLEGIO_ID)
       .maybeSingle();

@@ -26,7 +26,17 @@ export async function POST(request: Request) {
       cookieStore.delete(COOKIE_INST);
       cookieStore.delete(COOKIE_NOMBRE);
       cookieStore.delete(COOKIE_EMAIL);
-      return NextResponse.json({ success: true });
+      return NextResponse.json(
+        { success: true },
+        {
+          headers: {
+            // Prevent the browser from serving a cached authenticated response
+            // when the user presses the Back button after logout.
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+          },
+        }
+      );
     }
 
     // Validate input & Backward Compatibility Fallback (e.g. cached login page)

@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     try {
       const resEst = await supabaseAdmin
         .from('estudiantes')
-        .select('*')
+        .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id')
         .eq('institucion_id', COLEGIO_ID)
         .or(`qr_code.eq.${inputCleaned},cedula.eq.${inputCleaned},cedula.eq.V-${inputCleaned},cedula.eq.E-${inputCleaned}`)
         .maybeSingle();
@@ -74,7 +74,7 @@ export async function POST(request: Request) {
         if (cedulaExtraida) {
           const resFallback = await supabaseAdmin
             .from('estudiantes')
-            .select('*')
+            .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id')
             .eq('institucion_id', COLEGIO_ID)
             .or(`cedula.eq.${cedulaExtraida},cedula.eq.V-${cedulaExtraida},cedula.eq.E-${cedulaExtraida}`)
             .maybeSingle();

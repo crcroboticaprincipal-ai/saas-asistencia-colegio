@@ -19,10 +19,17 @@ export async function GET(request: Request) {
 
     // Fetch ALL personal (no filter = left-join semantics: everyone shows up)
     if (!personal_id) {
-      const { data, error } = await sb
+      let personalQuery = sb
         .from('personal')
         .select('id, nombres, apellidos, rol, cargo, activo, institucion_id')
         .order('apellidos');
+
+      const instId = searchParams.get('institucion_id');
+      if (instId) {
+        personalQuery = personalQuery.eq('institucion_id', instId);
+      }
+
+      const { data, error } = await personalQuery;
       if (error) throw new Error(error.message);
       return NextResponse.json({ ok: true, data: data ?? [] });
     }
@@ -34,7 +41,7 @@ export async function GET(request: Request) {
 
     const { data, error } = await sb
       .from('asistencia_personal')
-      .select('*')
+      .select('id, personal_id, tipo, fecha, hora, estado_evaluacion, minutos_diferencia, institucion_id')
       .eq('personal_id', personal_id)
       .gte('fecha', inicio)
       .lte('fecha', fin)

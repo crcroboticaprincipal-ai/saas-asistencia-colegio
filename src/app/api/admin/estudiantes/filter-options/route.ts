@@ -30,35 +30,36 @@ function getAdmin() {
 }
 
 /**
- * GET /api/admin/estudiantes/filter-options
+ * GET /api/admin/estudiantes/filter-options?institucion_id=xxx
+ *
  * Returns distinct grado and seccion values from the estudiantes table.
+ * Consolidated into a single query to halve round-trips.
  * Used to populate the filter dropdowns in the UI.
  */
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const sb = getAdmin();
+    const { searchParams } = new URL(request.url);
+    const institucion_id = searchParams.get('institucion_id');
 
-    // Fetch distinct grados
-    const { data: gradosData, error: gradosErr } = await sb
+    // Single query — fetch both columns at once
+    let query = sb
       .from('estudiantes')
-      .select('grado')
+      .select('grado, seccion')
       .eq('estado', 'Activo')
       .order('grado');
 
-    if (gradosErr) throw new Error(gradosErr.message);
+    if (institucion_id) {
+      query = query.eq('institucion_id', institucion_id);
+    }
 
-    // Fetch distinct secciones
-    const { data: seccionesData, error: seccionesErr } = await sb
-      .from('estudiantes')
-      .select('seccion')
-      .eq('estado', 'Activo')
-      .order('seccion');
+    const { data, error } = await query;
 
-    if (seccionesErr) throw new Error(seccionesErr.message);
+    if (error) throw new Error(error.message);
 
-    // Deduplicate
-    const grados = [...new Set((gradosData ?? []).map((r: { grado: string }) => r.grado).filter(Boolean))].sort();
-    const secciones = [...new Set((seccionesData ?? []).map((r: { seccion: string }) => r.seccion).filter(Boolean))].sort();
+    // Deduplicate in-memory (cheap JS operation on the filtered set)
+    const grados = [...new Set((data ?? []).map((r) => r.grado).filter(Boolean))].sort();
+    const secciones = [...new Set((data ?? []).map((r) => r.seccion).filter(Boolean))].sort();
 
     return NextResponse.json({ ok: true, grados, secciones });
   } catch (err: unknown) {

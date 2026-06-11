@@ -26,7 +26,14 @@ export default function AlertasDesercionCard() {
   const fetchAlertas = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/alertas-desercion");
+      // Read institucion_id from the non-httpOnly cookie set during login
+      const instId = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('admin_institucion_id='))
+        ?.split('=')[1] ?? '';
+
+      const params = instId ? `?institucion_id=${encodeURIComponent(instId)}` : '';
+      const res = await fetch(`/api/admin/alertas-desercion${params}`);
       const json = await res.json();
       if (json.ok) {
         setAlertas(json.alertas as AlertaDesercion[]);

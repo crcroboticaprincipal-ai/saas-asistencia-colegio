@@ -52,7 +52,7 @@ export async function POST(request: Request) {
       // 1. Obtener personal e institución
       const { data: personal, error: perErr } = await supabaseAdmin
         .from('personal')
-        .select('*, instituciones(*)')
+        .select('id, nombres, apellidos, correo, auth_user_id, instituciones(nombre)')
         .eq('id', personalId)
         .maybeSingle();
 
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       const resendApiKey = process.env.RESEND_API_KEY;
       if (resendApiKey) {
         const resend = new Resend(resendApiKey);
-        const nombreColegio = personal.instituciones?.nombre || 'Colegio Rafael Castillo';
+        const nombreColegio = (personal.instituciones as { nombre: string }[] | null)?.[0]?.nombre || 'Colegio Rafael Castillo';
         const urlApp = process.env.NEXT_PUBLIC_APP_URL || 'https://colegiorafaelcastillo.com';
         const emailHtml = generarHtmlCorreoRecuperacion({
           nombreUsuario: `${personal.nombres} ${personal.apellidos}`,
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ error: 'Acción no válida' }, { status: 400 });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Error del servidor' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Error del servidor' }, { status: 500 });
   }
 }

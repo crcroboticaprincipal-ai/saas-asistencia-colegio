@@ -8,15 +8,24 @@ function getAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const institucion_id = searchParams.get('institucion_id');
+
     const sb = getAdmin();
     
-    // 1. Fetch all active students
-    const { data: estudiantes, error: estErr } = await sb
+    // 1. Fetch active students — always scoped to the calling institution
+    let estQuery = sb
       .from('estudiantes')
       .select('id, nombre_completo, grado, seccion, nombre_representante, correo_representante, estado')
       .eq('estado', 'Activo');
+
+    if (institucion_id) {
+      estQuery = estQuery.eq('institucion_id', institucion_id);
+    }
+
+    const { data: estudiantes, error: estErr } = await estQuery;
 
     if (estErr) throw new Error(estErr.message);
     if (!estudiantes || estudiantes.length === 0) {
@@ -31,23 +40,35 @@ export async function GET() {
     const inicio3Semanas = subDays(hoy, 21);
     const inicio3SemanasStr = format(inicio3Semanas, 'yyyy-MM-dd');
 
-    // 2. Fetch all ENTRADA attendances for the current month
-    const { data: asistenciasMes, error: asigMesErr } = await sb
+    // 2. Fetch all ENTRADA attendances for the current month — scoped to institution
+    let queryMes = sb
       .from('asistencias')
       .select('estudiante_id, fecha, tipo')
       .eq('tipo', 'ENTRADA')
       .gte('fecha', inicioMesStr)
       .lte('fecha', hoyStr);
 
+    if (institucion_id) {
+      queryMes = queryMes.eq('institucion_id', institucion_id);
+    }
+
+    const { data: asistenciasMes, error: asigMesErr } = await queryMes;
+
     if (asigMesErr) throw new Error(asigMesErr.message);
 
-    // 3. Fetch all ENTRADA attendances for the past 3 weeks (21 days)
-    const { data: asistencias3Semanas, error: asig3SErr } = await sb
+    // 3. Fetch all ENTRADA attendances for the past 3 weeks (21 days) — scoped to institution
+    let query3Semanas = sb
       .from('asistencias')
       .select('estudiante_id, fecha, tipo')
       .eq('tipo', 'ENTRADA')
       .gte('fecha', inicio3SemanasStr)
       .lte('fecha', hoyStr);
+
+    if (institucion_id) {
+      query3Semanas = query3Semanas.eq('institucion_id', institucion_id);
+    }
+
+    const { data: asistencias3Semanas, error: asig3SErr } = await query3Semanas;
 
     if (asig3SErr) throw new Error(asig3SErr.message);
 
@@ -97,7 +118,19 @@ export async function GET() {
       asistenciaEstudiante3Semanas[a.estudiante_id].add(a.fecha);
     });
 
-    const alertas: any[] = [];
+    type AlertaDesercion = {
+      id: string;
+      nombre_completo: string;
+      grado: string;
+      seccion: string;
+      porcentaje_inasistencia: number;
+      porcentaje_asistencia: number;
+      motivo: string;
+      nombre_representante: string;
+      correo_representante: string;
+    };
+
+    const alertas: AlertaDesercion[] = [];
 
     estudiantes.forEach(est => {
       const presentesMes = asistenciaEstudianteMes[est.id]?.size || 0;

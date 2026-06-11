@@ -1,14 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, GraduationCap, Building2, Upload, Shield } from "lucide-react";
+import { handleLogout } from "@/lib/auth-actions";
 
 import Image from "next/image";
 
 export function AdminSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
+
 
   const routes = [
     { name: "Dashboard", path: "/admin", icon: LayoutDashboard },
@@ -30,15 +31,7 @@ export function AdminSidebar() {
     { name: "Pasar Lista", path: "/aula/pasar-lista", icon: BookOpen },
   ];
 
-  const handleLogout = async () => {
-    await fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "logout" }),
-    });
-    router.push("/login");
-    router.refresh();
-  };
+  // handleLogout is imported from @/lib/auth-actions — shared with admin layout
 
   return (
     <aside className="w-64 h-full glass-panel border-r border-white/[0.06] flex-col z-10 hidden md:flex">

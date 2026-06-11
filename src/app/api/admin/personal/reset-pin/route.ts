@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     // 1. Obtener datos del personal
     const { data: personal, error: perErr } = await supabaseAdmin
       .from('personal')
-      .select('*')
+      .select('id, nombres, apellidos, auth_user_id')
       .eq('id', personalId)
       .maybeSingle();
 
@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, message: 'PIN blanqueado a 1234 exitosamente' });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Error del servidor' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Error del servidor' }, { status: 500 });
   }
 }

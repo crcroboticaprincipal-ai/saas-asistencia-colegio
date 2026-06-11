@@ -1,7 +1,7 @@
 "use client";
 
 import { AdminSidebar } from "@/components/AdminSidebar";
-import { useRouter } from "next/navigation";
+import { handleLogout } from "@/lib/auth-actions";
 import { LayoutDashboard, Users, FileText, QrCode, LogOut } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,17 +12,6 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const router = useRouter();
-
-  const handleLogout = async () => {
-    await fetch("/api/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "logout" }),
-    });
-    router.push("/login");
-    router.refresh();
-  };
 
   return (
     <div className="flex flex-col md:flex-row h-screen overflow-hidden print:h-auto print:overflow-visible print:block">

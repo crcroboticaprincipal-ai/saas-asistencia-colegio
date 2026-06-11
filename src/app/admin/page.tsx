@@ -63,6 +63,25 @@ const NIVEL_COLORS: Record<string, string> = {
   completa: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
 };
 
+// ── Typed interfaces for state ──────────────────────────────────────────────
+type SemaforoItem = {
+  id: string;
+  nombre_completo: string;
+  grado: string;
+  seccion: string;
+  count: number;
+};
+
+type PendingResetItem = {
+  id: string;
+  nombres: string;
+  apellidos: string;
+  username: string;
+  cargo: string | null;
+  solicita_restablecer: boolean;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function AdminDashboardPage() {
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
   const [totalEstudiantes, setTotalEstudiantes] = useState(0);
@@ -73,8 +92,8 @@ export default function AdminDashboardPage() {
   const [entradasHoy, setEntradasHoy] = useState(0);
   const [salidasHoy, setSalidasHoy] = useState(0);
   const [registrosHoy, setRegistrosHoy] = useState(0);
-  const [semaforoData, setSemaforoData] = useState<any[]>([]);
-  const [pendingResets, setPendingResets] = useState<any[]>([]);
+  const [semaforoData, setSemaforoData] = useState<SemaforoItem[]>([]);
+  const [pendingResets, setPendingResets] = useState<PendingResetItem[]>([]);
   const [currentInstId, setCurrentInstId] = useState<string | null>(null);
   const [timelineSearch, setTimelineSearch] = useState("");
 
@@ -121,7 +140,7 @@ export default function AdminDashboardPage() {
 
         await Promise.all([
           fetchInitialData(instId),
-          fetchTotalEstudiantes(),
+          fetchTotalEstudiantes(instId),
           fetchInstituciones(),
           fetchPasesStats('dia'),
           fetchTodayStats(instId),
@@ -153,8 +172,11 @@ export default function AdminDashboardPage() {
     init();
   }, []);
 
-  const fetchTotalEstudiantes = async () => {
-    const { count } = await supabase.from("estudiantes").select("id", { count: "exact", head: true });
+  const fetchTotalEstudiantes = async (instId?: string | null) => {
+    let query = supabase.from("estudiantes").select("id", { count: "exact", head: true });
+    // Scope to institution when known (non-superadmin) to show accurate count
+    if (instId) query = query.eq("institucion_id", instId);
+    const { count } = await query;
     setTotalEstudiantes(count || 0);
   };
 
@@ -188,45 +210,19 @@ export default function AdminDashboardPage() {
     }
   };
 
+  /**
+   * Fetches semáforo conductual data from the dedicated server-side endpoint,
+   * which pre-aggregates data in the DB instead of the browser.
+   */
   const fetchSemaforoData = async (instId: string | null) => {
     try {
-      const now = new Date();
-      const firstDayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
-
-      let query = supabase
-        .from("asistencias")
-        .select(`
-          estudiante_id,
-          estudiantes ( nombre_completo, grado, seccion )
-        `)
-        .gte("fecha", firstDayStr);
-
-      if (instId) {
-        query = query.eq("institucion_id", instId);
+      const params = instId ? `?institucion_id=${instId}` : '';
+      const res = await fetch(`/api/admin/semaforo${params}`);
+      if (!res.ok) return;
+      const json = await res.json();
+      if (json.ok && Array.isArray(json.data)) {
+        setSemaforoData(json.data as SemaforoItem[]);
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      const grouped = (data || []).reduce((acc, curr) => {
-        const key = curr.estudiante_id;
-        const estudiante = curr.estudiantes as any;
-        if (!key || !estudiante) return acc;
-        if (!acc[key]) {
-          acc[key] = {
-            nombre_completo: estudiante.nombre_completo,
-            grado: estudiante.grado,
-            seccion: estudiante.seccion,
-            count: 0,
-            id: key
-          };
-        }
-        acc[key].count += 1;
-        return acc;
-      }, {} as Record<string, any>);
-
-      const sorted = Object.values(grouped).sort((a: any, b: any) => b.count - a.count);
-      setSemaforoData(sorted);
     } catch (e) {
       console.error("Error fetching semaforo data:", e);
     }

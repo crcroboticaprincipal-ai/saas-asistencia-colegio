@@ -89,7 +89,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: emailError.message }, { status: 500 });
     }
 
-    console.log(`[notificar] ✅ Email enviado a ${estudiante.correo_representante} | id=${emailData?.id}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.info(`[notificar] ✅ Email enviado a ${estudiante.correo_representante} | id=${emailData?.id}`);
+    }
     return NextResponse.json({ ok: true, emailId: emailData?.id });
 
   } catch (error: unknown) {

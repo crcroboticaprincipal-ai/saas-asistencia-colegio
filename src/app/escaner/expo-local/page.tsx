@@ -69,6 +69,10 @@ export default function ExpoLocalPage() {
   const [notifications, setNotifications] = useState<NotificationSim[]>([]);
   const [activeNotification, setActiveNotification] = useState<NotificationSim | null>(null);
 
+  // Email status states
+  const [emailStatus, setEmailStatus] = useState<"idle" | "sending" | "success" | "error">("idle");
+  const [emailErrorMessage, setEmailErrorMessage] = useState("");
+
   // Web Audio Context for Beep
   const playBeep = () => {
     try {
@@ -185,6 +189,36 @@ export default function ExpoLocalPage() {
       setNotifications((prev) => [newNotif, ...prev]);
       setActiveNotification(newNotif);
 
+      setEmailStatus("sending");
+      setEmailErrorMessage("");
+
+      // Despachar correo electrónico real en segundo plano
+      fetch("/api/notificar/expo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nombre: match.nombre,
+          correo: match.correo,
+          tipo: "ENTRADA"
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          setEmailStatus("success");
+          console.log("Email real enviado con éxito:", data.emailId);
+        } else {
+          setEmailStatus("error");
+          setEmailErrorMessage(data.error || "Error desconocido");
+          console.warn("Envío de email real fallido:", data.error);
+        }
+      })
+      .catch(err => {
+        setEmailStatus("error");
+        setEmailErrorMessage(err.message || "Error de red");
+        console.error("Error al despachar email real:", err);
+      });
+
       setTimeout(() => {
         setSuccessBlink(false);
       }, 500);
@@ -236,6 +270,9 @@ export default function ExpoLocalPage() {
               </span>
               <span className="flex items-center gap-1 text-xs font-semibold text-blue-400">
                 <Zap className="w-3.5 h-3.5 fill-current" /> VOLÁTIL EN MEMORIA
+              </span>
+              <span className="flex items-center gap-1 text-[10px] font-black tracking-widest text-emerald-400 animate-pulse bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded uppercase">
+                ● CORREOS REALES ACTIVOS
               </span>
             </div>
             <h1 className="text-3xl font-black tracking-wider bg-gradient-to-r from-white via-slate-100 to-orange-400 bg-clip-text text-transparent">
@@ -467,14 +504,14 @@ export default function ExpoLocalPage() {
               {activeNotification ? (
                 <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 space-y-3 relative overflow-hidden animate-fade-in">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black tracking-wider text-blue-400 uppercase">
-                      ✉️ COLA DE CORREO (SIMULACIÓN)
+                    <span className="text-[10px] font-black tracking-wider text-emerald-400 uppercase">
+                      ✉️ COLA DE CORREO (ENTREGA REAL)
                     </span>
                     <span className="text-[9px] text-slate-500">{activeNotification.hora}</span>
                   </div>
 
                   <p className="text-xs text-slate-300 font-medium">
-                    Miembro del Colegio Rafael Castillo, se ha enviado un correo con membrete oficial a:
+                    Se ha enviado una notificación de asistencia real por Resend a:
                   </p>
                   
                   <div className="p-2.5 rounded-xl bg-slate-950 border border-white/5">
@@ -482,10 +519,29 @@ export default function ExpoLocalPage() {
                     <p className="text-[10px] text-slate-500">{activeNotification.correo}</p>
                   </div>
 
-                  <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 fill-current animate-pulse" />
-                    Simulación de despacho Resend completada.
-                  </p>
+                  {emailStatus === "sending" && (
+                    <p className="text-[11px] text-blue-400 font-semibold flex items-center gap-1.5 animate-pulse">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Despachando correo real por Resend...
+                    </p>
+                  )}
+                  {emailStatus === "success" && (
+                    <p className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 fill-current animate-pulse text-emerald-400" />
+                      ¡Despacho real de Resend completado con éxito!
+                    </p>
+                  )}
+                  {emailStatus === "error" && (
+                    <div className="text-[11px] text-rose-400 font-semibold space-y-1">
+                      <p className="flex items-center gap-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                        Error de Envío Real:
+                      </p>
+                      <p className="bg-rose-500/10 border border-rose-500/20 p-2 rounded-lg text-[10px] font-mono text-rose-300 whitespace-pre-wrap">
+                        {emailErrorMessage}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="p-8 text-center text-slate-600 text-xs italic">
@@ -497,11 +553,11 @@ export default function ExpoLocalPage() {
             {/* Notification logs list */}
             {notifications.length > 1 && (
               <div className="mt-4 border-t border-white/5 pt-3 space-y-1.5">
-                <p className="text-[10px] font-black tracking-widest text-slate-500 uppercase">LOGS DE SIMULACIÓN</p>
+                <p className="text-[10px] font-black tracking-widest text-slate-500 uppercase">LOGS DE ENVÍOS REALES</p>
                 <div className="max-h-24 overflow-y-auto space-y-1 pr-1">
                   {notifications.slice(1, 4).map((n) => (
                     <div key={n.id} className="text-[10px] text-slate-500 truncate">
-                      [{n.hora}] 📨 Notificación enviada a {n.correo} ({n.nombre})
+                      [{n.hora}] 📨 Email despachado a {n.correo} ({n.nombre})
                     </div>
                   ))}
                 </div>
