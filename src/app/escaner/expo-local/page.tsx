@@ -13,7 +13,9 @@ import {
   ArrowLeft,
   Terminal,
   Zap,
-  Sparkles
+  Sparkles,
+  Loader2,
+  AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -206,17 +208,14 @@ export default function ExpoLocalPage() {
       .then(data => {
         if (data.ok) {
           setEmailStatus("success");
-          console.log("Email real enviado con éxito:", data.emailId);
         } else {
           setEmailStatus("error");
           setEmailErrorMessage(data.error || "Error desconocido");
-          console.warn("Envío de email real fallido:", data.error);
         }
       })
       .catch(err => {
         setEmailStatus("error");
         setEmailErrorMessage(err.message || "Error de red");
-        console.error("Error al despachar email real:", err);
       });
 
       setTimeout(() => {

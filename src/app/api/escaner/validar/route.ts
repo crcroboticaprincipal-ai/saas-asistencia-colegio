@@ -16,7 +16,7 @@ interface EstudianteRow {
   foto_url: string | null;
   qr_code: string | null;
   institucion_id: string;
-  nombre_representante: string | null;
+  nombre_representante?: string | null;
   correo_representante: string | null;
   [key: string]: unknown;
 }
@@ -51,7 +51,7 @@ async function buscarEstudiante(supabase: DbClient, input: string): Promise<Estu
   for (const { campo, valor } of unicos) {
     const { data, error } = await supabase
       .from('estudiantes')
-      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, correo_representante')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
       .eq('institucion_id', COLEGIO_ID)
       .eq(campo, valor)
       .maybeSingle();

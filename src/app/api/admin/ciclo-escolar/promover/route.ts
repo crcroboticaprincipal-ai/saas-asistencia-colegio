@@ -18,10 +18,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se encontró la institución' }, { status: 400 });
     }
 
-    // Get all active students for this institution
+    // Get all active students for this institution — only the columns needed for promotion logic
     const { data: estudiantes, error } = await sb
       .from('estudiantes')
-      .select('*')
+      .select('id, grado, estado')
       .eq('institucion_id', instId)
       .eq('estado', 'Activo');
 

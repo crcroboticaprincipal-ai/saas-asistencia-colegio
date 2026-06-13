@@ -24,10 +24,10 @@ export async function GET(request: Request) {
 
     const sb = getAdmin();
 
-    // Fetch attendance data for the period
+    // Fetch attendance data for the period — only columns needed for the Excel report
     const { data: asistencias, error } = await sb
       .from('asistencia_personal')
-      .select('*')
+      .select('tipo, fecha, hora, estado_evaluacion, minutos_diferencia')
       .eq('personal_id', personal_id)
       .gte('fecha', inicio)
       .lte('fecha', fin)
