@@ -93,8 +93,8 @@ export default function EstudianteDetailPage({ params }: { params: Promise<{ id:
 
         if (asisErr) throw asisErr;
         setAsistencias(asis || []);
-      } catch (err: any) {
-        setError(err.message || "Error al cargar la información");
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Error al cargar la información");
       } finally {
         setLoading(false);
       }
@@ -161,6 +161,29 @@ export default function EstudianteDetailPage({ params }: { params: Promise<{ id:
   ).length;
   const totalExpectedDays = uniqueDays.length || 1;
   const asistenciaRate = Math.round((daysWithEntrance / totalExpectedDays) * 100) || 100;
+
+  // Reset alert counters for this student (surgical — does not touch asistencias records)
+  const handleResetAlertas = async () => {
+    const confirmed = confirm(
+      '⚠️ LIMPIAR ALERTAS\n\n'
+      + `Esto pondrá en cero los contadores de alertas (inasistencia y retardo) de "${student.nombre_completo}".\n\n`
+      + 'Los registros históricos de asistencia NO serán eliminados.\n\n'
+      + '¿Deseas continuar?'
+    );
+    if (!confirmed) return;
+    try {
+      const res = await fetch('/api/admin/reset-alertas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estudiante_id: student.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert('✅ ' + data.message);
+    } catch (err: unknown) {
+      alert('❌ Error: ' + (err instanceof Error ? err.message : 'Error desconocido'));
+    }
+  };
 
   // Export PDF Report
   const downloadReportPDF = () => {
@@ -351,13 +374,22 @@ export default function EstudianteDetailPage({ params }: { params: Promise<{ id:
             <h2 className="text-lg font-bold text-white">Historial de Accesos Completo</h2>
           </div>
           
-          <button 
-            onClick={downloadReportPDF}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-all shadow-lg shadow-indigo-600/10 self-start sm:self-auto"
-          >
-            <Download className="w-3.5 h-3.5" />
-            📥 Descargar Historial
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button 
+              onClick={downloadReportPDF}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-all shadow-lg shadow-indigo-600/10 self-start sm:self-auto"
+            >
+              <Download className="w-3.5 h-3.5" />
+              📥 Descargar Historial
+            </button>
+            <button
+              onClick={handleResetAlertas}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-rose-900/40 border border-white/[0.06] hover:border-rose-500/30 text-slate-400 hover:text-rose-300 text-xs font-semibold rounded-xl transition-all"
+              title="Pone en cero sólo los contadores de alerta, no borra historial"
+            >
+              <span>🧹</span> Limpiar Alertas
+            </button>
+          </div>
         </div>
 
         {/* Date Filters */}

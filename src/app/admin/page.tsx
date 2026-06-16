@@ -269,15 +269,18 @@ export default function AdminDashboardPage() {
           id, estudiante_id, tipo, fecha, hora, metodo,
           estudiantes ( nombre_completo, grado, seccion, cedula )
         `)
-        .order("created_at", { ascending: false });
+        // Order by fecha + hora to guarantee correct chronological order
+        // regardless of insert latency or clock drift.
+        .order("fecha", { ascending: false })
+        .order("hora", { ascending: false });
 
       const targetInstId = instId !== undefined ? instId : currentInstId;
       if (targetInstId) {
         query = query.eq("institucion_id", targetInstId);
       }
 
-      // Limit to 20
-      query = query.limit(20);
+      // Show last 50 records for a richer activity feed
+      query = query.limit(50);
 
       const { data, error } = await query;
 
@@ -353,6 +356,35 @@ export default function AdminDashboardPage() {
     }
   };
 
+  /** Resets all alert counters for the current institution (mass operation). */
+  const handleResetAllAlertas = async () => {
+    if (!currentInstId) {
+      alert('No se pudo determinar la institución activa.');
+      return;
+    }
+    const confirmed = confirm(
+      '⚠️ CONFIRMAR REINICIO\n\n'
+      + 'Esta acción pondrá en cero los contadores de alertas (alertas_inasistencia y alertas_retardo) '
+      + 'de TODOS los estudiantes de esta institución.\n\n'
+      + 'Los registros históricos de asistencia NO serán eliminados.\n\n'
+      + '¿Deseas continuar?'
+    );
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch('/api/admin/reset-alertas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ institucion_id: currentInstId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      alert('✅ ' + data.message);
+    } catch (err: unknown) {
+      alert('❌ Error: ' + (err instanceof Error ? err.message : 'Error desconocido'));
+    }
+  };
+
   const getSemaforoColor = (incidencias: number) => {
     if (incidencias <= 1) return { bg: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25", emoji: "🟢", label: "Regular" };
     if (incidencias <= 3) return { bg: "bg-amber-500/15 text-amber-400 border-amber-500/25", emoji: "🟡", label: "Atención" };
@@ -382,12 +414,24 @@ export default function AdminDashboardPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Panel de Control</h1>
           <p className="text-slate-400 mt-0.5 text-sm">Monitoreo en tiempo real de entradas y salidas.</p>
         </div>
-        <div className="glass-panel px-3 sm:px-4 py-2 rounded-full flex items-center gap-2 self-start">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-          </span>
-          <span className="text-xs font-medium text-emerald-400">En vivo</span>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Reset Alertas — only shown when institution context is available */}
+          {currentInstId && (
+            <button
+              onClick={handleResetAllAlertas}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-900/40 hover:bg-rose-800/60 border border-rose-500/30 text-rose-300 hover:text-rose-200 text-xs font-semibold transition-all"
+              title="Reiniciar todos los contadores de alerta (sólo estadísticas, no datos)"
+            >
+              <span>🔄</span> Reiniciar Alertas
+            </button>
+          )}
+          <div className="glass-panel px-3 sm:px-4 py-2 rounded-full flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <span className="text-xs font-medium text-emerald-400">En vivo</span>
+          </div>
         </div>
       </div>
 
