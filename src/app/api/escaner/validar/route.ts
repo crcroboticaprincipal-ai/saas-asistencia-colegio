@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const COLEGIO_ID = 'c4e8711a-f035-428c-b98f-69555a819ec7';
@@ -48,22 +48,23 @@ async function buscarEstudiante(supabase: DbClient, input: string): Promise<Estu
     (c, i, arr) => c.valor && arr.findIndex(x => x.campo === c.campo && x.valor === c.valor) === i
   );
 
-  for (const { campo, valor } of unicos) {
-    const { data, error } = await supabase
-      .from('estudiantes')
-      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
-      .eq('institucion_id', COLEGIO_ID)
-      .eq(campo, valor)
-      .maybeSingle();
+  if (unicos.length === 0) return null;
 
-    if (error) {
-      console.error(`[escaner/validar] Error buscando ${campo}=${valor}:`, error.message);
-      continue;
-    }
-    if (data) return data;
+  const orFilters = unicos.map(({ campo, valor }) => `${campo}.eq.${valor}`).join(',');
+
+  const { data, error } = await supabase
+    .from('estudiantes')
+    .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
+    .eq('institucion_id', COLEGIO_ID)
+    .or(orFilters)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`[escaner/validar] Error buscando estudiante con filtros (${orFilters}):`, error.message);
+    return null;
   }
 
-  return null;
+  return data;
 }
 
 export async function POST(request: Request) {
@@ -130,7 +131,8 @@ export async function POST(request: Request) {
       }
 
       // Notificación email vía endpoint dedicado (confiable en Vercel serverless)
-      // No usamos await para no bloquear la respuesta al escáner
+      // Usamos after() de Next.js para enviar la notificación en segundo plano
+      // y no bloquear la respuesta inmediata al escáner.
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL
         || (request.headers.get('origin') ?? '')
         || (request.headers.get('x-forwarded-host')
@@ -138,15 +140,17 @@ export async function POST(request: Request) {
             : '');
 
       if (baseUrl && estudiante.correo_representante) {
-        await fetch(`${baseUrl}/api/notificar`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            estudiante_id: estudiante.id,
-            tipo,
-          }),
-        }).catch((err) => {
-          console.error('[escaner/validar] Error disparando notificación:', err);
+        after(() => {
+          fetch(`${baseUrl}/api/notificar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              estudiante_id: estudiante.id,
+              tipo,
+            }),
+          }).catch((err) => {
+            console.error('[escaner/validar] Error disparando notificación:', err);
+          });
         });
       }
 
