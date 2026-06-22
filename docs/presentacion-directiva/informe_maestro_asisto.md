@@ -158,72 +158,72 @@ Para Asisto, Supabase proporciona:
 
 **Row-Level Security (RLS) — La Privacidad como Arquitectura:** Las políticas de seguridad por fila garantizan que ningún dato de un estudiante es accesible desde ninguna cuenta no autorizada. El sistema no puede ser vulnerado mediante inyección de SQL. La privacidad de las familias no es una política que se escribe en papel. Es código que el sistema ejecuta automáticamente en cada consulta.
 
-**WebSockets en Tiempo Real:** La tecnología de WebSockets de Supabase permite que el panel de la coordinación se actualice instantáneamente —sin necesidad de recargar la página— cada vez que un estudiante ingresa al plantel. La información de asistencia es observada en vivo, como un monitor cardíaco digital del estado del plantel.
+**WebSockets en Tiempo Real:** La tecnología de WebSockets de Supabase permite que el panel de la coordinación se actualice instantáneamente —sin necesidad de recargar la página— cada vez que un estudiante ingresa al plantel. La información de asistencia es observada en vivo, como un monitor cardíaco digital ### 4.1 Motor de Control de Recursos Humanos (Guía de Gestión Administrativa)
 
-### 3.4 Vercel — La Infraestructura de Despliegue Global
-
-**Vercel** es la plataforma de hosting que ha redefinido los estándares de velocidad y disponibilidad en la web moderna. Asisto está desplegado en su infraestructura de producción con las siguientes garantías:
-
-- **99.99% de disponibilidad (Uptime):** Garantizado contractualmente. El sistema de asistencia está disponible 365 días al año, 24 horas al día.
-- **CDN Global con 40+ regiones:** El contenido del sistema se sirve desde el servidor más cercano geográficamente al usuario, garantizando tiempos de carga óptimos desde cualquier punto de Venezuela.
-- **Despliegue instantáneo de actualizaciones:** Cualquier mejora o nueva funcionalidad es publicada en producción en segundos, sin tiempos de inactividad ni ventanas de mantenimiento.
-- **Certificados SSL automáticos:** Toda la comunicación está cifrada de extremo a extremo sin costo adicional ni configuración manual.
-
----
-
-## 4. ECOSISTEMA DE FUNCIONALIDADES IMPLEMENTADAS — EL NÚCLEO
-
-### 4.1 Motor de Control de Recursos Humanos
-
-El módulo de Recursos Humanos de Asisto es uno de los logros arquitectónicos más complejos del sistema, diseñado para resolver una realidad que el software educativo estándar ignora sistemáticamente: **los docentes venezolanos no trabajan en turnos fijos de 8 horas**.
+El módulo de Recursos Humanos y Gestión Académica de Asisto es uno de los logros arquitectónicos más complejos del sistema, diseñado para resolver una realidad que el software educativo estándar ignora sistemáticamente: **los docentes venezolanos no trabajan en turnos fijos de 8 horas**.
 
 Un profesor de matemáticas puede tener clase los lunes y miércoles de 7:00 AM a 9:00 AM, libre los martes, retornar los jueves en bloque de 10:00 AM a 12:00 PM y tener turno vespertino los viernes de 1:00 PM a 3:00 PM. Ningún sistema de asistencia genérico puede manejar esa complejidad sin configuración manual masiva.
 
-**Asisto lo resuelve con su Motor de Horarios Complejos:**
+**Asisto lo resuelve con su Motor de Horarios Complejos y los flujos integrados de administración:**
 
-- **Configuración por Bloques Horarios Individuales:** Cada profesor recibe un perfil de horario personalizado con bloques de entrada y salida específicos por día de la semana.
-- **Evaluación Automática de Puntualidad:** El sistema compara la hora de marcación real con la hora de entrada programada y clasifica automáticamente cada registro como **Puntual**, **Retardo** (con cálculo exacto de minutos de diferencia) o **Ausencia**.
-- **Calendario Visual Premium:** Una vista de tipo calendario muestra el historial completo del mes del docente con código de colores:
-  - 🟢 **Verde profundo** → Día puntual
-  - 🔴 **Rojo profundo** → Día con retardo (con indicador de minutos)
-  - ⬛ **Carbón oscuro** → Día sin registro / Día libre
+#### A. Inclusión de Personal (Docente, Coordinador y Administrativo)
+Para dar de alta a un miembro de la planta en el sistema:
+1. El administrador navega al módulo de **Recursos Humanos** (`/admin/rrhh`).
+2. Hace clic en el botón **"Agregar Personal"**.
+3. Rellena el formulario interactivo con: Nombres, Apellidos, Correo Electrónico (indispensable para restablecimiento seguro de clave y notificaciones) y selecciona el Rol en el sistema (Docente, Coordinador, Administrativo o Portero).
+4. El sistema genera un PIN único de 4 dígitos para que el usuario pueda iniciar sesión desde cualquier dispositivo de forma ágil. Este PIN puede restablecerse quirúrgicamente con un solo clic si el usuario lo olvida.
 
-**Exportación Ejecutiva a Excel:** Con un solo clic, el sistema genera un reporte profesional en formato `.xlsx` que replica exactamente esta cuadrícula de calendario con todos sus colores, resumen estadístico mensual y leyenda de interpretación. Este reporte puede ser entregado a Recursos Humanos, enviado por correo o presentado en reuniones de evaluación docente.
+#### B. Creación y Asignación de Materias
+La gestión de la carga académica se realiza en el panel de **Materias** (`/admin/materias`):
+1. **Definición global:** Se registran las materias de la institución (p. ej. Matemática de 4to Año, Física de 5to Año) con su respectiva información.
+2. **Vinculación de Secciones:** Cada materia se asocia a un Grado y Sección específico (p. ej. Matemáticas - 4to "A").
+3. **Asignación del Docente:** Se vincula a un docente específico (creado previamente en el paso de Personal) como el responsable de impartir y pasar lista en esa materia y sección.
 
-### 4.2 Escáner Dual de Portería y Aula
+#### C. Configuración de Horarios y Bloques Horarios Individuales
+Para que el motor calcule la puntualidad, el personal de administración asigna los horarios en el perfil del docente:
+1. Se establecen los **bloques horarios activos** por cada día de la semana (p. ej. Lunes: Entrada 7:00 AM / Salida 8:30 AM).
+2. El sistema calcula en milisegundos la diferencia entre la marcación real y la programada:
+   - 🟢 **Puntual:** Marcación realizada dentro del margen de tolerancia inicial.
+   - 🔴 **Retardo:** Marcación posterior al límite de tolerancia, acumulando y registrando los minutos exactos de retraso en la ficha del docente.
+   - ⬛ **Ausencia:** El docente no registra marcación de entrada durante su bloque horario del día.
+3. **Calendario Visual Premium:** Una vista mensual en cuadrícula de colores resume la puntualidad del docente (Verde = Puntual, Rojo = Retardo con minutos exactos, Gris = Día libre o Sin Marcación).
+4. **Exportación Ejecutiva a Excel:** Con un solo clic, se genera un reporte profesional en formato `.xlsx` que replica la cuadrícula de colores, el resumen de estadísticas de días trabajados, retardos y puntualidad mensual, listo para auditorías o revisiones de nómina.
 
-El punto de contacto entre el estudiante y el sistema es el módulo de escaneo, diseñado con dos modalidades complementarias que garantizan el registro de asistencia bajo cualquier circunstancia operativa:
+### 4.2 Escáner Dual de Portería y Aula (Optimizado para Máximo Rendimiento)
 
-#### Modalidad 1 — Escaneo QR Ultrarrápido
-Cada estudiante es identificado mediante un código QR único generado algorítmicamente a partir de su cédula de identidad (`RC-V12345678`). La validación completa —lectura del QR, consulta a la base de datos, verificación del estado del estudiante, registro de la asistencia y disparo de la notificación al representante— ocurre en **menos de 3 segundos**.
+El punto de contacto entre el estudiante y el sistema es el módulo de escaneo, diseñado con dos modalidades complementarias y optimizado a nivel de infraestructura para lograr una velocidad de respuesta sub-segundo:
 
-El diseño de la pantalla del escáner maximiza la velocidad operativa: fondo oscuro de máximo contraste, indicador de resultado en tamaño XXL visible a distancia y sonido distintivo de confirmación o rechazo. En una portería con 500 estudiantes que ingresan en 20 minutos, cada segundo cuenta.
+#### Modalidad 1 — Escaneo QR Ultrarrápido (Optimización after() y .or())
+Cada estudiante posee un código QR único impreso en su carnet (p. ej. `RC-V12345678`). La pantalla del escáner en portería lee el código y llama al endpoint `/api/escaner/validar`. 
+
+Para evitar cuellos de botella en horas pico de entrada, se implementaron dos mejoras críticas:
+* **Consulta Combinada con filtro `.or()`:** En lugar de buscar secuencialmente por prefijos de cédula y QR (lo que generaba hasta 5 consultas a Supabase), el sistema ejecuta una única búsqueda indexada combinada en la base de datos, resolviendo la identidad en microsegundos.
+* **Procesamiento de Notificaciones Asíncronas (`after()`):** La llamada al API de notificaciones (que envía correos vía Resend al representante) ya no bloquea la respuesta del escáner. Utilizando la API `after()` de Next.js, el escáner responde de forma instantánea al portero (**<100ms** en verde) y continúa el envío del email en segundo plano.
 
 #### Modalidad 2 — Contingencia por Cédula de Identidad
-Ante la eventualidad de que un estudiante no porte su carnet QR —código olvidado, carnet dañado, primera semana de clases— el sistema ofrece un campo de ingreso manual por número de cédula. El portero simplemente teclea el número y presiona Enter. El motor de validación localiza al estudiante, verifica su estado de matrícula activa y registra la asistencia de manera **idéntica** al flujo QR, incluyendo la notificación automática al representante.
-
-Esta dualidad elimina completamente la excusa de "no traje el carnet" como justificativo de ausencia no registrada.
+Si un alumno olvida o daña su carnet, el portero presiona un botón que despliega un teclado virtual, digita la Cédula/ID del estudiante y pulsa Enter. El motor realiza la misma búsqueda indexada y procesa la asistencia y la notificación de forma idéntica al flujo QR.
 
 #### Seguridad Adicional — Control de Estado de Matrícula
-El sistema valida en tiempo real el estado de matrícula del estudiante antes de autorizar cualquier ingreso:
-- **Activo** → Acceso permitido. Asistencia registrada. Notificación enviada.
-- **Retirado** → Acceso denegado. Alerta generada. Registro de intento de acceso.
-- **Graduado** → Acceso denegado. Registro histórico preservado pero sin generación de asistencia.
+El sistema valida el estado del estudiante en tiempo real:
+* **Activo** → Acceso permitido. Asistencia registrada. Notificación enviada.
+* **Retirado** → Acceso denegado en pantalla en color rojo con alerta sonora.
+* **Graduado** → Acceso denegado (historial preservado pero matrícula inactiva).
 
-### 4.3 Módulo de Asistencia por Materia — Terminal del Docente
+### 4.3 Módulo de Asistencia por Materia — Terminal del Docente (Guía de Pase de Lista)
 
-Asisto amplía el control de asistencia más allá de la portería hasta el interior de cada aula de clase. Mediante el **Terminal del Docente** — una interfaz limpia, táctil y optimizada para uso con tablet o teléfono durante el primer bloque de clase — el profesor puede registrar en menos de 90 segundos la asistencia completa de su sección.
+Asisto extiende el control de asistencia más allá de la portería hasta el interior de cada aula de clase, permitiendo a los profesores llevar un registro de presencia por materia de forma táctil en menos de 90 segundos:
 
-**Funcionalidades del Terminal:**
-- Visualización de la lista completa de estudiantes asignados a su sección-materia.
-- Marcación individual con un solo toque (Presente / Ausente).
-- Registro automático de la fecha y hora del sistema.
-- Bloqueo de ediciones retroactivas para garantizar la integridad del historial.
+#### Guía Operativa para el Docente:
+1. **Acceso al Terminal:** El profesor ingresa al sistema en su propio teléfono o en la tablet de la sección usando su PIN de 4 dígitos.
+2. **Selección del Bloque:** Al acceder al módulo **"Pasar Lista"** (`/aula/pasar-lista`), el docente selecciona la Materia y la Sección que le corresponde en ese bloque horario (el sistema le autocompleta las opciones según su asignación horaria activa).
+3. **Marcación Táctil:** Se muestra la lista completa de los estudiantes inscritos con sus fotos. El docente simplemente toca el nombre de cada estudiante para alternar su estado:
+   - 🟢 **Presente** (Toque rápido, marcado en verde).
+   - 🔴 **Ausente** (Toque rápido, marcado en rojo).
+4. **Envío y Registro:** Al finalizar, presiona **"Guardar Asistencia"**. Los datos se sincronizan con Supabase y el historial queda bloqueado para modificaciones retroactivas no autorizadas.
 
-**Panel de Analítica Académica:**
-El módulo genera automáticamente un ranking de asistencia por materia y sección, identificando:
-- Las clases con mayor índice de ausentismo interno (estudiantes que entraron al plantel pero no asistieron a clases específicas).
-- El fenómeno denominado **"Fuga Interna"**: estudiantes presentes en portería pero ausentes en aulas — una problemática de seguridad y disciplina que el sistema detecta y alerta en tiempo real.
+#### Detección de "Fuga Interna" y Analítica Académica:
+* **Fuga Interna:** Es una funcionalidad de seguridad única de Asisto. Si un estudiante fue registrado en la portería a las 7:05 AM pero el docente lo marca como "Ausente" en la clase de las 8:00 AM, el sistema genera automáticamente una alerta de **Fuga Interna**.
+* **Ranking de Ausentismo por Clase:** El panel administrativo recopila esta información para listar qué materias y secciones presentan las tasas de asistencia más bajas del mes (p. ej. Física de 5to "B" con 51% de asistencia), permitiendo intervenciones académicas de inmediato.
 
 ### 4.4 Panel de Alerta de Ausencia Crítica del Personal
 
@@ -288,6 +288,20 @@ El propietario de la plataforma cuenta con un nivel adicional de acceso: el **Pa
 
 Este panel garantiza que los problemas técnicos son identificados y resueltos a nivel de infraestructura antes de convertirse en disrupciones operativas visibles para docentes o directivos.
 
+### 4.8 Nuevo Motor de Alertas y Reportes Consolidados
+
+Para mejorar la toma de decisiones directivas y la administración periódica, se incorporaron nuevas funcionalidades de control, visualización y reinicio:
+
+#### A. Panel de Reportes en 3 Pestañas
+Ubicado en `/reportes` y `/admin/reportes`, unifica la información en tres niveles tácticos:
+1. **Pestaña Resumen:** Gráficos generales de ausentismo institucional y KPIs globales.
+2. **Pestaña Individual:** Búsqueda rápida de un alumno por cédula o nombre. Muestra una línea de tiempo cronológica detallada de sus entradas, pases y faltas, con opción de generar reportes en PDF y exportar historial a Excel.
+3. **Pestaña Grupal (Sección):** Permite filtrar por Año y Sección para renderizar una **Matriz de Asistencia**. Esta cuadrícula cruza cada alumno con los días del mes en formato Bento Box, listando KPIs de asistencia acumulados y permitiendo la descarga del cuadro completo a Excel.
+
+#### B. Motor de Restablecimiento de Alertas (Reset)
+Las alertas acumuladas de inasistencia o retardo pueden reiniciarse quirúrgicamente o de forma masiva sin alterar el historial de asistencia real de la base de datos:
+* **Reset Quirúrgico (Individual):** En la ficha del estudiante (`/admin/estudiantes/[id]`), un botón discreto de **"Limpiar Alertas"** pone a cero los contadores de inasistencia/retardo de ese alumno específico.
+* **Reset Masivo (Institucional):** En el header de la administración, un botón de **"🔄 Reiniciar Alertas"** (disponible para superadministradores) permite restablecer a cero todos los contadores de alertas acumuladas del colegio entero al inicio de un nuevo periodo. El sistema implementa una doble confirmación de seguridad para evitar reseteos accidentales.
 ---
 
 ## 5. MÉTRICAS DE IMPACTO OPERATIVO

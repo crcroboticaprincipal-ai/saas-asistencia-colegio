@@ -687,24 +687,24 @@
     <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 70% 30%, rgba(16,185,129,0.1) 0%, transparent 55%);"></div>
     <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
       <div class="tag tag-mint">Módulo Portería</div>
-      <h1 class="slide-title">La Portería Inteligente</h1>
-      <h2 class="slide-subtitle">De la fila y el papel al acceso verificado en 3 segundos.</h2>
+      <h1 class="slide-title">La Portería Inteligente (Optimización Extrema)</h1>
+      <h2 class="slide-subtitle">Respuesta en portería en menos de 100ms con envío de correo asíncrono.</h2>
       <div class="grid-2" style="align-items:start;">
         <div>
           <div class="glass glass-mint" style="margin-bottom:16px;padding:20px 24px;">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--mint-light);margin-bottom:10px;">📱 Modalidad 1 — QR Ultrarrápido</div>
+            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--mint-light);margin-bottom:10px;">📱 Modalidad 1 — QR Ultrarrápido (after())</div>
             <ul class="bullet-list">
-              <li><span class="icon">✅</span><span>El estudiante presenta su carnet QR</span></li>
-              <li><span class="icon">⚡</span><span>Validación en <strong>menos de 3 segundos</strong></span></li>
-              <li><span class="icon">🔔</span><span>Notificación enviada al representante automáticamente</span></li>
+              <li><span class="icon">✅</span><span>Confirmación visual en portería en **menos de 100ms**</span></li>
+              <li><span class="icon">⚡</span><span>Uso de la API `after()` de Next.js para segundo plano</span></li>
+              <li><span class="icon">🔔</span><span>Notificación al representante enviada sin bloquear el escáner</span></li>
             </ul>
           </div>
           <div class="glass" style="padding:20px 24px;">
             <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:var(--indigo-light);margin-bottom:10px;">⌨️ Modalidad 2 — Contingencia por Cédula</div>
             <ul class="bullet-list">
-              <li><span class="icon">🪪</span><span>Si no porta el carnet, el portero teclea la cédula</span></li>
-              <li><span class="icon">↩️</span><span>Enter → mismo resultado que el QR</span></li>
-              <li><span class="icon">🚫</span><span><strong>Cero excusas</strong> para no registrar asistencia</span></li>
+              <li><span class="icon">🪪</span><span>Ingreso manual de Cédula/ID si no porta carnet</span></li>
+              <li><span class="icon">↩️</span><span>Enter → validación única indexada `.or()` a Supabase</span></li>
+              <li><span class="icon">🚫</span><span>Cero excusas para no estar registrado en portería</span></li>
             </ul>
           </div>
         </div>
@@ -713,19 +713,19 @@
             <div style="display:flex;flex-direction:column;gap:0;width:100%;">
               <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
                 <div style="width:36px;height:36px;border-radius:50%;background:rgba(16,185,129,0.2);border:2px solid var(--mint);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--mint-light);flex-shrink:0;">1</div>
-                <div><div style="font-size:14px;font-weight:600;color:white;">QR Presentado</div><div style="font-size:12px;color:var(--text-muted);">t = 0.0 seg</div></div>
+                <div><div style="font-size:14px;font-weight:600;color:white;">QR Escaneado / Cédula</div><div style="font-size:12px;color:var(--text-muted);">t = 0.0 seg</div></div>
               </div>
               <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
                 <div style="width:36px;height:36px;border-radius:50%;background:rgba(16,185,129,0.2);border:2px solid var(--mint);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--mint-light);flex-shrink:0;">2</div>
-                <div><div style="font-size:14px;font-weight:600;color:white;">Validado en Base de Datos</div><div style="font-size:12px;color:var(--text-muted);">t = &lt; 1 seg</div></div>
+                <div><div style="font-size:14px;font-weight:600;color:white;">Búsqueda indexada single query (.or)</div><div style="font-size:12px;color:var(--text-muted);">t = &lt; 10 ms (Supabase index scan)</div></div>
               </div>
               <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
                 <div style="width:36px;height:36px;border-radius:50%;background:rgba(16,185,129,0.2);border:2px solid var(--mint);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--mint-light);flex-shrink:0;">3</div>
-                <div><div style="font-size:14px;font-weight:600;color:white;">Asistencia Registrada</div><div style="font-size:12px;color:var(--text-muted);">t = &lt; 3 seg</div></div>
+                <div><div style="font-size:14px;font-weight:600;color:white;">Respuesta en pantalla y audio</div><div style="font-size:12px;color:var(--mint-light);font-weight:700;">t = &lt; 100 ms (Instantáneo) ⚡</div></div>
               </div>
               <div style="display:flex;align-items:center;gap:16px;padding:14px 0;">
                 <div style="width:36px;height:36px;border-radius:50%;background:rgba(99,102,241,0.2);border:2px solid var(--indigo);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--indigo-light);flex-shrink:0;">4</div>
-                <div><div style="font-size:14px;font-weight:600;color:white;">Representante Notificado</div><div style="font-size:12px;color:var(--indigo-light);font-weight:700;">t = &lt; 8 seg ⚡</div></div>
+                <div><div style="font-size:14px;font-weight:600;color:white;">Representante Notificado (after())</div><div style="font-size:12px;color:var(--indigo-light);font-weight:600;">Segundo plano en servidor Vercel</div></div>
               </div>
             </div>
           </div>
@@ -739,29 +739,26 @@
     <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 30% 70%, rgba(99,102,241,0.08) 0%, transparent 50%);"></div>
     <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
       <div class="tag tag-indigo">Módulo RRHH</div>
-      <h1 class="slide-title">Control de Personal y Horarios</h1>
-      <h2 class="slide-subtitle">Evaluación automática, objetiva y sin errores humanos.</h2>
+      <h1 class="slide-title">Gestión de Personal, Materias y Horarios</h1>
+      <h2 class="slide-subtitle">Guía de administración paso a paso de toda la planta de la institución.</h2>
       <div class="grid-2" style="align-items:start;">
-        <div style="display:flex;flex-direction:column;gap:16px;">
-          <div class="glass glass-indigo" style="padding:20px 24px;">
-            <div style="font-size:13px;font-weight:700;color:var(--indigo-light);margin-bottom:10px;">⚙️ Motor de Evaluación Automática</div>
-            <ul class="bullet-list">
-              <li><span class="icon">📅</span><span>Horario personalizado por día para cada docente</span></li>
-              <li><span class="icon">🎯</span><span>Clasifica: <strong>Puntual</strong>, <strong>Retardo</strong> o <strong>Ausente</strong></span></li>
-              <li><span class="icon">⏱️</span><span>Calcula minutos exactos de retardo automáticamente</span></li>
-            </ul>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div class="glass glass-indigo" style="padding:14px 20px;">
+            <div style="font-size:13px;font-weight:700;color:var(--indigo-light);margin-bottom:6px;">👤 1. Inclusión de Personal</div>
+            <p style="font-size:12px;color:var(--text-secondary);line-height:1.4;">Alta en `/admin/rrhh` con correo y rol. Autogeneración de PIN de 4 dígitos para pases rápidos.</p>
           </div>
-          <div class="glass" style="padding:20px 24px;">
-            <div style="font-size:13px;font-weight:700;color:white;margin-bottom:14px;">📊 Exportación a Excel con 1 clic</div>
-            <div class="stat-row"><span class="stat-label">Días trabajados</span><span class="stat-value">23</span></div>
-            <div class="stat-row"><span class="stat-label">Puntuales</span><span class="stat-value" style="color:var(--mint-light);">20</span></div>
-            <div class="stat-row"><span class="stat-label">Retardos</span><span class="stat-value" style="color:#fb7185;">3</span></div>
-            <div class="stat-row"><span class="stat-label">% Puntualidad</span><span class="stat-value" style="color:var(--indigo-light);">87%</span></div>
+          <div class="glass glass-indigo" style="padding:14px 20px;">
+            <div style="font-size:13px;font-weight:700;color:var(--indigo-light);margin-bottom:6px;">📚 2. Carga de Materias y Secciones</div>
+            <p style="font-size:12px;color:var(--text-secondary);line-height:1.4;">Registro de asignaturas y vinculación directa con el docente en `/admin/materias`.</p>
+          </div>
+          <div class="glass glass-indigo" style="padding:14px 20px;">
+            <div style="font-size:13px;font-weight:700;color:var(--indigo-light);margin-bottom:6px;">⚙️ 3. Horarios Complejos y Tolerancia</div>
+            <p style="font-size:12px;color:var(--text-secondary);line-height:1.4;">Asignación de bloques horarios diferentes por día de la semana. Cálculo automático de Puntual/Retardo/Ausencia.</p>
           </div>
         </div>
         <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">Calendario Visual del Mes</div>
-          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">Calendario Visual del Mes y Exportación a Excel</div>
+          <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:14px;">
             <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">L</div>
             <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">M</div>
             <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">X</div>
@@ -769,32 +766,17 @@
             <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">V</div>
             <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">S</div>
             <div style="font-size:9px;color:var(--text-muted);text-align:center;padding:4px;">D</div>
-            <!-- Calendario simulado -->
             <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">5<br>▲07:02<br>✓</div>
-            <div style="background:#450a0a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#fca5a5;">6<br>▲07:23<br>+8m</div>
+            <div style="background:#450a0a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#fca5a5;">6<br>▲07:23<br>+23m</div>
             <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">7<br>▲07:00<br>✓</div>
             <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">8<br>▲07:05<br>✓</div>
             <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">9<br>▲07:01<br>✓</div>
             <div style="background:#0f172a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#334155;">10<br>—</div>
             <div style="background:#0f172a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#334155;">11<br>—</div>
-            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">12<br>▲07:00<br>✓</div>
-            <div style="background:#450a0a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#fca5a5;">13<br>▲07:41<br>+26m</div>
-            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">14<br>▲07:03<br>✓</div>
-            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">15<br>▲07:00<br>✓</div>
-            <div style="background:#052e16;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#86efac;">16<br>▲07:02<br>✓</div>
-            <div style="background:#0f172a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#334155;">17<br>—</div>
-            <div style="background:#0f172a;border-radius:8px;padding:8px 4px;text-align:center;font-size:10px;color:#334155;">18<br>—</div>
           </div>
-          <div style="display:flex;gap:12px;margin-top:14px;flex-wrap:wrap;">
-            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
-              <div style="width:10px;height:10px;border-radius:3px;background:#052e16;border:1px solid #86efac;"></div> Puntual
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
-              <div style="width:10px;height:10px;border-radius:3px;background:#450a0a;border:1px solid #fca5a5;"></div> Retardo
-            </div>
-            <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
-              <div style="width:10px;height:10px;border-radius:3px;background:#0f172a;border:1px solid #334155;"></div> Libre / Sin registro
-            </div>
+          <div class="glass glass-mint" style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;border-radius:12px;">
+            <span style="font-size:13px;color:white;font-weight:600;">📥 Reporte consolidado (.xlsx)</span>
+            <span style="font-size:11px;color:var(--mint-light);font-weight:700;">Descargado en &lt; 10 seg</span>
           </div>
         </div>
       </div>
@@ -805,85 +787,36 @@
   <div class="slide" id="slide-7">
     <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 60% 40%, rgba(99,102,241,0.1) 0%, transparent 55%);"></div>
     <div class="slide-inner slide-left" style="position:relative;z-index:1;max-width:1000px;">
-      <div class="tag tag-indigo">Analítica Académica</div>
-      <h1 class="slide-title">Asistencia por Materia</h1>
-      <h2 class="slide-subtitle">Detectando "Fugas Internas" — presente en portería, ausente en el aula.</h2>
+      <div class="tag tag-indigo">Terminal Docente</div>
+      <h1 class="slide-title">Pase de Lista Digital</h1>
+      <h2 class="slide-subtitle">Guía para Profesores: registro en 90 segundos y detección de fugas.</h2>
       <div class="grid-2" style="align-items:start;gap:20px;">
         <div>
-          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:14px;">Ranking de Asistencia por Clase</div>
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            <div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-                <span style="font-size:13px;color:white;font-weight:600;">Castellano — 4to "A"</span>
-                <span style="font-size:13px;font-weight:800;color:var(--mint-light);">94%</span>
-              </div>
-              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:94%;background:var(--mint);border-radius:99px;"></div>
-              </div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-                <span style="font-size:13px;color:white;font-weight:600;">Matemáticas — 3ro "B"</span>
-                <span style="font-size:13px;font-weight:800;color:var(--mint-light);">89%</span>
-              </div>
-              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:89%;background:var(--mint);border-radius:99px;"></div>
-              </div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-                <span style="font-size:13px;color:white;font-weight:600;">Historia — 2do "C"</span>
-                <span style="font-size:13px;font-weight:800;color:var(--amber);">74%</span>
-              </div>
-              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:74%;background:var(--amber);border-radius:99px;"></div>
-              </div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-                <span style="font-size:13px;color:white;font-weight:600;">Inglés — 5to "A"</span>
-                <span style="font-size:13px;font-weight:800;color:var(--amber);">68%</span>
-              </div>
-              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:68%;background:var(--amber);border-radius:99px;"></div>
-              </div>
-            </div>
-            <div>
-              <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-                <span style="font-size:13px;color:white;font-weight:600;">Física — 5to "B"</span>
-                <span style="font-size:13px;font-weight:800;color:#fb7185;">51%</span>
-              </div>
-              <div style="height:8px;background:rgba(255,255,255,0.06);border-radius:99px;overflow:hidden;">
-                <div style="height:100%;width:51%;background:var(--rose);border-radius:99px;"></div>
-              </div>
-            </div>
+          <div class="glass glass-indigo" style="padding:16px 20px;margin-bottom:12px;">
+            <div style="font-size:13px;font-weight:700;color:var(--indigo-light);margin-bottom:8px;">📱 1. Login y Selección de Clase</div>
+            <p style="font-size:12px;color:var(--text-secondary);line-height:1.4;">El docente accede con su PIN de 4 dígitos. Selecciona materia y sección asignada.</p>
+          </div>
+          <div class="glass glass-indigo" style="padding:16px 20px;margin-bottom:12px;">
+            <div style="font-size:13px;font-weight:700;color:var(--indigo-light);margin-bottom:8px;">🟢 2. Registro Táctil y Bloqueo</div>
+            <p style="font-size:12px;color:var(--text-secondary);line-height:1.4;">Toca sobre el estudiante para alternar Presente/Ausente. El historial se guarda y se bloquea para evitar drifts.</p>
+          </div>
+          <div class="glass glass-rose" style="padding:16px 20px;">
+            <div style="font-size:13px;font-weight:700;color:#fb7185;margin-bottom:8px;">⚠️ 3. Alerta de Fuga Interna</div>
+            <p style="font-size:12px;color:var(--text-secondary);line-height:1.4;">Cruza la asistencia de Portería con la de Aula. Alerta inmediata si el estudiante entró al plantel pero faltó a clase.</p>
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:16px;">
-          <div class="glass glass-mint" style="padding:20px 24px;">
-            <div style="font-size:32px;font-weight:900;color:var(--mint-light);margin-bottom:4px;">1,240</div>
-            <div style="font-size:13px;color:var(--text-secondary);">Presencias registradas este período</div>
-          </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;">Simulación del Panel - Fuga Interna</div>
           <div class="glass glass-rose" style="padding:20px 24px;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-              <span style="font-size:16px;">⚠️</span>
-              <span style="font-size:12px;font-weight:700;color:#fb7185;text-transform:uppercase;letter-spacing:0.08em;">Mayor Riesgo Detectado</span>
+              <span style="font-size:16px;">🚨</span>
+              <span style="font-size:12px;font-weight:700;color:#fb7185;text-transform:uppercase;letter-spacing:0.08em;">Fuga Interna Detectada</span>
             </div>
-            <div style="font-size:15px;font-weight:600;color:white;">Física — 5to "B"</div>
-            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Solo el 51% de asistencia. Intervención sugerida.</div>
+            <div style="font-size:15px;font-weight:600;color:white;">Martínez Torres, Ana K.</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">Marcó ENTRADA en portería (7:05 AM) pero AUSENTE en clase de Física (8:00 AM).</div>
           </div>
-          <div class="glass" style="padding:18px 22px;">
-            <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:12px;">Presencia Global</div>
-            <div style="display:flex;justify-content:space-between;">
-              <div style="text-align:center;">
-                <div style="font-size:24px;font-weight:900;color:var(--mint-light);">79%</div>
-                <div style="font-size:11px;color:var(--text-muted);">Presentes</div>
-              </div>
-              <div style="text-align:center;">
-                <div style="font-size:24px;font-weight:900;color:#fb7185;">21%</div>
-                <div style="font-size:11px;color:var(--text-muted);">Ausencias</div>
-              </div>
-            </div>
+          <div class="glass" style="padding:14px 20px;text-align:center;">
+            <span style="font-size:12px;color:var(--text-secondary);">Ranking general del mes: <strong style="color:white;">Física 5to B (51% asistencia)</strong></span>
           </div>
         </div>
       </div>
@@ -1004,21 +937,26 @@
   <div class="slide" id="slide-10">
     <div style="position:absolute;inset:0;background:radial-gradient(ellipse at 70% 60%, rgba(16,185,129,0.08) 0%, transparent 55%);"></div>
     <div class="slide-inner" style="position:relative;z-index:1;max-width:900px;">
-      <div class="tag tag-mint">Reportes</div>
-      <h1 class="slide-title">Reportes Ejecutivos en Excel</h1>
-      <h2 class="slide-subtitle">Un botón. Un clic. Un documento listo para firma en &lt; 10 segundos.</h2>
+      <div class="tag tag-mint">Reportes y Reset</div>
+      <h1 class="slide-title">Reportes Consolidados en 3 Pestañas</h1>
+      <h2 class="slide-subtitle">Resumen general, búsquedas individuales y matriz Bento por secciones.</h2>
       <div class="grid-2" style="align-items:center;gap:30px;margin-top:10px;">
-        <div style="text-align:left;">
-          <ul class="bullet-list" style="margin-bottom:20px;">
-            <li><span class="icon">📅</span><span>Cuadrícula de calendario visual con código de colores (verde/rojo/ámbar)</span></li>
-            <li><span class="icon">⏰</span><span>Hora de entrada y salida real de cada día</span></li>
-            <li><span class="icon">📊</span><span>Resumen estadístico: días trabajados, puntuales, retardos, % puntualidad</span></li>
-            <li><span class="icon">📋</span><span>Listo para evaluaciones de RRHH, auditorías y reuniones directivas</span></li>
-            <li><span class="icon">⚡</span><span>Descargado al dispositivo en <strong>menos de 10 segundos</strong></span></li>
-          </ul>
-          <div class="glass glass-mint" style="padding:16px 20px;display:inline-flex;align-items:center;gap:10px;">
-            <span style="font-size:18px;">📥</span>
-            <span style="font-size:14px;font-weight:700;color:var(--mint-light);">Exportar Reporte (.xlsx)</span>
+        <div style="text-align:left;display:flex;flex-direction:column;gap:12px;">
+          <div class="glass" style="padding:12px 16px;">
+            <div style="font-size:13px;font-weight:700;color:white;margin-bottom:4px;">📊 1. Pestaña Resumen</div>
+            <p style="font-size:11px;color:var(--text-secondary);">KPIs globales e indicadores de ausentismo institucional.</p>
+          </div>
+          <div class="glass" style="padding:12px 16px;">
+            <div style="font-size:13px;font-weight:700;color:white;margin-bottom:4px;">👤 2. Pestaña Individual</div>
+            <p style="font-size:11px;color:var(--text-secondary);">Búsqueda por Cédula, línea de tiempo cronológica y exportación a PDF.</p>
+          </div>
+          <div class="glass" style="padding:12px 16px;">
+            <div style="font-size:13px;font-weight:700;color:white;margin-bottom:4px;">🏫 3. Pestaña Grupal (Sección)</div>
+            <p style="font-size:11px;color:var(--text-secondary);">Matriz visual completa de días vs alumnos + descarga a Excel.</p>
+          </div>
+          <div class="glass glass-amber" style="padding:12px 16px;">
+            <div style="font-size:13px;font-weight:700;color:#fcd34d;margin-bottom:4px;">🔄 Motor de Restablecimiento (Reset)</div>
+            <p style="font-size:11px;color:var(--text-secondary);">Reset masivo (con doble confirmación) o reset quirúrgico individual.</p>
           </div>
         </div>
         <div>
@@ -1028,20 +966,15 @@
               <div style="width:10px;height:10px;border-radius:50%;background:#ef4444;"></div>
               <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b;"></div>
               <div style="width:10px;height:10px;border-radius:50%;background:#22c55e;"></div>
-              <span style="margin-left:8px;font-size:11px;color:var(--text-muted);">Reporte_Pérez_2026-05.xlsx</span>
+              <span style="margin-left:8px;font-size:11px;color:var(--text-muted);">Matriz_4toAñoA_2026-06.xlsx</span>
             </div>
             <div style="padding:12px;">
-              <div style="background:#1e293b;padding:8px 12px;text-align:center;font-size:11px;font-weight:700;color:white;border-radius:6px;margin-bottom:6px;">REPORTE DE ASISTENCIA — PÉREZ, MARÍA</div>
-              <div style="background:#0f172a;padding:4px 12px;text-align:center;font-size:10px;color:var(--text-muted);border-radius:4px;margin-bottom:8px;">MAYO 2026</div>
+              <div style="background:#1e293b;padding:8px 12px;text-align:center;font-size:10px;font-weight:700;color:white;border-radius:6px;margin-bottom:6px;">MATRIZ DE ASISTENCIA SECCIÓN — 4TO "A"</div>
+              <div style="background:#0f172a;padding:4px 12px;text-align:center;font-size:9px;color:var(--text-muted);border-radius:4px;margin-bottom:8px;">VISTA GRUPAL</div>
               <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;font-size:8px;">
-                <div style="text-align:center;color:var(--text-muted);padding:3px;">Lun</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Mar</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Mié</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Jue</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Vie</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Sáb</div><div style="text-align:center;color:var(--text-muted);padding:3px;">Dom</div>
-                <div style="background:#052e16;border-radius:4px;padding:5px 3px;text-align:center;color:#86efac;">5<br>▲07:02</div>
-                <div style="background:#450a0a;border-radius:4px;padding:5px 3px;text-align:center;color:#fca5a5;">6<br>▲07:23</div>
-                <div style="background:#052e16;border-radius:4px;padding:5px 3px;text-align:center;color:#86efac;">7<br>▲07:00</div>
-                <div style="background:#052e16;border-radius:4px;padding:5px 3px;text-align:center;color:#86efac;">8<br>▲07:05</div>
-                <div style="background:#052e16;border-radius:4px;padding:5px 3px;text-align:center;color:#86efac;">9<br>▲07:01</div>
-                <div style="background:#0f172a;border-radius:4px;padding:5px 3px;text-align:center;color:#334155;">10<br>—</div>
-                <div style="background:#0f172a;border-radius:4px;padding:5px 3px;text-align:center;color:#334155;">11<br>—</div>
+                <div style="text-align:center;color:var(--text-muted);padding:3px;">Alum</div><div style="text-align:center;color:var(--text-muted);padding:3px;">L5</div><div style="text-align:center;color:var(--text-muted);padding:3px;">M6</div><div style="text-align:center;color:var(--text-muted);padding:3px;">M7</div><div style="text-align:center;color:var(--text-muted);padding:3px;">J8</div><div style="text-align:center;color:var(--text-muted);padding:3px;">V9</div><div style="text-align:center;color:var(--text-muted);padding:3px;">KPI</div>
+                <div style="color:white;padding:2px;font-size:7px;">García</div><div style="background:#052e16;color:#86efac;text-align:center;border-radius:3px;">✓</div><div style="background:#052e16;color:#86efac;text-align:center;border-radius:3px;">✓</div><div style="background:#450a0a;color:#fca5a5;text-align:center;border-radius:3px;">R</div><div style="background:#052e16;color:#86efac;text-align:center;border-radius:3px;">✓</div><div style="background:#052e16;color:#86efac;text-align:center;border-radius:3px;">✓</div><div style="color:white;text-align:center;">92%</div>
+                <div style="color:white;padding:2px;font-size:7px;">Martín</div><div style="background:#052e16;color:#86efac;text-align:center;border-radius:3px;">✓</div><div style="background:#450a0a;color:#fca5a5;text-align:center;border-radius:3px;">A</div><div style="background:#450a0a;color:#fca5a5;text-align:center;border-radius:3px;">A</div><div style="background:#052e16;color:#86efac;text-align:center;border-radius:3px;">✓</div><div style="background:#450a0a;color:#fca5a5;text-align:center;border-radius:3px;">A</div><div style="color:white;text-align:center;">60%</div>
               </div>
             </div>
           </div>

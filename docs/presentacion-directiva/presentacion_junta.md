@@ -188,130 +188,104 @@ Esta es la lámina de apertura. No se expone información adicional. El objetivo
 ---
 
 ## SLIDE 05
-# La Portería Inteligente
-### *De la fila y el papel al acceso verificado en 3 segundos*
+# La Portería Inteligente (Optimización Extrema)
+### *De la fila y el papel al acceso verificado en menos de 100ms*
 
 ---
 
 ### Puntos Clave a Exponer
 
-**Este es el módulo que la directiva verá primero operando. Es el más impactante visualmente.**
+**Este es el módulo que la directiva verá primero operando. Rediseñado para lograr una velocidad insuperable.**
 
-**El flujo completo en 3 segundos:**
-1. El estudiante presenta su carnet/pantalla con el código QR.
-2. La pantalla del portero escanea en tiempo real con la cámara.
-3. En < 3 segundos: pantalla verde + nombre del estudiante + grado/sección + hora. ✅
-4. Simultáneamente: notificación automática enviada al representante.
+**La optimización de rendimiento en el servidor:**
+* **Notificación no bloqueante (`after()`):** Anteriormente, el escáner se detenía de 1 a 2 segundos mientras esperaba el envío del correo electrónico al representante. Ahora, mediante la API `after()` de Next.js, la respuesta de confirmación en portería es **instantánea (<100ms)**, y la notificación se ejecuta asíncronamente en segundo plano.
+* **Consulta combinada con filtro `.or()`:** La búsqueda de coincidencias de cédula o QR se realiza en un único viaje de datos, eliminando hasta 5 llamadas consecutivas a Supabase.
 
-**El sistema de contingencia (Marcación por Cédula):**
-- Si el estudiante no porta el carnet, el portero activa el modo de cédula.
-- El portero teclea el número de cédula → Enter → mismo resultado que el QR.
-- No hay excusa para no registrar la asistencia.
-
-**La seguridad de matrícula:**
-- El sistema valida el estado del estudiante en tiempo real.
-- Si el estudiante fue retirado o ya se graduó, el acceso es denegado automáticamente.
-- El evento queda registrado en el historial de auditoría.
-
-**El resultado para el representante:**
-- A los 8 segundos de que su hijo entró al plantel, el representante recibe la notificación en su teléfono.
-- No necesita llamar. No necesita esperar. La institución lo informa proactivamente.
+**El flujo en portería:**
+1. El estudiante escanea su carnet QR en portería.
+2. Confirmación en pantalla en menos de 3 segundos (Luz verde, foto, nombre y grado).
+3. **Contingencia por Cédula:** Si olvidó su carnet, el portero teclea la cédula directamente (mismo resultado inmediato).
+4. El representante recibe la notificación en su correo electrónico a los pocos segundos de forma transparente.
 
 ---
 
 ### 🎨 Instrucciones de Diseño
 
-- **Fondo:** Carbón profundo.
-- **Elemento principal:** Captura de pantalla de la interfaz del escáner de Asisto a pantalla completa o en un mockup de teléfono/tablet moderno (preferiblemente tablet en soporte de portería).
-  - La pantalla debe mostrar el estado de **ÉXITO** (fondo verde con borde brillante, ✅, nombre del estudiante, hora de ingreso).
-- **Panel lateral derecho (30% del slide):** Mini mockup de un teléfono mostrando la notificación push recibida por el representante con el mensaje de ingreso del hijo.
-- **Línea de tiempo en la base:** Representación visual horizontal del proceso:
-  `QR Escaneado (0s) → Validación DB (< 1s) → Registro (< 2s) → Notificación enviada (< 8s)` con barra de progreso animada.
-- **Highlight numérico:** El número `< 3 seg` en tipografía gigante en índigo eléctrico, en la esquina superior.
+- **Fondo:** Carbón profundo con partículas en índigo brillante.
+- **Elemento principal:** Mockup de tablet mostrando la pantalla en **VERDE brillante de Éxito** de Asisto, con la foto del estudiante y badge de "INGRESO REGISTRADO".
+- **Esquema visual:** Diagrama de flujo de datos animado: `[Escáner] --(<100ms)--> [Respuesta Pantalla] --(after background)--> [Envío Email Resend]`.
+- **Highlight:** El número `< 100ms` en tipografía ultra-bold color menta neón.
 
 ---
 ---
 
 ## SLIDE 06
-# Control de RRHH y Horarios Complejos
-### *Evaluación justa, automática y documentada del personal docente*
+# Control de RRHH y Configuración de Horarios
+### *Guía administrativa de inclusión de personal, materias y horarios complejos*
 
 ---
 
 ### Puntos Clave a Exponer
 
-**El desafío que nadie más resuelve:**
-- Los docentes no trabajan turnos fijos. Tienen bloques horarios distintos cada día.
-- Un sistema genérico no puede evaluarlos correctamente.
-- Asisto sí puede, porque cada docente tiene su perfil de horario personalizado.
+**El rol del Administrador y Recursos Humanos:**
+* Asisto simplifica radicalmente la gestión de personal docente y administrativo de la institución a través de flujos claros en tres pasos.
 
-**El Motor de Evaluación Automática:**
-- Compara la hora real de marcación con el horario programado para ese día específico.
-- Clasifica automáticamente: Puntual, Retardo (con minutos exactos) o Ausente.
-- No hay subjetividad ni error humano en la evaluación.
+**Los tres flujos del Administrador:**
 
-**El Calendario Visual del Docente:**
-- Vista mensual con código de colores:
-  - 🟢 Verde: Entrada puntual.
-  - 🔴 Rojo: Retardo (con etiqueta de minutos).
-  - ⬛ Sin color: Día libre / Sin registro.
-- Un coordinador puede revisar el historial completo de cualquier docente en 2 clics.
+**1. Inclusión de Personal (RRHH):**
+* Registro en `/admin/rrhh` ingresando nombre, apellido, correo electrónico (para seguridad y alertas) y rol en el plantel.
+* Autogeneración de PIN de 4 dígitos para inicio de sesión táctil en aula.
 
-**Exportación Ejecutiva:**
-- Botón "Exportar Reporte" → Excel descargado instantáneamente.
-- El archivo replica la cuadrícula del calendario con sus colores, más resumen estadístico: días trabajados, puntuales, retardos, porcentaje de puntualidad.
-- Documento listo para presentar en evaluaciones de desempeño o reuniones de directiva.
+**2. Asignación Académica (Materias):**
+* Definición de materias y vinculación con docente responsable en `/admin/materias`.
+* Asociación rápida de materias a Grados y Secciones específicas.
+
+**3. Configuración de Horarios Complejos:**
+* Definición de bloques de hora de entrada/salida personalizados para cada día de la semana.
+* Tolerancia de retardos: el sistema clasifica de forma automática como **Puntual**, **Retardo** (calculando minutos exactos) o **Ausente**.
+* Calendario visual coloreado de puntualidad mensual y exportación inmediata a Excel en menos de 10 segundos.
 
 ---
 
 ### 🎨 Instrucciones de Diseño
 
 - **Fondo:** Carbón oscuro.
-- **Elemento principal:** Captura de pantalla del Calendario de RRHH de Asisto, a escala grande, mostrando un mes completo con las celdas coloreadas en verde y rojo sobre fondo oscuro.
-- **Zoom visual:** Primer plano de una celda del calendario mostrando el detalle de un día con "▲ 07:15 — Puntual" (entrada) y "▼ 14:30" (salida).
-- **Ícono de acción:** Botón "Exportar Reporte (.xlsx)" en emerald resaltado con flecha apuntando hacia él para destacar la funcionalidad de exportación.
-- **Badge de datos:** Tarjeta flotante en el ángulo superior izquierdo con las estadísticas del mes del docente: "23 días trabajados | 20 Puntuales | 3 Retardos | 87% Puntualidad".
+- **Composición:** Tres tarjetas Bento que ilustran los pasos:
+  1. *Tarjeta 1:* Formulario de Inclusión con PIN autogenerado.
+  2. *Tarjeta 2:* Cuadrícula de asignación de Materia y Sección a Docente.
+  3. *Tarjeta 3:* Captura de pantalla de la cuadrícula de configuración de horarios por bloques semanales (Lunes-Viernes).
+- **Elemento destacado:** El botón de descarga Excel "Exportar Reporte (.xlsx)" con un haz de luz en verde menta.
 
 ---
 ---
 
 ## SLIDE 07
-# Analítica Académica por Materia
-### *Detección de fugas internas y ranking de secciones en tiempo real*
+# Terminal del Docente: Pase de Lista
+### *Guía para profesores: registro táctil en 90 segundos y detección de fugas*
 
 ---
 
 ### Puntos Clave a Exponer
 
-**El problema que el control de portería no detecta:**
-- Un estudiante puede escanear su QR en la portería a las 7:05 AM y no asistir a la clase de Matemáticas de las 8:00 AM.
-- La portería registra "Presente". El aula registra "Ausente". La diferencia es la **Fuga Interna**.
-- Este es un indicador de disciplina y seguridad que ningún sistema de asistencia genérico detecta.
+**El rol del Docente (Pase de Lista):**
+* Diseñado para ser extremadamente ágil. El profesor no pierde tiempo dictando nombres uno a uno en una hoja de papel.
 
-**El Terminal del Docente:**
-- Interfaz táctil optimizada para tablet o teléfono durante la primera actividad de clase.
-- El docente ve la lista de su sección, marca con un toque: Presente / Ausente.
-- Todo queda registrado con fecha, hora y materia automáticamente.
+**Guía de uso para el Profesor:**
+1. **Inicio de sesión ágil:** Ingresa en la tablet o móvil con su PIN personal de 4 dígitos.
+2. **Selección de clase:** Accede a `/aula/pasar-lista`, selecciona materia y sección asignada.
+3. **Marcación táctil rápida:** Toca sobre la foto del estudiante para alternar entre `🟢 Presente` y `🔴 Ausente`. Todo el salón se pasa en menos de 90 segundos.
+4. **Guardado definitivo:** Presiona "Guardar Asistencia". Se bloquean los cambios retroactivos no autorizados para mantener la integridad de los datos.
 
-**El Panel de Analítica:**
-- Ranking de asistencia por materia y sección: ¿Qué clase tiene el mayor ausentismo?
-- Comparativa gráfica tipo barras horizontales con código de colores (verde ≥90%, ámbar 70-89%, rojo <70%).
-- Gráfico de pastel de presencia global del período seleccionado.
-- Filtros por fecha, grado y materia.
-
-**El Dato Más Poderoso:**
-> *"La materia con mayor ausentismo en el mes actual no es la que el coordinador supone que es. Los datos cambian suposiciones."*
+**Detección inteligente de "Fuga Interna":**
+* Cruce de datos en tiempo real: Si el alumno marcó entrada en portería a las 7:05 AM pero el docente lo marca ausente a las 8:00 AM, el sistema genera automáticamente una alerta de **Fuga Interna** visible en coordinación por motivos de seguridad y disciplina.
 
 ---
 
 ### 🎨 Instrucciones de Diseño
 
-- **Fondo:** Carbón profundo.
-- **Composición dividida (60/40):**
-  - **Izquierda (60%):** Captura del gráfico de barras horizontales del Ranking de Asistencia por Clase con los colores verde/ámbar/rojo claramente visibles. Las barras deben estar llenas y mostrar porcentajes reales.
-  - **Derecha (40%):** Captura del gráfico de dona/pie de Presencia Global con la leyenda "Presentes" en verde y "Ausencias" en rojo.
-- **Badge de alerta:** En esquina inferior izquierda, la tarjeta "Mayor Riesgo" del sistema (panel rojo con ícono de alerta ⚠️ y el nombre de la sección con menor asistencia).
-- **Título del panel en la parte superior:** "Analítica de Materias" con el ícono de TrendingUp en índigo.
+- **Fondo:** Carbón profundo con gradiente índigo.
+- **Elemento central:** Mockup de tablet sostenida por un docente, mostrando la cuadrícula de estudiantes con sus fotos de perfil y badges en verde (`Presente`) y rojo (`Ausente`).
+- **Tarjeta de alerta lateral:** Pop-up con borde rojo parpadeante con el mensaje: `⚠️ ALERTA DE FUGA INTERNA: Estudiante registrado en portería pero ausente en aula (Materia: Física - 5to B)`.
 
 ---
 ---
@@ -402,46 +376,30 @@ La coordinación puede actuar en horas, no en meses. La diferencia entre retener
 ---
 
 ## SLIDE 10
-# Reportes Ejecutivos en Excel
-### *Del dato en pantalla al documento listo para firma en segundos*
+# Reportes Consolidados en 3 Pestañas
+### *Del dato en vivo al documento Excel y PDF en menos de 10 segundos*
 
 ---
 
 ### Puntos Clave a Exponer
 
-**El problema con los reportes tradicionales:**
-- Compilar manualmente el reporte mensual de asistencia de un docente requiere horas de trabajo.
-- El resultado es un documento en texto plano que no comunica visualmente patrones ni alertas.
-- Si hay un error en la transcripción, nadie lo detecta hasta que ya es tarde.
+**El nuevo motor de reportes unificado en 3 niveles:**
+* **1. Pestaña Resumen:** Análisis institucional de tendencias y KPIs generales de presencia/ausencia.
+* **2. Pestaña Individual:** Historial de asistencias detallado del alumno buscándolo por Cédula o Nombre, con exportación a PDF para reuniones de representantes.
+* **3. Pestaña Grupal (Sección):** Matriz visual completa Bento Box de días hábiles vs alumnos. Muestra la asistencia global de la sección y descarga el reporte matricial a Excel en segundos.
 
-**La solución de Asisto:**
-Un botón. Un clic. Un archivo Excel profesional descargado en el dispositivo en menos de 10 segundos.
-
-**El contenido del reporte Excel generado:**
-- **Portada de Identificación:** Nombre del docente, mes y año del reporte.
-- **Cuadrícula de Calendario Visual:** Los 7 días de la semana como columnas, las semanas del mes como filas. Cada celda contiene:
-  - El número del día.
-  - La hora de entrada (▲) y salida (▼).
-  - Indicador de retardo en minutos si corresponde.
-  - Código de color de fondo: verde, rojo, ámbar o gris oscuro.
-- **Tabla de Resumen Estadístico:** Días trabajados, días puntuales, retardos, porcentaje de puntualidad.
-- **Leyenda de interpretación:** Verde = Puntual, Rojo = Retardo, Ámbar = Sin evaluar, Oscuro = Sin registro.
-
-**Los usos institucionales de este reporte:**
-- Evaluaciones de desempeño docente.
-- Reuniones de Recursos Humanos.
-- Auditorías de organismos reguladores.
-- Expedientes del personal.
+**Restablecimiento de Alertas (Reset de Periodo):**
+* Botón **"Reiniciar Alertas"** masivo en el header (con doble confirmación de seguridad) para iniciar nuevos lapsos académicos a contadores cero, sin alterar la base de datos de asistencias histórica.
+* Botón **"Limpiar Alertas"** individual en la ficha de cada alumno para corrección de casos especiales.
 
 ---
 
 ### 🎨 Instrucciones de Diseño
 
-- **Fondo:** Carbón oscuro.
-- **Elemento principal:** Mockup 3D de un archivo Excel abierto mostrando el calendario de asistencia del mes, con las celdas coloreadas en verde y rojo claramente visibles, levemente rotado para dar perspectiva.
-- **Sobre el mockup:** Una flecha vectorial o animación que va desde el botón "Exportar Reporte (.xlsx)" de la interfaz del calendario hacia el archivo Excel, representando la acción inmediata.
-- **Badge de velocidad:** En la esquina superior: `"< 10 segundos para descargar"` en texto verde menta.
-- **Zoom en sección del Excel:** Panel flotante ampliado de una porción de la cuadrícula mostrando celdas verdes y rojas con los datos reales de horarios, para que la directiva vea exactamente cómo se ve el producto final.
+- **Fondo:** Carbón oscuro con líneas de grid.
+- **Elemento central:** Mockup 3D rotado mostrando la interfaz del panel de reportes con sus tres pestañas: "📊 Resumen", "👤 Individual" y "🏫 Por Sección".
+- **Detalle visual:** Un zoom animado de la matriz de sección en formato Bento, resaltando celdas en verde y rojo, y un cursor haciendo clic en el botón "Exportar a Excel".
+- **Leyenda:** Badges informativos: `"Reset masivo con doble confirmación"` y `"PDF de Ficha de Alumno listo para firmar"`.
 
 ---
 ---
