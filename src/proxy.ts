@@ -24,8 +24,8 @@ const DYNAMIC_TOKEN_RE =
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect /admin routes (not API routes, which protect themselves)
-  if (pathname.startsWith('/admin')) {
+  // Protect administrative front-end and API routes
+  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin') || pathname.startsWith('/api/qrono-admin')) {
     const session = request.cookies.get(COOKIE_NAME);
     const token = session?.value || '';
 
@@ -33,9 +33,13 @@ export function proxy(request: NextRequest) {
     const isValid = token === LEGACY_TOKEN || DYNAMIC_TOKEN_RE.test(token);
 
     if (!isValid) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('from', pathname);
-      return NextResponse.redirect(loginUrl);
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      } else {
+        const loginUrl = new URL('/login', request.url);
+        loginUrl.searchParams.set('from', pathname);
+        return NextResponse.redirect(loginUrl);
+      }
     }
   }
 
@@ -43,5 +47,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*', '/api/qrono-admin/:path*'],
 };

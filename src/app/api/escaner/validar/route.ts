@@ -1,8 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const COLEGIO_ID = 'c4e8711a-f035-428c-b98f-69555a819ec7';
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbClient = SupabaseClient<any, any, any>;
 
@@ -22,10 +20,9 @@ interface EstudianteRow {
 }
 
 /**
- * Búsqueda robusta de estudiante por QR o cédula.
- * Evita el uso de .or() con valores que contienen guiones (V-, E-, RC-)
- * que pueden romper el parser de filtros de Supabase PostgREST.
- * Usa búsquedas secuenciales corto-circuitadas en su lugar.
+ * Búsqueda robusta y optimizada de estudiante por QR o cédula.
+ * Realiza búsquedas indexadas secuenciales corto-circuitadas,
+ * evitando filtros .or() que pueden ignorar índices en Postgres.
  */
 async function buscarEstudiante(supabase: DbClient, input: string): Promise<EstudianteRow | null> {
   // Normalización: mayúsculas, sin espacios
@@ -34,37 +31,58 @@ async function buscarEstudiante(supabase: DbClient, input: string): Promise<Estu
   // Extraer el número de cédula puro (sin prefijos V-, E-, RC-, QR-)
   const soloNumeros = raw.replace(/^(RC-|QR-|V-|E-)/, '').replace(/[^0-9]/g, '');
 
-  // Lista de variantes a buscar en orden de probabilidad
-  const candidatos: { campo: 'qr_code' | 'cedula'; valor: string }[] = [
-    { campo: 'qr_code', valor: raw },                    // RC-12345678 exacto
-    { campo: 'cedula',  valor: soloNumeros },             // 12345678
-    { campo: 'cedula',  valor: `V-${soloNumeros}` },      // V-12345678
-    { campo: 'cedula',  valor: `E-${soloNumeros}` },      // E-12345678
-    { campo: 'qr_code', valor: `QR-${soloNumeros}` },    // QR-12345678 (formato alternativo)
-  ];
+  // 1. Intentar buscar por qr_code exacto (lo más común y rápido)
+  if (raw) {
+    const { data: estByQr, error: errQr } = await supabase
+      .from('estudiantes')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
+      .eq('qr_code', raw)
+      .maybeSingle();
 
-  // Eliminar duplicados y candidatos vacíos
-  const unicos = candidatos.filter(
-    (c, i, arr) => c.valor && arr.findIndex(x => x.campo === c.campo && x.valor === c.valor) === i
-  );
-
-  if (unicos.length === 0) return null;
-
-  const orFilters = unicos.map(({ campo, valor }) => `${campo}.eq.${valor}`).join(',');
-
-  const { data, error } = await supabase
-    .from('estudiantes')
-    .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
-    .eq('institucion_id', COLEGIO_ID)
-    .or(orFilters)
-    .maybeSingle();
-
-  if (error) {
-    console.error(`[escaner/validar] Error buscando estudiante con filtros (${orFilters}):`, error.message);
-    return null;
+    if (estByQr) return estByQr;
+    if (errQr) console.error(`[escaner/validar] Error por qr_code:`, errQr.message);
   }
 
-  return data;
+  // 2. Intentar buscar por cédula limpia (sólo números)
+  if (soloNumeros) {
+    const { data: estByCed, error: errCed } = await supabase
+      .from('estudiantes')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
+      .eq('cedula', soloNumeros)
+      .maybeSingle();
+
+    if (estByCed) return estByCed;
+    if (errCed) console.error(`[escaner/validar] Error por cedula limpia:`, errCed.message);
+
+    // 3. Intentar buscar por cédula con prefijo V-
+    const { data: estByCedV } = await supabase
+      .from('estudiantes')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
+      .eq('cedula', `V-${soloNumeros}`)
+      .maybeSingle();
+
+    if (estByCedV) return estByCedV;
+
+    // 4. Intentar buscar por cédula con prefijo E-
+    const { data: estByCedE } = await supabase
+      .from('estudiantes')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
+      .eq('cedula', `E-${soloNumeros}`)
+      .maybeSingle();
+
+    if (estByCedE) return estByCedE;
+
+    // 5. Intentar buscar por qr_code alternativo (QR-12345678)
+    const { data: estByQrAlt } = await supabase
+      .from('estudiantes')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
+      .eq('qr_code', `QR-${soloNumeros}`)
+      .maybeSingle();
+
+    if (estByQrAlt) return estByQrAlt;
+  }
+
+  return null;
 }
 
 export async function POST(request: Request) {
@@ -173,7 +191,6 @@ export async function POST(request: Request) {
       .from('personal')
       .select('id, nombres, apellidos, cargo, rol, activo, institucion_id, auth_user_id')
       .eq('id', inputCleaned)
-      .eq('institucion_id', COLEGIO_ID)
       .maybeSingle();
 
     if (perError || !personal) {
