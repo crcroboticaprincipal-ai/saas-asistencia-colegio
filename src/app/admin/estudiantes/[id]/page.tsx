@@ -2,6 +2,7 @@
 
 import { useEffect, useState, use } from "react";
 import { supabase } from "@/lib/supabase/client";
+import { formatHora12 } from "@/lib/utils";
 import { 
   ArrowLeft, Calendar, FileText, Download, 
   Clock, LogIn, LogOut, AlertTriangle, 
@@ -232,7 +233,7 @@ export default function EstudianteDetailPage({ params }: { params: Promise<{ id:
       if (a.tipo === "SALIDA") estadoText = "Egreso";
       return [
         a.fecha,
-        a.hora,
+        formatHora12(a.hora),
         a.tipo,
         estadoText,
         a.metodo || "QR"
@@ -447,7 +448,7 @@ export default function EstudianteDetailPage({ params }: { params: Promise<{ id:
                   return (
                     <tr key={a.id} className="hover:bg-white/[0.01] transition-colors text-slate-300">
                       <td className="py-3.5 px-4 font-medium">{a.fecha}</td>
-                      <td className="py-3.5 px-4 font-mono">{a.hora}</td>
+                      <td className="py-3.5 px-4 font-mono">{formatHora12(a.hora)}</td>
                       <td className="py-3.5 px-4">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold border text-[10px] ${
                           a.tipo === "ENTRADA" 

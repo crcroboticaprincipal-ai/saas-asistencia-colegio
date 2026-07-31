@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase/client";
+import { formatHora12 } from "@/lib/utils";
 import {
   Users, Activity, LogIn, LogOut, ShieldAlert, AlertCircle,
   Building2, Plus, X, Save, Loader2, CheckCircle, Globe, FileText, TrendingUp, ChevronDown, Search
@@ -716,7 +717,7 @@ export default function AdminDashboardPage() {
                         {a.metodo || 'QR'}
                       </span>
                     </div>
-                    <p className="text-[9px] sm:text-[11px] text-slate-500 mt-1">{a.fecha} · {a.hora}</p>
+                    <p className="text-[9px] sm:text-[11px] text-slate-500 mt-1">{a.fecha} · {formatHora12(a.hora)}</p>
                   </div>
                 </div>
               ))
