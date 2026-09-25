@@ -126,7 +126,7 @@ export async function POST(request: Request) {
           hora_inicio: a.hora_inicio,
           hora_fin: a.hora_fin,
           activo: true,
-          periodo_escolar: a.periodo_escolar || '2025-2026',
+          periodo_escolar: a.periodo_escolar || '2026-2027',
         }));
 
         const { error: eAsig } = await sb.from('profesores_asignaciones').insert(asigInsert);

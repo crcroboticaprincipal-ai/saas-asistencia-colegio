@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { siguienteGrado } from '@/lib/grados-catalogo';
 
 function getAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -10,7 +11,7 @@ function getAdmin() {
 export async function POST(request: Request) {
   try {
     const sb = getAdmin();
-    
+
     // Resolve institucion_id
     const { data: inst } = await sb.from('instituciones').select('id').limit(1).single();
     const instId = inst?.id;
@@ -19,45 +20,24 @@ export async function POST(request: Request) {
     }
 
     // ── 1. Limpieza de materias y dependencias académicas ──
-    // Se eliminan en orden inverso de dependencia para evitar conflictos de llave foránea (FK)
-    
-    // A. Notas
-    const { error: errNotas } = await sb
-      .from('notas')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
+    // Eliminadas en orden inverso de dependencia (FK)
+
+    const { error: errNotas } = await sb.from('notas').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (errNotas) throw new Error(`Error al limpiar notas: ${errNotas.message}`);
 
-    // B. Evaluaciones
-    const { error: errEval } = await sb
-      .from('evaluaciones')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
+    const { error: errEval } = await sb.from('evaluaciones').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (errEval) throw new Error(`Error al limpiar evaluaciones: ${errEval.message}`);
 
-    // C. Asistencias a materias
-    const { error: errAsisMat } = await sb
-      .from('asistencia_materia')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
+    const { error: errAsisMat } = await sb.from('asistencia_materia').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (errAsisMat) throw new Error(`Error al limpiar asistencias a materias: ${errAsisMat.message}`);
 
-    // D. Asignaciones de profesores
-    const { error: errAsig } = await sb
-      .from('profesores_asignaciones')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
+    const { error: errAsig } = await sb.from('profesores_asignaciones').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (errAsig) throw new Error(`Error al limpiar asignaciones de profesores: ${errAsig.message}`);
 
-    // E. Catálogo de materias
-    const { error: errMat } = await sb
-      .from('materias')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000');
+    const { error: errMat } = await sb.from('materias').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (errMat) throw new Error(`Error al limpiar materias: ${errMat.message}`);
 
-    // ── 2. Promoción de Estudiantes ──
-    // Get all active students for this institution
+    // ── 2. Promoción de Estudiantes usando catálogo canónico ──
     const { data: estudiantes, error: errEst } = await sb
       .from('estudiantes')
       .select('id, grado, estado')
@@ -69,54 +49,35 @@ export async function POST(request: Request) {
     let graduadosCount = 0;
     let promovidosCount = 0;
 
+    // Determinar año escolar próximo
+    const currentYear = new Date().getFullYear();
+    const proximoCiclo = `${currentYear}-${currentYear + 1}`;
+
     const updates = (estudiantes || []).map(async (est) => {
-      let nuevoGrado = est.grado;
-      let nuevoEstado = est.estado;
+      const siguiente = siguienteGrado(est.grado);
+      const esGraduado = siguiente === 'Graduado';
 
-      const g = est.grado.trim().toUpperCase();
-
-      if (g === '5TO AÑO' || g === '5T') {
-        nuevoEstado = 'Graduado';
+      if (esGraduado) {
         graduadosCount++;
-      } else if (g === '4TO AÑO' || g === '4T') {
-        nuevoGrado = est.grado.toLowerCase().includes('año') ? '5to Año' : '5T';
-        promovidosCount++;
-      } else if (g === '3ER AÑO' || g === '3T') {
-        nuevoGrado = est.grado.toLowerCase().includes('año') ? '4to Año' : '4T';
-        promovidosCount++;
-      } else if (g === '2DO AÑO' || g === '2T') {
-        nuevoGrado = est.grado.toLowerCase().includes('año') ? '3er Año' : '3T';
-        promovidosCount++;
-      } else if (g === '1ER AÑO' || g === '1T') {
-        nuevoGrado = est.grado.toLowerCase().includes('año') ? '2do Año' : '2T';
-        promovidosCount++;
       } else {
         promovidosCount++;
       }
 
-      // Preparar payload de actualización
-      const updatePayload: Record<string, any> = {
+      const updatePayload: Record<string, unknown> = {
         alertas_inasistencia: 0,
         alertas_retardo: 0,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       };
 
-      if (nuevoEstado === 'Graduado') {
+      if (esGraduado) {
         updatePayload.estado = 'Graduado';
       } else {
         updatePayload.estado = 'Activo';
-        updatePayload.ano_escolar = '2026-2027';
+        updatePayload.grado = siguiente;
+        updatePayload.ano_escolar = proximoCiclo;
       }
 
-      if (nuevoGrado !== est.grado) {
-        updatePayload.grado = nuevoGrado;
-      }
-
-      const { error: updErr } = await sb
-        .from('estudiantes')
-        .update(updatePayload)
-        .eq('id', est.id);
-
+      const { error: updErr } = await sb.from('estudiantes').update(updatePayload).eq('id', est.id);
       if (updErr) throw new Error(updErr.message);
     });
 
@@ -124,13 +85,15 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
+      ciclo: proximoCiclo,
       graduados: graduadosCount,
       promovidos: promovidosCount,
-      total: (estudiantes || []).length
+      total: (estudiantes || []).length,
     });
   } catch (err: unknown) {
-    return NextResponse.json({
-      error: err instanceof Error ? err.message : 'Error al promover año escolar'
-    }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Error al promover año escolar' },
+      { status: 500 }
+    );
   }
 }

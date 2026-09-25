@@ -85,6 +85,45 @@ async function buscarEstudiante(supabase: DbClient, input: string): Promise<Estu
   return null;
 }
 
+/**
+ * Búsqueda de personal por QR (UUID directo o cedula).
+ * Soporta búsqueda por cédula numérica para escaneo manual en portería.
+ */
+async function buscarPersonal(supabase: DbClient, input: string, soloNumeros: string): Promise<{
+  id: string; nombres: string; apellidos: string; cargo: string | null; rol: string | null; activo: boolean; institucion_id: string;
+} | null> {
+  // 1. Buscar por UUID (QR de carnet del personal)
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input);
+  if (isUUID) {
+    const { data } = await supabase
+      .from('personal')
+      .select('id, nombres, apellidos, cargo, rol, activo, institucion_id')
+      .eq('id', input)
+      .maybeSingle();
+    if (data) return data;
+  }
+
+  // 2. Buscar por cédula limpia (solo números)
+  if (soloNumeros) {
+    const { data: perByCed } = await supabase
+      .from('personal')
+      .select('id, nombres, apellidos, cargo, rol, activo, institucion_id')
+      .eq('cedula', soloNumeros)
+      .maybeSingle();
+    if (perByCed) return perByCed;
+
+    // 3. Buscar por cédula con prefijo V-
+    const { data: perByV } = await supabase
+      .from('personal')
+      .select('id, nombres, apellidos, cargo, rol, activo, institucion_id')
+      .eq('cedula', `V-${soloNumeros}`)
+      .maybeSingle();
+    if (perByV) return perByV;
+  }
+
+  return null;
+}
+
 export async function POST(request: Request) {
   try {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -109,6 +148,8 @@ export async function POST(request: Request) {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inputCleaned);
     const hasKnownPrefix = /^(RC-|QR-|V-|E-)/.test(inputCleaned);
     const isOnlyNumbers = /^\d+$/.test(inputCleaned);
+    // Extract pure numeric digits (used for both student and personal lookup by cedula)
+    const soloNumeros = inputCleaned.replace(/^(RC-|QR-|V-|E-)/, '').replace(/[^0-9]/g, '');
 
     if (!isUUID && !hasKnownPrefix && !isOnlyNumbers) {
       return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
@@ -182,22 +223,11 @@ export async function POST(request: Request) {
       });
     }
 
-    // ── 2. Buscar como PERSONAL (UUID directo) ──
-    if (!isUUID) {
+    // ── 2. Buscar como PERSONAL (UUID, QR o cédula) ──
+    const personal = await buscarPersonal(supabaseAdmin, inputCleaned, soloNumeros);
+
+    if (!personal) {
       return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
-    }
-
-    const { data: personal, error: perError } = await supabaseAdmin
-      .from('personal')
-      .select('id, nombres, apellidos, cargo, rol, activo, institucion_id, auth_user_id')
-      .eq('id', inputCleaned)
-      .maybeSingle();
-
-    if (perError || !personal) {
-      return NextResponse.json(
-        { error: '⚠️ Código no reconocido por el sistema Asisto' },
-        { status: 400 }
-      );
     }
 
     if (!personal.activo) {

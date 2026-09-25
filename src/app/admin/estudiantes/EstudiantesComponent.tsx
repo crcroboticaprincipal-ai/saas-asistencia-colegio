@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import * as XLSX from "xlsx";
+import { TODOS_LOS_GRADOS, SECCIONES } from "@/lib/grados-catalogo";
 
 type Estudiante = {
   id: string;
@@ -950,27 +951,33 @@ export default function EstudiantesComponent() {
                   <label className="block text-xs font-medium text-slate-400 mb-1">
                     Grado/Año
                   </label>
-                  <input
+                  <select
                     required
-                    type="text"
                     value={formData.grado || ""}
                     onChange={(e) => setFormData({ ...formData, grado: e.target.value })}
                     className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                    placeholder="Ej: 1er Año"
-                  />
+                  >
+                    <option value="">Seleccionar…</option>
+                    {TODOS_LOS_GRADOS.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-slate-400 mb-1">
                     Sección
                   </label>
-                  <input
+                  <select
                     required
-                    type="text"
                     value={formData.seccion || ""}
                     onChange={(e) => setFormData({ ...formData, seccion: e.target.value })}
                     className="w-full bg-slate-800 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
-                    placeholder="Ej: A"
-                  />
+                  >
+                    <option value="">—</option>
+                    {SECCIONES.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

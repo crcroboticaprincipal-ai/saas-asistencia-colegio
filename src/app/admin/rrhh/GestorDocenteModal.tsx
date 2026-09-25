@@ -6,6 +6,7 @@ import {
   Calendar, ChevronDown, ChevronUp, AlertCircle, CheckCircle,
 } from "lucide-react";
 import type { Personal } from "@/lib/supabase/types";
+import { TODOS_LOS_GRADOS, SECCIONES } from "@/lib/grados-catalogo";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -39,11 +40,7 @@ const DIAS = [
   { num: 7, label: "Domingo" },
 ];
 
-const GRADOS = [
-  "1er Grado","2do Grado","3er Grado","4to Grado","5to Grado","6to Grado",
-  "7mo (1er Año)","8vo (2do Año)","9no (3er Año)","10mo (4to Año)","11mo (5to Año)",
-];
-const SECCIONES = ["A","B","C","D","E","F"];
+// GRADOS y SECCIONES provienen del catálogo canónico centralizado (src/lib/grados-catalogo.ts)
 
 const BLOQUE_EMPTY = (dia: number): Bloque => ({
   dia_semana: dia,
@@ -388,7 +385,7 @@ export default function GestorDocenteModal({
                           className="w-full bg-slate-900/50 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                         >
                           <option value="">Seleccionar…</option>
-                          {GRADOS.map((g) => <option key={g} value={g}>{g}</option>)}
+                          {TODOS_LOS_GRADOS.map((g) => <option key={g} value={g}>{g}</option>)}
                         </select>
                       </div>
                       {/* Sección */}

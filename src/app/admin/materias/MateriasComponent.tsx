@@ -5,6 +5,7 @@ import {
   BookOpen, Plus, Trash2, Loader2, CheckCircle,
   AlertCircle, Search, GraduationCap, X
 } from "lucide-react";
+import { NIVELES_MATERIA } from "@/lib/grados-catalogo";
 
 interface Materia {
   id: string;
@@ -14,11 +15,7 @@ interface Materia {
   created_at: string;
 }
 
-const NIVELES = [
-  "1er Grado", "2do Grado", "3er Grado", "4to Grado", "5to Grado", "6to Grado",
-  "7mo (1er Año)", "8vo (2do Año)", "9no (3er Año)", "10mo (4to Año)", "11mo (5to Año)",
-  "General",
-];
+// Niveles provienen del catálogo canónico (src/lib/grados-catalogo.ts)
 
 // Reads institucion_id from the first record available, or uses a hardcoded fallback
 const FALLBACK_INST_ID = process.env.NEXT_PUBLIC_INSTITUCION_ID ?? "";
@@ -252,7 +249,7 @@ export default function MateriasComponent() {
                   onChange={(e) => setForm({ ...form, nivel: e.target.value })}
                   className="w-full bg-slate-800/60 border border-white/10 rounded-xl py-2.5 px-4 text-white focus:outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 text-sm"
                 >
-                  {NIVELES.map((n) => <option key={n} value={n}>{n}</option>)}
+                  {NIVELES_MATERIA.map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </div>
               <div className="flex gap-3 justify-end pt-2">
