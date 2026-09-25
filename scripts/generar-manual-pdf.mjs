@@ -9,7 +9,6 @@ const __dirname = path.dirname(__filename);
 
 const mdPath = path.join(__dirname, '..', 'docs', 'MANUAL_OPERATIVO_ASISTO.md');
 const outPath = path.join(__dirname, '..', 'docs', 'MANUAL_OPERATIVO_ASISTO.pdf');
-const publicPath = path.join(__dirname, '..', 'public', 'MANUAL_OPERATIVO_ASISTO.pdf');
 
 const content = fs.readFileSync(mdPath, 'utf8');
 
@@ -280,15 +279,8 @@ while (i < lines.length) {
 // Draw headers & footers on all pages
 drawPageDecorations();
 
-// Save PDF
+// Save PDF locally only
 const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
 fs.writeFileSync(outPath, pdfBuffer);
-console.log(`PDF generado exitosamente en: ${outPath}`);
+console.log(`PDF generado exitosamente de forma local en: ${outPath}`);
 
-// Copy to public folder too
-try {
-  fs.writeFileSync(publicPath, pdfBuffer);
-  console.log(`PDF disponible públicamente en: ${publicPath}`);
-} catch (e) {
-  /* ignore if public folder error */
-}
