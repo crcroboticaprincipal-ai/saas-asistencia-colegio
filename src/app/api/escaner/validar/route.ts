@@ -1,5 +1,6 @@
 import { NextResponse, after } from 'next/server';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { enviarCorreoAsistencia } from '@/lib/email';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DbClient = SupabaseClient<any, any, any>;
@@ -228,29 +229,20 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Error al registrar asistencia del estudiante' }, { status: 500 });
       }
 
-      // Notificación email vía endpoint dedicado (confiable en Vercel serverless)
-      // Usamos after() de Next.js para enviar la notificación en segundo plano
-      // y no bloquear la respuesta inmediata al escáner.
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL
-        || (request.headers.get('origin') ?? '')
-        || (request.headers.get('x-forwarded-host')
-            ? `https://${request.headers.get('x-forwarded-host')}`
-            : '');
-
-      if (baseUrl && estudiante.correo_representante) {
-        after(() => {
-          fetch(`${baseUrl}/api/notificar`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              estudiante_id: estudiante.id,
+      // Enviar notificación por correo al representante en segundo plano (after hook)
+      if (estudiante.correo_representante) {
+        after(async () => {
+          try {
+            await enviarCorreoAsistencia({
+              estudianteId: estudiante.id,
               tipo,
-            }),
-          }).catch((err) => {
-            console.error('[escaner/validar] Error disparando notificación:', err);
-          });
+            });
+          } catch (err) {
+            console.error('[escaner/validar] Error al enviar correo de notificación:', err);
+          }
         });
       }
+
 
       return NextResponse.json({
         tipo_usuario: 'estudiante',

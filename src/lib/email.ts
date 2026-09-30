@@ -239,3 +239,122 @@ export function generarHtmlCorreoRecuperacion(data: RecoveryEmailData): string {
     </html>
   `;
 }
+
+export async function enviarCorreoAsistencia({
+  estudianteId,
+  tipo,
+}: {
+  estudianteId: string;
+  tipo: string;
+}): Promise<{ ok: boolean; message?: string; emailId?: string; error?: string }> {
+  const resendApiKey = process.env.RESEND_API_KEY;
+
+  if (!resendApiKey) {
+    console.warn('[notificar] RESEND_API_KEY no configurada en las variables de entorno.');
+    return { ok: false, message: 'RESEND_API_KEY no configurada' };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    return { ok: false, error: 'Supabase credentials missing' };
+  }
+
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabase = createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false },
+  });
+
+  // 1. Obtener datos del estudiante
+  const { data: estudiante, error: errEst } = await supabase
+    .from('estudiantes')
+    .select('id, nombre_completo, cedula, grado, seccion, correo_representante, nombre_representante, foto_url, institucion_id')
+    .eq('id', estudianteId)
+    .maybeSingle();
+
+  if (errEst || !estudiante) {
+    console.error('[notificar] Estudiante no encontrado:', errEst?.message);
+    return { ok: false, error: 'Estudiante no encontrado' };
+  }
+
+  if (!estudiante.correo_representante) {
+    console.warn(`[notificar] El estudiante ${estudiante.nombre_completo} no tiene correo de representante.`);
+    return { ok: false, message: 'Sin correo de representante registrado' };
+  }
+
+  // 2. Obtener nombre de la institución
+  const { data: institucion } = await supabase
+    .from('instituciones')
+    .select('nombre')
+    .eq('id', estudiante.institucion_id)
+    .maybeSingle();
+
+  const nombreColegio = institucion?.nombre || 'Colegio Rafael Castillo';
+
+  // 3. Hora local Venezuela
+  const now = new Date();
+  const horaLocal = now.toLocaleTimeString('es-VE', {
+    hour12: true,
+    timeZone: 'America/Caracas',
+  });
+
+  // 4. Generar HTML
+  const emailHtml = generarHtmlCorreoAsistencia({
+    nombreRepresentante: estudiante.nombre_representante ?? '',
+    nombreEstudiante: estudiante.nombre_completo ?? '',
+    tipo,
+    horaLocal,
+    fotoUrl: estudiante.foto_url,
+    nombreColegio,
+    grado: estudiante.grado || '',
+    seccion: estudiante.seccion || '',
+  });
+
+  // 5. Enviar con Resend
+  const { Resend } = await import('resend');
+  const resend = new Resend(resendApiKey);
+  const primaryFrom = process.env.RESEND_FROM_EMAIL || `${nombreColegio} <notificaciones@aulascolegiorafaelcastillo.com>`;
+  const subject = `Notificación de ${tipo === 'ENTRADA' ? 'Entrada' : 'Salida'} — ${estudiante.nombre_completo}`;
+
+  let emailData: { id: string } | null = null;
+  let emailError: { message?: string; name?: string } | null = null;
+
+  const result1 = await resend.emails.send({
+    from: primaryFrom,
+    to: estudiante.correo_representante.trim(),
+    subject,
+    html: emailHtml,
+  });
+
+  emailData = result1.data;
+  emailError = result1.error;
+
+  // Fallback si el dominio personalizado no está verificado en Resend todavía
+  if (
+    emailError &&
+    (emailError.message?.toLowerCase().includes('domain') ||
+      emailError.message?.toLowerCase().includes('verify') ||
+      emailError.message?.toLowerCase().includes('onboarding') ||
+      emailError.name === 'validation_error')
+  ) {
+    console.warn('[notificar] Dominio personalizado no verificado en Resend. Reintentando con onboarding@resend.dev...');
+    const resultFallback = await resend.emails.send({
+      from: `${nombreColegio} <onboarding@resend.dev>`,
+      to: estudiante.correo_representante.trim(),
+      subject,
+      html: emailHtml,
+    });
+    emailData = resultFallback.data;
+    emailError = resultFallback.error;
+  }
+
+  if (emailError) {
+    console.error('[notificar] Error enviando email vía Resend:', emailError);
+    return { ok: false, error: emailError.message || 'Error al enviar email' };
+  }
+
+  console.info(`[notificar] ✅ Email enviado a ${estudiante.correo_representante} | id=${emailData?.id}`);
+  return { ok: true, emailId: emailData?.id };
+}
+
