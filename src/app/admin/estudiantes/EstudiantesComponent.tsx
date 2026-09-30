@@ -312,7 +312,16 @@ export default function EstudiantesComponent() {
       const { data: urlData } = supabase.storage
         .from("fotos-estudiantes")
         .getPublicUrl(filePath);
+
+      // Guardar inmediatamente en la base de datos
+      await supabase
+        .from("estudiantes")
+        .update({ foto_url: urlData.publicUrl })
+        .eq("id", editingStudent.id);
+
       setFormData((prev) => ({ ...prev, foto_url: urlData.publicUrl }));
+      showToast("Foto de perfil actualizada exitosamente", "success");
+      fetchEstudiantes(currentPage, searchTerm, filterGrado, filterSeccion);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error al subir foto";
       showToast("Error al subir foto: " + msg, "error");
@@ -320,6 +329,7 @@ export default function EstudiantesComponent() {
       setUploadingPhoto(false);
     }
   };
+
 
   const currentEstudiantes = estudiantes;
   const totalPages = Math.ceil(totalEstudiantes / PAGE_SIZE);
