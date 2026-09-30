@@ -126,3 +126,59 @@
   }
   [data-print-hide] { display: none !important; }
 }
+
+/* ── CARNET PRINT STYLES ── */
+.carnet-print-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 54mm);
+  gap: 8mm;
+  padding: 10mm;
+  background: #f5f5f5;
+  min-height: 100vh;
+  justify-content: center;
+}
+
+.carnet-cell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3mm;
+}
+
+/* Crop marks (visible on screen, hidden on print except as fine lines) */
+.crop-mark {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  pointer-events: none;
+}
+
+.crop-tl { top: 0; left: 0; border-top: 0.75px dashed #aaa; border-left: 0.75px dashed #aaa; }
+.crop-tr { top: 0; right: 0; border-top: 0.75px dashed #aaa; border-right: 0.75px dashed #aaa; }
+.crop-bl { bottom: 0; left: 0; border-bottom: 0.75px dashed #aaa; border-left: 0.75px dashed #aaa; }
+.crop-br { bottom: 0; right: 0; border-bottom: 0.75px dashed #aaa; border-right: 0.75px dashed #aaa; }
+
+@media print {
+  .carnet-print-grid {
+    background: white;
+    padding: 8mm;
+    gap: 6mm;
+    grid-template-columns: repeat(3, 54mm);
+    min-height: auto;
+  }
+
+  .carnet-cell {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .crop-mark {
+    border-color: #ccc !important;
+  }
+
+  .crop-tl { border-top-width: 0.5pt; border-left-width: 0.5pt; }
+  .crop-tr { border-top-width: 0.5pt; border-right-width: 0.5pt; }
+  .crop-bl { border-bottom-width: 0.5pt; border-left-width: 0.5pt; }
+  .crop-br { border-bottom-width: 0.5pt; border-right-width: 0.5pt; }
+}

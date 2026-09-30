@@ -1723,6 +1723,7 @@ export default function EstudiantesComponent() {
   );
 }
 
+import React from "react";
 // ── Carnets Print Sub-View ──
 function CarnetsView({
   students,
@@ -1731,79 +1732,185 @@ function CarnetsView({
   students: Estudiante[];
   onClose: () => void;
 }) {
-  const [QRComponent, setQRComponent] = useState<React.ComponentType<{
-    value: string;
-    size: number;
-    level: string;
-    includeMargin: boolean;
-    className?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }> | null>(null);
-
-  useEffect(() => {
-    import("qrcode.react").then((mod) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setQRComponent(() => mod.QRCodeSVG as any);
-    });
-  }, []);
-
   return (
-    <div className="bg-white text-black min-h-screen p-4 sm:p-8 absolute inset-0 z-50 overflow-auto print:relative print:overflow-visible print:p-0 print:h-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 sm:mb-8 print:hidden">
-        <h1 className="text-xl sm:text-2xl font-bold text-slate-900">🎓 Reposición de Carnets</h1>
+    <div
+      className="bg-white text-black min-h-screen absolute inset-0 z-50 overflow-auto print:relative print:overflow-visible print:p-0"
+      id="carnets-print-area"
+    >
+      {/* ── Control Bar (hidden on print) ── */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 px-6 py-4 bg-slate-900 print:hidden">
+        <div>
+          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            🎓 Impresión de Carnets Institucionales
+          </h1>
+          <p className="text-slate-400 text-sm mt-0.5">
+            {students.length} carnet{students.length !== 1 ? "s" : ""} listos para imprimir —
+            página A4, 9 por hoja con marcas de corte
+          </p>
+        </div>
         <div className="flex gap-3">
           <button
             onClick={() => window.print()}
-            className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors text-sm"
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl flex items-center gap-2 font-semibold text-sm transition-all shadow-lg shadow-indigo-500/20"
           >
-            <Printer className="w-4 h-4 sm:w-5 sm:h-5" /> Imprimir ({students.length})
+            <Printer className="w-4 h-4" /> Imprimir / Guardar PDF
           </button>
           <button
             onClick={onClose}
-            className="px-3 sm:px-4 py-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300 transition-colors text-sm"
+            className="px-4 py-2.5 bg-slate-700 text-slate-200 rounded-xl hover:bg-slate-600 transition-colors text-sm font-medium"
           >
             Cerrar
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 print:grid-cols-2 print:gap-4">
+      {/* ── Preview Info ── */}
+      <div className="px-6 py-3 bg-amber-50 border-b border-amber-200 text-amber-800 text-xs font-medium print:hidden">
+        ℹ️ Las líneas punteadas son guías de corte y desaparecen al imprimir. Se generan 9 carnets por hoja en papel tamaño A4/Carta.
+      </div>
+
+      {/* ── Print Sheet ── */}
+      <div className="carnet-print-grid">
         {students.map((est) => (
-          <div
-            key={est.id}
-            className="border-2 border-blue-800 rounded-xl p-4 sm:p-6 flex flex-col items-center text-center space-y-3 sm:space-y-4 break-inside-avoid shadow-lg relative overflow-hidden"
-          >
-            <div className="absolute top-0 inset-x-0 h-12 sm:h-16 bg-gradient-to-r from-blue-800 to-blue-700 flex items-center justify-center">
-              <h2 className="text-white font-bold tracking-wider text-[10px] sm:text-sm">
-                UE COLEGIO RAFAEL CASTILLO
-              </h2>
-            </div>
-            <div className="pt-14 sm:pt-20">
-              {QRComponent ? (
-                <QRComponent
-                  value={est.qr_code}
-                  size={120}
-                  level="H"
-                  includeMargin
-                  className="p-1.5 sm:p-2 bg-white rounded-lg border shadow-sm"
-                />
-              ) : (
-                <div className="w-[120px] h-[120px] bg-slate-100 animate-pulse rounded-lg" />
-              )}
-            </div>
-            <div>
-              <h3 className="font-bold text-base sm:text-lg text-blue-950 uppercase leading-tight">
-                {est.nombre_completo}
-              </h3>
-              <p className="text-slate-600 font-medium mt-1 text-xs sm:text-sm">
-                C.I: {est.cedula}
-              </p>
-              <div className="mt-2 sm:mt-3 inline-block px-3 sm:px-4 py-1 bg-blue-100 text-blue-800 rounded-full font-bold text-xs sm:text-sm">
-                {est.grado} &ldquo;{est.seccion}&rdquo;
-              </div>
-            </div>
+          <div key={est.id} className="carnet-cell">
+            <div className="crop-mark crop-tl" />
+            <div className="crop-mark crop-tr" />
+            <div className="crop-mark crop-bl" />
+            <div className="crop-mark crop-br" />
+            <CarnetInline estudiante={est} />
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Inline Carnet (no external deps import issue) ──
+function CarnetInline({ estudiante }: { estudiante: Estudiante }) {
+  const { QRCodeSVG } = require("qrcode.react");
+  const initials = estudiante.nombre_completo
+    .split(" ")
+    .slice(0, 2)
+    .map((n: string) => n[0])
+    .join("")
+    .toUpperCase();
+
+  return (
+    <div
+      style={{
+        width: "54mm",
+        height: "85.6mm",
+        borderRadius: "8px",
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        fontFamily: "'Arial', sans-serif",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+        background: "#fff",
+        border: "1px solid #d1d5db",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          background: "linear-gradient(135deg, #0a1628 0%, #1a3a6b 100%)",
+          padding: "6px 8px 4px",
+          display: "flex",
+          alignItems: "center",
+          gap: "6px",
+          borderBottom: "2px solid #c9a227",
+          minHeight: "48px",
+        }}
+      >
+        {/* Logo placeholder area */}
+        <div
+          style={{
+            width: "32px",
+            height: "32px",
+            borderRadius: "4px",
+            overflow: "hidden",
+            flexShrink: 0,
+            background: "rgba(255,255,255,0.1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo crc.png" alt="Logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ color: "#c9a227", fontSize: "6pt", fontWeight: "700", letterSpacing: "0.06em", textTransform: "uppercase", margin: 0, lineHeight: 1.2 }}>U.E. Colegio</p>
+          <p style={{ color: "#fff", fontSize: "8pt", fontWeight: "800", textTransform: "uppercase", margin: 0, lineHeight: 1.2 }}>Rafael Castillo</p>
+        </div>
+        <div style={{ background: "rgba(201,162,39,0.15)", border: "1px solid rgba(201,162,39,0.4)", borderRadius: "3px", padding: "2px 4px", textAlign: "center", flexShrink: 0 }}>
+          <p style={{ color: "#c9a227", fontSize: "5pt", fontWeight: "700", margin: 0, lineHeight: 1.2 }}>AÑO ESCOLAR</p>
+          <p style={{ color: "#fff", fontSize: "6pt", fontWeight: "800", margin: 0, lineHeight: 1.2 }}>2026–2027</p>
+        </div>
+      </div>
+
+      {/* Franja dorada */}
+      <div style={{ height: "2px", background: "linear-gradient(90deg, #c9a227, #f0d060, #c9a227)", flexShrink: 0 }} />
+
+      {/* Label alumno */}
+      <div style={{ background: "#1a3a6b", padding: "2px 8px", textAlign: "center", flexShrink: 0 }}>
+        <p style={{ color: "#e0eaff", fontSize: "6pt", fontWeight: "700", letterSpacing: "0.12em", textTransform: "uppercase", margin: 0 }}>Credencial de Estudiante</p>
+      </div>
+
+      {/* Foto */}
+      <div style={{ display: "flex", justifyContent: "center", paddingTop: "8px", paddingBottom: "6px", background: "#f8faff", flexShrink: 0 }}>
+        <div
+          style={{
+            width: "62px",
+            height: "74px",
+            borderRadius: "5px",
+            overflow: "hidden",
+            border: "2px solid #1a3a6b",
+            background: "linear-gradient(135deg, #e8edf8, #dde3f0)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          {estudiante.foto_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={estudiante.foto_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", background: "linear-gradient(135deg, #1a3a6b, #0d2347)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ color: "#fff", fontSize: "18pt", fontWeight: "800", lineHeight: 1 }}>{initials}</span>
+              <span style={{ color: "rgba(255,255,255,0.45)", fontSize: "5pt", marginTop: "2px" }}>Sin foto</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Datos */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", padding: "0 8px 4px", background: "#f8faff", textAlign: "center" }}>
+        <p style={{ color: "#0a1628", fontSize: "8pt", fontWeight: "800", lineHeight: 1.2, textTransform: "uppercase", margin: "0 0 3px" }}>
+          {estudiante.nombre_completo}
+        </p>
+        <div style={{ background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: "3px", padding: "1px 5px", marginBottom: "4px" }}>
+          <span style={{ color: "#4338ca", fontSize: "6pt", fontWeight: "700" }}>CI: {estudiante.cedula}</span>
+        </div>
+        <div style={{ background: "linear-gradient(135deg, #1a3a6b, #0d2347)", borderRadius: "5px", padding: "3px 8px" }}>
+          <span style={{ color: "#fff", fontSize: "7.5pt", fontWeight: "800", textTransform: "uppercase" }}>
+            {estudiante.grado} &ldquo;{estudiante.seccion}&rdquo;
+          </span>
+        </div>
+      </div>
+
+      {/* Footer con QR */}
+      <div style={{ background: "linear-gradient(135deg, #0a1628, #1a3a6b)", borderTop: "2px solid #c9a227", padding: "5px 8px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px", flexShrink: 0 }}>
+        <div style={{ background: "#fff", borderRadius: "4px", padding: "2px", flexShrink: 0 }}>
+          <QRCodeSVG value={estudiante.qr_code || estudiante.id} size={48} level="H" includeMargin={false} />
+        </div>
+        <div style={{ flex: 1, textAlign: "right" }}>
+          <p style={{ color: "#c9a227", fontSize: "5.5pt", fontWeight: "700", letterSpacing: "0.06em", margin: "0 0 1px" }}>CREDENCIAL SEGURA</p>
+          <p style={{ color: "rgba(255,255,255,0.85)", fontSize: "6pt", fontWeight: "700", margin: "0 0 1px" }}>ASISTO Platform</p>
+          <div style={{ background: "rgba(201,162,39,0.2)", border: "1px solid rgba(201,162,39,0.35)", borderRadius: "2px", padding: "1px 3px", display: "inline-block", marginTop: "2px" }}>
+            <p style={{ color: "#c9a227", fontSize: "5pt", fontWeight: "700", margin: 0 }}>2026 – 2027</p>
+          </div>
+        </div>
       </div>
     </div>
   );

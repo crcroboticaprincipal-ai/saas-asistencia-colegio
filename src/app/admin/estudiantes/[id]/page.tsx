@@ -6,7 +6,7 @@ import { formatHora12 } from "@/lib/utils";
 import { 
   ArrowLeft, Calendar, FileText, Download, 
   Clock, LogIn, LogOut, AlertTriangle, 
-  CheckCircle, Loader2, User, Building, Percent
+  CheckCircle, Loader2, User, Building, Percent, CreditCard
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -376,9 +376,20 @@ export default function EstudianteDetailPage({ params }: { params: Promise<{ id:
           </div>
           
           <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => {
+                if (student) {
+                  window.open(`/admin/estudiantes/carnet-preview?id=${student.id}`, '_blank');
+                }
+              }}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-all shadow-lg shadow-indigo-600/10 self-start sm:self-auto"
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              Ver Carnet Digital
+            </button>
             <button 
               onClick={downloadReportPDF}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-all shadow-lg shadow-indigo-600/10 self-start sm:self-auto"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl transition-all shadow-lg shadow-slate-900/10 self-start sm:self-auto"
             >
               <Download className="w-3.5 h-3.5" />
               📥 Descargar Historial
