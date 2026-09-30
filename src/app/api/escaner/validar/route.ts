@@ -41,6 +41,15 @@ async function buscarEstudiante(supabase: DbClient, input: string): Promise<Estu
 
     if (estByQr) return estByQr;
     if (errQr) console.error(`[escaner/validar] Error por qr_code:`, errQr.message);
+
+    // 1.5. Intentar buscar por coincidencia exacta de campo cedula (incluyendo sufijos -H1, -H2)
+    const { data: estByCedExact } = await supabase
+      .from('estudiantes')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
+      .eq('cedula', raw)
+      .maybeSingle();
+
+    if (estByCedExact) return estByCedExact;
   }
 
   // 2. Intentar buscar por cédula limpia (sólo números)
@@ -53,6 +62,15 @@ async function buscarEstudiante(supabase: DbClient, input: string): Promise<Estu
 
     if (estByCed) return estByCed;
     if (errCed) console.error(`[escaner/validar] Error por cedula limpia:`, errCed.message);
+
+    // 2.5. Intentar buscar por cédula con sufijo de hermano (-H1, -H2...)
+    const { data: estsHermano } = await supabase
+      .from('estudiantes')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante')
+      .ilike('cedula', `${soloNumeros}-H%`)
+      .limit(1);
+
+    if (estsHermano && estsHermano.length > 0) return estsHermano[0];
 
     // 3. Intentar buscar por cédula con prefijo V-
     const { data: estByCedV } = await supabase
@@ -80,6 +98,26 @@ async function buscarEstudiante(supabase: DbClient, input: string): Promise<Estu
       .maybeSingle();
 
     if (estByQrAlt) return estByQrAlt;
+  }
+
+  // 6. Búsqueda inteligente por nombre (insensible a acentos y orden de nombres)
+  const palabras = input.trim().split(/\s+/).filter(p => p.length > 1);
+  if (palabras.length > 0) {
+    let query = supabase
+      .from('estudiantes')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id, nombre_representante, correo_representante');
+
+    for (const pal of palabras) {
+      const pattern = pal
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toUpperCase()
+        .replace(/[AEIOUN]/g, '_');
+      query = query.ilike('nombre_completo', `%${pattern}%`);
+    }
+
+    const { data: estByNombre } = await query.limit(1);
+    if (estByNombre && estByNombre.length > 0) return estByNombre[0];
   }
 
   return null;
@@ -146,12 +184,13 @@ export async function POST(request: Request) {
     // Sanitización básica
     const inputCleaned = qrCode.trim().toUpperCase().replace(/\s+/g, '');
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inputCleaned);
-    const hasKnownPrefix = /^(RC-|QR-|V-|E-)/.test(inputCleaned);
+    const hasKnownPrefix = /^(ASISTO-|RC-|QR-|V-|E-)/.test(inputCleaned);
     const isOnlyNumbers = /^\d+$/.test(inputCleaned);
-    // Extract pure numeric digits (used for both student and personal lookup by cedula)
-    const soloNumeros = inputCleaned.replace(/^(RC-|QR-|V-|E-)/, '').replace(/[^0-9]/g, '');
+    const isAlphanumericCode = /^[A-Z0-9_\-]+$/i.test(inputCleaned);
+    // Extraer dígitos numéricos puros (usados para búsqueda fallback)
+    const soloNumeros = inputCleaned.replace(/^(ASISTO-|RC-|QR-|V-|E-)/, '').replace(/[^0-9]/g, '');
 
-    if (!isUUID && !hasKnownPrefix && !isOnlyNumbers) {
+    if (!isUUID && !hasKnownPrefix && !isOnlyNumbers && !isAlphanumericCode) {
       return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
     }
 

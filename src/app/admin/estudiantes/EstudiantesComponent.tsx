@@ -363,49 +363,107 @@ export default function EstudiantesComponent() {
 
   // ── Bulk Upload handlers ──
   const descargarPlantilla = () => {
-    const cabeceras = [
-      [
-        "cedula",
-        "nombre_completo",
-        "grado",
-        "seccion",
-        "nombre_representante",
-        "correo_representante",
-        "estado",
-      ],
+    const filaEjemplo = [
+      {
+        cedula: "12345678",
+        nombres: "PEDRITO ALBERTO",
+        apellidos: "PÉREZ GONZÁLEZ",
+        genero: "M",
+        grado_ano: "Inicial A",
+        seccion: "A",
+        representante_nombre: "MARÍA GONZÁLEZ",
+        representante_telefono: "0414-1234567",
+        representante_correo: "maria@email.com",
+      },
+      {
+        cedula: "12345678",
+        nombres: "JUAN CARLOS",
+        apellidos: "PÉREZ GONZÁLEZ",
+        genero: "M",
+        grado_ano: "1er Año",
+        seccion: "A",
+        representante_nombre: "MARÍA GONZÁLEZ",
+        representante_telefono: "0414-1234567",
+        representante_correo: "maria@email.com",
+      },
+      {
+        cedula: "87654321",
+        nombres: "ANA MARÍA",
+        apellidos: "RODRÍGUEZ LÓPEZ",
+        genero: "F",
+        grado_ano: "3er Grado",
+        seccion: "B",
+        representante_nombre: "CARLOS RODRÍGUEZ",
+        representante_telefono: "0424-7654321",
+        representante_correo: "carlos@email.com",
+      },
     ];
-    const ejemplos = [
-      [
-        "34123456",
-        "JUAN CARLOS PÉREZ GARCÍA",
-        "5T",
-        "A",
-        "MARIA GARCÍA",
-        "maria@gmail.com",
-        "Activo",
-      ],
-      [
-        "34123457",
-        "ANA SOFÍA RODRÍGUEZ LÓPEZ",
-        "5T",
-        "B",
-        "PEDRO RODRÍGUEZ",
-        "pedro@hotmail.com",
-        "Activo",
-      ],
+
+    const wsData = XLSX.utils.json_to_sheet(filaEjemplo);
+    wsData["!cols"] = [
+      { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 8 },
+      { wch: 18 }, { wch: 8 }, { wch: 28 }, { wch: 16 }, { wch: 30 },
     ];
-    const ws = XLSX.utils.aoa_to_sheet([...cabeceras, ...ejemplos]);
-    ws["!cols"] = [
-      { wch: 14 },
-      { wch: 38 },
-      { wch: 8 },
-      { wch: 8 },
-      { wch: 30 },
-      { wch: 32 },
-      { wch: 10 },
+
+    const gradosValidos = TODOS_LOS_GRADOS.join(",");
+    const seccionesValidas = SECCIONES.join(",");
+
+    wsData["!dataValidation"] = [
+      {
+        sqref: "E2:E501",
+        type: "list",
+        formula1: `"${gradosValidos}"`,
+        showDropDown: false,
+        showErrorMessage: true,
+        errorTitle: "Valor inválido",
+        error: `Use uno de los valores del catálogo: ${gradosValidos}`,
+      },
+      {
+        sqref: "F2:F501",
+        type: "list",
+        formula1: `"${seccionesValidas}"`,
+        showDropDown: false,
+        showErrorMessage: true,
+        errorTitle: "Sección inválida",
+        error: "Use A, B o C",
+      },
+      {
+        sqref: "D2:D501",
+        type: "list",
+        formula1: '"M,F"',
+        showDropDown: false,
+        showErrorMessage: true,
+        errorTitle: "Género inválido",
+        error: "Use M (Masculino) o F (Femenino)",
+      },
+    ] as unknown[];
+
+    const instrucciones = [
+      ["INSTRUCCIONES DE USO — Plantilla Oficial Asisto"],
+      [""],
+      ["COLUMNA", "DESCRIPCIÓN", "OBLIGATORIO", "EJEMPLO"],
+      ["cedula", "Número de cédula o Cédula Escolar (los hermanos pueden compartir la del representante)", "SÍ", "12345678"],
+      ["nombres", "Nombres del estudiante (sin apellidos)", "SÍ", "JUAN CARLOS"],
+      ["apellidos", "Apellidos del estudiante", "SÍ", "PÉREZ GONZÁLEZ"],
+      ["genero", "M = Masculino, F = Femenino", "NO", "M"],
+      ["grado_ano", "Selecciona del desplegable (ej: Inicial A, 3er Grado, 1er Año)", "SÍ", "Inicial A"],
+      ["seccion", "A, B o C", "SÍ", "A"],
+      ["representante_nombre", "Nombre del padre/madre/tutor", "SÍ", "MARÍA GONZÁLEZ"],
+      ["representante_telefono", "Teléfono de contacto del representante", "NO", "0414-1234567"],
+      ["representante_correo", "Correo del representante para notificaciones", "SÍ", "maria@email.com"],
+      [""],
+      ["GRADOS Y AÑOS VÁLIDOS:"],
+      ["Educación Inicial:", "Inicial A, Inicial B, Inicial C (o 1er Nivel Inicial, 2do Nivel Inicial, 3er Nivel Inicial)"],
+      ["Primaria:", "1er Grado, 2do Grado, 3er Grado, 4to Grado, 5to Grado, 6to Grado"],
+      ["Bachillerato:", "1er Año, 2do Año, 3er Año, 4to Año, 5to Año"],
     ];
+
+    const wsInst = XLSX.utils.aoa_to_sheet(instrucciones);
+    wsInst["!cols"] = [{ wch: 25 }, { wch: 70 }, { wch: 14 }, { wch: 20 }];
+
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Estudiantes");
+    XLSX.utils.book_append_sheet(wb, wsData, "Estudiantes");
+    XLSX.utils.book_append_sheet(wb, wsInst, "INSTRUCCIONES");
     XLSX.writeFile(wb, "plantilla_estudiantes_asisto.xlsx");
   };
 
@@ -432,10 +490,20 @@ export default function EstudiantesComponent() {
       fd.append("archivo", bulkFile);
       const res = await fetch("/api/admin/estudiantes/bulk", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || "Error al procesar el archivo");
-      setBulkResumen(data.resumen);
-      setBulkResultados(data.resultados);
-      if (data.resumen.insertados > 0) {
+
+      if (data.resumen) setBulkResumen(data.resumen);
+      if (data.resultados) setBulkResultados(data.resultados);
+      if (data.errores && data.errores.length > 0) {
+        setBulkResultados(data.errores);
+      }
+
+      if (!res.ok || !data.ok) {
+        if (!data.resumen && !data.errores) {
+          throw new Error(data.error || "Error al procesar el archivo");
+        }
+      }
+
+      if (data.resumen && data.resumen.insertados > 0) {
         await fetchEstudiantes(0, "", "", "");
         setCurrentPage(0);
         setSearchTerm("");

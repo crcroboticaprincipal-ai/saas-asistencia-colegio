@@ -37,14 +37,24 @@ type ErrorValidacion = {
   cedula: string;
   mensaje: string;
 };
-
 // ── Descarga de Plantilla Oficial con listas de validación ────────────────────
 
 async function downloadTemplate() {
   const XLSX = await import("xlsx");
 
-  // Hoja 1: Datos
+  // Hoja 1: Datos (incluye ejemplo de hermanos con misma cédula)
   const filaEjemplo = [
+    {
+      cedula: "12345678",
+      nombres: "PEDRITO ALBERTO",
+      apellidos: "PÉREZ GONZÁLEZ",
+      genero: "M",
+      grado_ano: "Inicial A",
+      seccion: "A",
+      representante_nombre: "MARÍA GONZÁLEZ",
+      representante_telefono: "0414-1234567",
+      representante_correo: "maria@email.com",
+    },
     {
       cedula: "12345678",
       nombres: "JUAN CARLOS",
@@ -72,16 +82,13 @@ async function downloadTemplate() {
   const wsData = XLSX.utils.json_to_sheet(filaEjemplo);
   wsData["!cols"] = [
     { wch: 14 }, { wch: 22 }, { wch: 22 }, { wch: 8 },
-    { wch: 14 }, { wch: 8 }, { wch: 28 }, { wch: 16 }, { wch: 30 },
+    { wch: 18 }, { wch: 8 }, { wch: 28 }, { wch: 16 }, { wch: 30 },
   ];
 
   // Validaciones de datos (dropdown listas)
   const gradosValidos = TODOS_LOS_GRADOS.join(",");
   const seccionesValidas = SECCIONES.join(",");
 
-  // Columna E (grado_ano) = fila 2 en adelante
-  // Columna F (seccion) = fila 2 en adelante
-  // Columna D (genero) = fila 2 en adelante
   wsData["!dataValidation"] = [
     {
       sqref: "E2:E501",
@@ -99,7 +106,7 @@ async function downloadTemplate() {
       showDropDown: false,
       showErrorMessage: true,
       errorTitle: "Sección inválida",
-      error: "Use A o B",
+      error: "Use A, B o C",
     },
     {
       sqref: "D2:D501",
@@ -117,27 +124,29 @@ async function downloadTemplate() {
     ["INSTRUCCIONES DE USO — Plantilla Oficial Asisto"],
     [""],
     ["COLUMNA", "DESCRIPCIÓN", "OBLIGATORIO", "EJEMPLO"],
-    ["cedula", "Número de cédula sin prefijo (solo dígitos)", "SÍ", "12345678"],
+    ["cedula", "Número de cédula o Cédula Escolar (si son hermanos pueden compartir la cédula del representante)", "SÍ", "12345678"],
     ["nombres", "Nombres del estudiante (sin apellidos)", "SÍ", "JUAN CARLOS"],
     ["apellidos", "Apellidos del estudiante", "SÍ", "PÉREZ GONZÁLEZ"],
     ["genero", "M = Masculino, F = Femenino", "NO", "M"],
-    ["grado_ano", "Selecciona del desplegable (ej: 1er Año, 3er Grado)", "SÍ", "1er Año"],
-    ["seccion", "A o B", "SÍ", "A"],
+    ["grado_ano", "Selecciona del desplegable (ej: Inicial A, 3er Grado, 1er Año)", "SÍ", "Inicial A"],
+    ["seccion", "A, B o C", "SÍ", "A"],
     ["representante_nombre", "Nombre del padre/madre/tutor", "SÍ", "MARÍA GONZÁLEZ"],
     ["representante_telefono", "Teléfono de contacto del representante", "NO", "0414-1234567"],
     ["representante_correo", "Correo del representante para notificaciones", "SÍ", "maria@email.com"],
     [""],
     ["GRADOS Y AÑOS VÁLIDOS:"],
+    ["Educación Inicial:", "Inicial A, Inicial B, Inicial C (o 1er Nivel Inicial, 2do Nivel Inicial, 3er Nivel Inicial)"],
     ["Primaria:", "1er Grado, 2do Grado, 3er Grado, 4to Grado, 5to Grado, 6to Grado"],
     ["Bachillerato:", "1er Año, 2do Año, 3er Año, 4to Año, 5to Año"],
     [""],
+    ["💡 NOTA PARA HERMANOS: Si 2 o más hermanos comparten la cédula del representante, la plantilla los procesará sin error asignándoles QRs únicos e independientes."],
     ["⚠️  NO modifiques los encabezados de la fila 1."],
     ["⚠️  Elimina las filas de ejemplo antes de importar tus datos."],
     ["⚠️  Máximo 500 estudiantes por archivo."],
   ];
 
   const wsInst = XLSX.utils.aoa_to_sheet(instrucciones);
-  wsInst["!cols"] = [{ wch: 25 }, { wch: 50 }, { wch: 14 }, { wch: 20 }];
+  wsInst["!cols"] = [{ wch: 25 }, { wch: 70 }, { wch: 14 }, { wch: 20 }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, wsData, "Estudiantes");
@@ -234,15 +243,26 @@ export default function ImportarComponent() {
 
       setProgress(100);
       const { insertados, duplicados, errores } = resData.resumen;
+      
+      let msgStatus = `✅ Importación procesada con éxito — ${insertados} estudiante(s) nuevo(s) registrado(s).`;
+      if (insertados === 0 && duplicados > 0) {
+        msgStatus = `ℹ️ Los ${duplicados} estudiante(s) del archivo ya están registrados activamente en la base de datos (no fue necesario duplicarlos).`;
+      } else if (duplicados > 0) {
+        msgStatus += ` (${duplicados} ya existían en la base de datos).`;
+      }
+      if (errores > 0) {
+        msgStatus += ` (${errores} con error).`;
+      }
+
       setStatus({
-        type: "success",
-        message: `✅ Importación completada — ${insertados} nuevo(s), ${duplicados} duplicado(s) omitido(s)${errores > 0 ? `, ${errores} con error` : ""}.`,
+        type: (insertados > 0 || duplicados > 0) ? "success" : "error",
+        message: msgStatus,
       });
 
       if (resData.resultados) {
-        const ok = resData.resultados.filter((r: { estado: string }) => r.estado === "ok");
-        setImportedStudents(ok.map((d: { cedula: string; nombre: string; grado: string; seccion: string }) => ({
-          id: d.cedula, qr_code: `RC-${d.cedula}`,
+        const procesados = resData.resultados.filter((r: { estado: string }) => r.estado === "ok" || r.estado === "duplicado");
+        setImportedStudents(procesados.map((d: { cedula: string; nombre: string; grado: string; seccion: string }) => ({
+          id: d.cedula, qr_code: `ASISTO-${d.cedula}`,
           cedula: d.cedula, nombre: d.nombre, grado: d.grado, seccion: d.seccion,
         })));
       }

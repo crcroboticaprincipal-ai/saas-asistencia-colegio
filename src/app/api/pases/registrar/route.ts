@@ -44,10 +44,11 @@ export async function POST(request: Request) {
     // Sanitización del Payload y Validación de Formato
     const inputCleaned = qrCode.trim().toUpperCase().replace(/\s+/g, '');
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inputCleaned);
-    const hasAsistoPrefix = /^(RC-|QR-)/.test(inputCleaned);
+    const hasAsistoPrefix = /^(ASISTO-|RC-|QR-|V-|E-)/.test(inputCleaned);
     const isOnlyNumbers = /^\d+$/.test(inputCleaned);
+    const isAlphanumericCode = /^[A-Z0-9_\-]+$/i.test(inputCleaned);
 
-    if (!isUUID && !hasAsistoPrefix && !isOnlyNumbers) {
+    if (!isUUID && !hasAsistoPrefix && !isOnlyNumbers && !isAlphanumericCode) {
       return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
     }
 
@@ -70,17 +71,42 @@ export async function POST(request: Request) {
 
       // Búsqueda Fallback por Cédula extraída si falla la búsqueda directa
       if (!estError && !estudiante) {
-        const cedulaExtraida = inputCleaned.replace(/^(RC-|QR-)/, '').replace(/[^0-9]/g, '');
+        const cedulaExtraida = inputCleaned.replace(/^(ASISTO-|RC-|QR-|V-|E-)/, '').replace(/[^0-9]/g, '');
         if (cedulaExtraida) {
           const resFallback = await supabaseAdmin
             .from('estudiantes')
             .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id')
             .eq('institucion_id', COLEGIO_ID)
-            .or(`cedula.eq.${cedulaExtraida},cedula.eq.V-${cedulaExtraida},cedula.eq.E-${cedulaExtraida}`)
-            .maybeSingle();
+            .or(`cedula.eq.${cedulaExtraida},cedula.eq.V-${cedulaExtraida},cedula.eq.E-${cedulaExtraida},cedula.ilike.${cedulaExtraida}-H%`)
+            .limit(1);
 
-          if (!resFallback.error && resFallback.data) {
-            estudiante = resFallback.data;
+          if (!resFallback.error && resFallback.data && resFallback.data.length > 0) {
+            estudiante = resFallback.data[0];
+          }
+        }
+      }
+
+      // Búsqueda Fallback por Nombre con Wildcard de Vocales
+      if (!estError && !estudiante) {
+        const palabras = qrCode.trim().split(/\s+/).filter(p => p.length > 1);
+        if (palabras.length > 0) {
+          let queryName = supabaseAdmin
+            .from('estudiantes')
+            .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id')
+            .eq('institucion_id', COLEGIO_ID);
+
+          for (const pal of palabras) {
+            const pattern = pal
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toUpperCase()
+              .replace(/[AEIOUN]/g, '_');
+            queryName = queryName.ilike('nombre_completo', `%${pattern}%`);
+          }
+
+          const resName = await queryName.limit(1);
+          if (!resName.error && resName.data && resName.data.length > 0) {
+            estudiante = resName.data[0];
           }
         }
       }
