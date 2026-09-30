@@ -4,12 +4,13 @@ import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase/client";
 import {
   UserCog, Plus, Search, CheckCircle, XCircle,
-  Calendar, Loader2, Save, X, Eye, EyeOff, Edit2, GraduationCap
+  Calendar, Loader2, Save, X, Eye, EyeOff, Edit2, GraduationCap, CreditCard
 } from "lucide-react";
 import type { Personal, Rol } from "@/lib/supabase/types";
 import { generarEmailInterno } from "@/lib/login-pin";
 import { QRCodeSVG } from "qrcode.react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 
 const GestorDocenteModal = dynamic(() => import("./GestorDocenteModal"), { ssr: false });
 
@@ -192,12 +193,20 @@ export default function RRHHComponent() {
           </h1>
           <p className="text-slate-400 mt-1 text-sm">RRHH · Roles y Accesos del Colegio</p>
         </div>
-        <button
-          onClick={() => { setEditandoId(null); setShowModal(true); setFormData(FORM_EMPTY); setError(""); }}
-          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20 text-sm w-full sm:w-auto justify-center"
-        >
-          <Plus className="w-4 h-4" /> Nuevo Empleado
-        </button>
+        <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+          <Link
+            href="/admin/rrhh/carnets"
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-indigo-500/20 text-sm flex-1 sm:flex-none justify-center"
+          >
+            <CreditCard className="w-4 h-4" /> Carnets Masivos
+          </Link>
+          <button
+            onClick={() => { setEditandoId(null); setShowModal(true); setFormData(FORM_EMPTY); setError(""); }}
+            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium flex items-center gap-2 transition-all shadow-lg shadow-emerald-500/20 text-sm flex-1 sm:flex-none justify-center"
+          >
+            <Plus className="w-4 h-4" /> Nuevo Empleado
+          </button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -319,13 +328,14 @@ export default function RRHHComponent() {
                             <GraduationCap className="w-4 h-4" />
                           </button>
                         )}
-                        <button
-                          onClick={() => setShowQR(p)}
-                          className="p-2 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all"
-                          title="Mostrar Código QR"
+                        <Link
+                          href={`/admin/rrhh/carnet-preview?id=${p.id}`}
+                          target="_blank"
+                          className="p-2 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all inline-flex"
+                          title="Ver Carnet del empleado"
                         >
-                          <UserCog className="w-4 h-4" />
-                        </button>
+                          <CreditCard className="w-4 h-4" />
+                        </Link>
                         <button
                           onClick={() => handleEditar(p)}
                           className="p-2 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all"
