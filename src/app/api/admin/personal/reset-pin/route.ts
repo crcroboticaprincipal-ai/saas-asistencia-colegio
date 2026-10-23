@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
+import { hashPassword } from '@/lib/password';
 
 export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
-    const { personalId } = await request.json();
+    const { personalId } = (await request.json()) as { personalId?: string };
 
     if (!personalId) {
       return NextResponse.json({ error: 'ID de personal requerido' }, { status: 400 });
@@ -17,10 +17,9 @@ export async function POST(request: Request) {
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1. Obtener datos del personal
     const { data: personal, error: perErr } = await supabaseAdmin
       .from('personal')
-      .select('id, nombres, apellidos, auth_user_id')
+      .select('id, nombres, apellidos, auth_user_id, institucion_id')
       .eq('id', personalId)
       .maybeSingle();
 
@@ -28,15 +27,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Usuario de personal no encontrado' }, { status: 404 });
     }
 
-    // 2. Actualizar en base de datos: PIN a 1234, limpiar password_hash, limpiar solicita_restablecer
+    const instResult = resolveInstitucion(session, personal.institucion_id);
+    if (!instResult.ok) return instResult.response;
+
+    const defaultHashedPin = await hashPassword('1234');
+
     const { error: dbUpdateErr } = await supabaseAdmin
       .from('personal')
       .update({
-        pin_hash: '1234',
+        pin_hash: defaultHashedPin,
         password_hash: null,
         usa_password_alfanumerico: false,
         solicita_restablecer: false,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('id', personalId);
 
@@ -44,11 +47,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Error al actualizar base de datos' }, { status: 500 });
     }
 
-    // 3. Actualizar en Supabase Auth
     if (personal.auth_user_id) {
       const { error: authUpdateErr } = await supabaseAdmin.auth.admin.updateUserById(
         personal.auth_user_id,
-        { password: '1234' }
+        { password: '1234' },
       );
       if (authUpdateErr) {
         console.error('Error actualizando contraseña en Supabase Auth:', authUpdateErr.message);
@@ -56,7 +58,6 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ ok: true, message: 'PIN blanqueado a 1234 exitosamente' });
-
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Error del servidor' }, { status: 500 });
   }

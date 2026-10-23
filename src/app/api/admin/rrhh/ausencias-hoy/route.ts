@@ -1,23 +1,26 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
 
-function getAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
 
-export async function GET() {
   try {
-    const sb = getAdmin();
+    const sb = getSupabaseAdmin();
+    const { searchParams } = new URL(request.url);
+    const requestedInst = searchParams.get('institucion_id');
+
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
+
     const todayStr = new Date().toISOString().split('T')[0];
-    // Day of week: 0=Sun, 1=Mon...6=Sat  → match horario_bloques.dia_semana (1=Lun...7=Dom in some DBs)
-    const jsDay = new Date().getDay(); // 0=Sun...
-    // Convert to ISO weekday (1=Mon...7=Sun)
+    const jsDay = new Date().getDay();
     const isoDay = jsDay === 0 ? 7 : jsDay;
 
-    // Get all personal who have an active horario bloque scheduled for today
-    const { data: personalConHorario, error: horErr } = await sb
+    let queryHorario = sb
       .from('horario_bloques')
       .select(`
         plantilla_id,
@@ -26,26 +29,23 @@ export async function GET() {
           personal_id,
           activo,
           personal (
-            id, nombres, apellidos, cargo, rol
+            id, nombres, apellidos, cargo, rol, institucion_id
           )
         )
       `)
       .eq('dia_semana', isoDay)
       .eq('horario_plantillas.activo', true);
 
-    if (horErr) {
-      // Fallback: return all active personal if horario table fails
-      const { data: allPersonal } = await sb
-        .from('personal')
-        .select('id, nombres, apellidos, cargo, rol')
-        .eq('activo', true);
+    const { data: personalConHorario, error: horErr } = await queryHorario;
 
-      // Get who scanned today
-      const { data: escaneadosHoy } = await sb
-        .from('asistencia_personal')
-        .select('personal_id')
-        .eq('fecha', todayStr)
-        .eq('tipo', 'ENTRADA');
+    if (horErr) {
+      let qPersonal = sb.from('personal').select('id, nombres, apellidos, cargo, rol').eq('activo', true);
+      if (institucionId) qPersonal = qPersonal.eq('institucion_id', institucionId);
+      const { data: allPersonal } = await qPersonal;
+
+      let qEsc = sb.from('asistencia_personal').select('personal_id').eq('fecha', todayStr).eq('tipo', 'ENTRADA');
+      if (institucionId) qEsc = qEsc.eq('institucion_id', institucionId);
+      const { data: escaneadosHoy } = await qEsc;
 
       const escaneadosSet = new Set((escaneadosHoy ?? []).map((e: { personal_id: string }) => e.personal_id));
       const ausentes = (allPersonal ?? []).filter((p: { id: string }) => !escaneadosSet.has(p.id));
@@ -61,9 +61,7 @@ export async function GET() {
       });
     }
 
-    // Deduplicate personal who have horario today
-    // Note: Supabase infers joined relations as arrays even with !inner — we cast explicitly
-    interface PersonalInfo { id: string; nombres: string; apellidos: string; cargo: string | null; rol: string }
+    interface PersonalInfo { id: string; nombres: string; apellidos: string; cargo: string | null; rol: string; institucion_id: string }
     interface RawBloque {
       plantilla_id: unknown;
       dia_semana: unknown;
@@ -73,6 +71,7 @@ export async function GET() {
         personal: PersonalInfo[];
       }>;
     }
+
     const personalMap = new Map<string, PersonalInfo>();
     ((personalConHorario ?? []) as unknown as RawBloque[]).forEach((b) => {
       const plantillas = Array.isArray(b.horario_plantillas) ? b.horario_plantillas : [b.horario_plantillas];
@@ -81,21 +80,19 @@ export async function GET() {
         const persArr = Array.isArray(pt.personal) ? pt.personal : [pt.personal];
         persArr.forEach((pers) => {
           if (pers && !personalMap.has(pers.id)) {
-            personalMap.set(pers.id, pers);
+            if (!institucionId || pers.institucion_id === institucionId) {
+              personalMap.set(pers.id, pers);
+            }
           }
         });
       });
     });
 
-    // Get who already scanned today
-    const { data: escaneadosHoy } = await sb
-      .from('asistencia_personal')
-      .select('personal_id')
-      .eq('fecha', todayStr)
-      .eq('tipo', 'ENTRADA');
+    let qEsc = sb.from('asistencia_personal').select('personal_id').eq('fecha', todayStr).eq('tipo', 'ENTRADA');
+    if (institucionId) qEsc = qEsc.eq('institucion_id', institucionId);
+    const { data: escaneadosHoy } = await qEsc;
 
     const escaneadosSet = new Set((escaneadosHoy ?? []).map((e: { personal_id: string }) => e.personal_id));
-
     const personalConHorarioArr = Array.from(personalMap.values());
     const ausentes = personalConHorarioArr.filter((p) => !escaneadosSet.has(p.id));
 

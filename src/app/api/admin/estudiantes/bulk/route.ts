@@ -1,25 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
-import { esGradoValido, esSeccionValida, normalizarGrado } from '@/lib/grados-catalogo';
-
-const COLEGIO_ID = 'c4e8711a-f035-428c-b98f-69555a819ec7';
-
-function getAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY no configurada');
-  try {
-    const parts = key.split('.');
-    if (parts.length === 3) {
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
-      if (payload.role !== 'service_role') {
-        throw new Error(`Llave con rol "${payload.role}" — se necesita service_role`);
-      }
-    }
-  } catch { /* silent */ }
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
+import { esSeccionValida, normalizarGrado } from '@/lib/grados-catalogo';
 
 interface FilaExcel {
   cedula?: string | number;
@@ -120,9 +103,21 @@ function slugifyNombre(nombre: string): string {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
     const formData = await request.formData();
     const archivo = formData.get('archivo') as File | null;
+    const requestedInst = formData.get('institucion_id') as string | null;
+
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
+    if (!institucionId) {
+      return NextResponse.json({ error: 'Debes especificar una institución' }, { status: 400 });
+    }
 
     if (!archivo) {
       return NextResponse.json({ error: 'No se recibió ningún archivo' }, { status: 400 });
@@ -151,7 +146,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Límite de 500 estudiantes por carga' }, { status: 400 });
     }
 
-    const sb = getAdmin();
+    const sb = getSupabaseAdmin();
     const resultados: ResultadoFila[] = [];
     const candidatosValidados: Array<{
       nroFila: number;
@@ -167,16 +162,14 @@ export async function POST(request: Request) {
     }> = [];
     const erroresValidacion: ResultadoFila[] = [];
 
-    // ── 1. Validación individual de cada fila ──────────────────────────────────
+    // 1. Validación individual
     for (let i = 0; i < filas.length; i++) {
       const fila = mapearColumnas(filas[i]);
       const nroFila = i + 2;
 
-      // Cédula base sin prefijos ni decimales .0
       const cedulaRaw = String(fila.cedula ?? '').trim().replace(/\.0$/, '').replace(/\s+/g, '');
       const cedulaBase = cedulaRaw.replace(/^(V-|E-|RC-|QR-|ASISTO-)/i, '').replace(/[^0-9a-zA-Z]/g, '');
 
-      // Nombre completo
       let nombre: string;
       if (fila.nombres || fila.apellidos) {
         const nombres = String(fila.nombres ?? '').trim().toUpperCase();
@@ -186,10 +179,7 @@ export async function POST(request: Request) {
         nombre = String(fila.nombre_completo ?? '').trim().toUpperCase();
       }
 
-      // Si la fila está completamente vacía (sin cédula y sin nombre), ignorarla en silencio
-      if (!cedulaBase && !nombre) {
-        continue;
-      }
+      if (!cedulaBase && !nombre) continue;
 
       if (!cedulaBase) {
         erroresValidacion.push({ fila: nroFila, nombre: nombre || '(sin nombre)', cedula: '', estado: 'error', mensaje: 'Cédula vacía o no válida' });
@@ -200,29 +190,22 @@ export async function POST(request: Request) {
         continue;
       }
 
-      // Grado & Sección con normalización e inteligencias de rescate
       const gradoRaw = String(fila.grado_ano ?? '').trim();
       const gradoCanonico = normalizarGrado(gradoRaw) ?? (gradoRaw || '1er Grado');
-
       const seccionRaw = String(fila.seccion ?? '').trim().toUpperCase();
       const seccionFinal = esSeccionValida(seccionRaw) ? seccionRaw : 'A';
 
-      // Género
       const generoRaw = String(fila.genero ?? '').trim().toUpperCase();
       const genero = generoRaw === 'M' || generoRaw === 'MASCULINO' ? 'M'
         : generoRaw === 'F' || generoRaw === 'FEMENINO' ? 'F'
         : null;
 
-      // Representante & Correo con valores de rescate por defecto
       const representanteRaw = String(fila.representante_nombre ?? fila.nombre_representante ?? '').trim();
       const representante = representanteRaw || `REPRESENTANTE DE ${nombre}`;
-
       const telefono = String(fila.representante_telefono ?? '').trim();
-      
       const correoRaw = String(fila.representante_correo ?? fila.correo_representante ?? '').trim().toLowerCase();
       const esCorreoValido = correoRaw && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoRaw);
       const correo = esCorreoValido ? correoRaw : `representante.${cedulaBase}@colegio.com`;
-
       const estado = String(fila.estado ?? 'Activo').trim();
 
       candidatosValidados.push({
@@ -239,7 +222,6 @@ export async function POST(request: Request) {
       });
     }
 
-    // Si existen errores de sintaxis/formato en la plantilla, abortar pre-insert
     if (erroresValidacion.length > 0) {
       return NextResponse.json({
         ok: false,
@@ -249,17 +231,15 @@ export async function POST(request: Request) {
       }, { status: 422 });
     }
 
-    // ── 2. Verificación de duplicados y asignación de QR/Cédulas para hermanos ─
+    // 2. Verificación de duplicados y asignación multi-tenant por institucion_id
     if (candidatosValidados.length > 0) {
       const cedulasUnicasEnLote = Array.from(new Set(candidatosValidados.map(c => c.cedulaBase)));
-      
-      // Consultar estudiantes existentes en Supabase que compartan estas cédulas base
+
       const { data: estudiantesExistentes } = await sb
         .from('estudiantes')
         .select('id, cedula, nombre_completo, qr_code')
-        .eq('institucion_id', COLEGIO_ID);
+        .eq('institucion_id', institucionId);
 
-      // Mapa para rastrear estudiantes por cédula base y por nombre
       const mapaExistentesPorBaseCedula: Record<string, Array<{ cedula: string; nombre_completo: string }>> = {};
       (estudiantesExistentes ?? []).forEach(est => {
         const base = est.cedula.replace(/-H\d+$/i, '').replace(/^(V-|E-|RC-|QR-|ASISTO-)/i, '').trim();
@@ -267,7 +247,6 @@ export async function POST(request: Request) {
         mapaExistentesPorBaseCedula[base].push(est);
       });
 
-      // Contar repeticiones de la misma cédula base dentro del propio archivo importado
       const conteoEnLote: Record<string, number> = {};
       candidatosValidados.forEach(c => {
         conteoEnLote[c.cedulaBase] = (conteoEnLote[c.cedulaBase] || 0) + 1;
@@ -276,7 +255,6 @@ export async function POST(request: Request) {
       const estudiantesAInsertar: Record<string, string>[] = [];
       const contadorSufijoHermano: Record<string, number> = {};
 
-      // Inicializar contador de sufijos según registros existentes en BD
       for (const base of cedulasUnicasEnLote) {
         const exist = mapaExistentesPorBaseCedula[base] || [];
         contadorSufijoHermano[base] = exist.length;
@@ -286,7 +264,6 @@ export async function POST(request: Request) {
         const base = cand.cedulaBase;
         const exist = mapaExistentesPorBaseCedula[base] || [];
 
-        // Verificar si el estudiante específico (mismo nombre + misma cédula base) ya existe en BD
         const yaExisteEnBD = exist.some(
           e => e.nombre_completo.trim().toUpperCase() === cand.nombreCompleto.trim().toUpperCase()
         );
@@ -304,7 +281,6 @@ export async function POST(request: Request) {
           continue;
         }
 
-        // Si hay múltiples alumnos con la misma cédula (hermanos en BD o en el archivo)
         const totalHermanos = (exist.length) + (conteoEnLote[base] || 1);
         let cedulaFinalDisplay = base;
 
@@ -313,7 +289,6 @@ export async function POST(request: Request) {
           cedulaFinalDisplay = `${base}-H${contadorSufijoHermano[base]}`;
         }
 
-        // Generar código QR único e independiente por estudiante (incluyendo sufijo de hermano)
         const nombreSlug = slugifyNombre(cand.nombreCompleto);
         const qrCodeUnico = `ASISTO-${cedulaFinalDisplay}-${nombreSlug}`;
 
@@ -326,17 +301,15 @@ export async function POST(request: Request) {
           nombre_representante: cand.representante,
           correo_representante: cand.correo,
           qr_code: qrCodeUnico,
-          institucion_id: COLEGIO_ID,
+          institucion_id: institucionId,
           estado: cand.estado,
           ano_escolar: `${currentYear}-${currentYear + 1}`,
         };
 
         if (cand.genero) registro.genero = cand.genero;
-
         estudiantesAInsertar.push(registro);
       }
 
-      // ── 3. Inserción en lotes de 50 ───────────────────────────────────────────
       if (estudiantesAInsertar.length > 0) {
         const LOTE = 50;
         for (let i = 0; i < estudiantesAInsertar.length; i += LOTE) {
@@ -382,7 +355,6 @@ export async function POST(request: Request) {
       resumen: { total: filas.length, insertados, duplicados, errores },
       resultados,
     });
-
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error inesperado al procesar el archivo';
     console.error('[bulk/route] Error:', msg);

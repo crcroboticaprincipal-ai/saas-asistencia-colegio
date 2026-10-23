@@ -1,47 +1,51 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireSession, resolveInstitucion } from '@/lib/api-auth';
 import type { TipoPase } from '@/lib/supabase/types';
 
 export async function POST(request: Request) {
+  const auth = await requireSession(request, { kinds: ['admin', 'personal'] });
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json({ error: 'Configuración de servidor incompleta' }, { status: 500 });
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
-    });
-
-    const { qrCode, tipo_pase, motivo } = await request.json() as {
-      qrCode: string;
-      tipo_pase: TipoPase;
+    const supabaseAdmin = getSupabaseAdmin();
+    const body = (await request.json()) as {
+      qrCode?: string;
+      tipo_pase?: TipoPase;
       motivo?: string;
+      institucion_id?: string;
     };
+
+    const { qrCode, tipo_pase, motivo } = body;
 
     if (!qrCode || !tipo_pase) {
       return NextResponse.json({ error: 'Datos insuficientes' }, { status: 400 });
     }
 
+    const instResult = resolveInstitucion(session, body.institucion_id);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
+
     // Hora actual en Venezuela
     const now = new Date();
     const fechaSQL = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'America/Caracas',
-      year: 'numeric', month: '2-digit', day: '2-digit',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
     }).format(now);
     const horaSQL = new Intl.DateTimeFormat('en-GB', {
       timeZone: 'America/Caracas',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
     }).format(now);
 
-    // día de semana en Venezuela (0=Domingo, 1=Lunes, ... 6=Sábado)
     const diaSemanaVE = new Date(
-      now.toLocaleString('en-US', { timeZone: 'America/Caracas' })
+      now.toLocaleString('en-US', { timeZone: 'America/Caracas' }),
     ).getDay();
 
-    // Sanitización del Payload y Validación de Formato
     const inputCleaned = qrCode.trim().toUpperCase().replace(/\s+/g, '');
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(inputCleaned);
     const hasAsistoPrefix = /^(ASISTO-|RC-|QR-|V-|E-)/.test(inputCleaned);
@@ -52,79 +56,45 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
     }
 
-    const COLEGIO_ID = 'c4e8711a-f035-428c-b98f-69555a819ec7';
-
-    // Buscar estudiante
     let estudiante = null;
-    let estError = null;
 
-    try {
-      const resEst = await supabaseAdmin
-        .from('estudiantes')
-        .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id')
-        .eq('institucion_id', COLEGIO_ID)
-        .or(`qr_code.eq.${inputCleaned},cedula.eq.${inputCleaned},cedula.eq.V-${inputCleaned},cedula.eq.E-${inputCleaned}`)
-        .maybeSingle();
+    // Búsqueda del estudiante respetando el institucion_id de la sesión
+    const applyInst = <T extends { eq: (col: string, val: string) => T }>(q: T) =>
+      institucionId ? q.eq('institucion_id', institucionId) : q;
 
-      estudiante = resEst.data;
-      estError = resEst.error;
+    let resEst = supabaseAdmin
+      .from('estudiantes')
+      .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id')
+      .or(`qr_code.eq.${inputCleaned},cedula.eq.${inputCleaned},cedula.eq.V-${inputCleaned},cedula.eq.E-${inputCleaned}`);
+    resEst = applyInst(resEst);
 
-      // Búsqueda Fallback por Cédula extraída si falla la búsqueda directa
-      if (!estError && !estudiante) {
-        const cedulaExtraida = inputCleaned.replace(/^(ASISTO-|RC-|QR-|V-|E-)/, '').replace(/[^0-9]/g, '');
-        if (cedulaExtraida) {
-          const resFallback = await supabaseAdmin
-            .from('estudiantes')
-            .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id')
-            .eq('institucion_id', COLEGIO_ID)
-            .or(`cedula.eq.${cedulaExtraida},cedula.eq.V-${cedulaExtraida},cedula.eq.E-${cedulaExtraida},cedula.ilike.${cedulaExtraida}-H%`)
-            .limit(1);
+    const { data: estData } = await resEst.maybeSingle();
+    estudiante = estData;
 
-          if (!resFallback.error && resFallback.data && resFallback.data.length > 0) {
-            estudiante = resFallback.data[0];
-          }
-        }
+    // Fallback por Cédula limpia
+    if (!estudiante) {
+      const cedulaExtraida = inputCleaned.replace(/^(ASISTO-|RC-|QR-|V-|E-)/, '').replace(/[^0-9]/g, '');
+      if (cedulaExtraida) {
+        let resFallback = supabaseAdmin
+          .from('estudiantes')
+          .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id')
+          .or(`cedula.eq.${cedulaExtraida},cedula.eq.V-${cedulaExtraida},cedula.eq.E-${cedulaExtraida},cedula.ilike.${cedulaExtraida}-H%`);
+        resFallback = applyInst(resFallback);
+
+        const { data: estFallback } = await resFallback.limit(1);
+        if (estFallback && estFallback.length > 0) estudiante = estFallback[0];
       }
-
-      // Búsqueda Fallback por Nombre con Wildcard de Vocales
-      if (!estError && !estudiante) {
-        const palabras = qrCode.trim().split(/\s+/).filter(p => p.length > 1);
-        if (palabras.length > 0) {
-          let queryName = supabaseAdmin
-            .from('estudiantes')
-            .select('id, cedula, nombre_completo, grado, seccion, estado, foto_url, qr_code, institucion_id')
-            .eq('institucion_id', COLEGIO_ID);
-
-          for (const pal of palabras) {
-            const pattern = pal
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .toUpperCase()
-              .replace(/[AEIOUN]/g, '_');
-            queryName = queryName.ilike('nombre_completo', `%${pattern}%`);
-          }
-
-          const resName = await queryName.limit(1);
-          if (!resName.error && resName.data && resName.data.length > 0) {
-            estudiante = resName.data[0];
-          }
-        }
-      }
-    } catch (dbErr) {
-      console.error('Error en búsqueda de estudiante para pase:', dbErr);
-      return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
     }
 
-    if (estError || !estudiante) {
-      return NextResponse.json({ error: '⚠️ Código no reconocido por el sistema Asisto' }, { status: 400 });
+    if (!estudiante) {
+      return NextResponse.json({ error: '⚠️ Estudiante no encontrado o no pertenece a esta institución' }, { status: 404 });
     }
 
     if (estudiante.estado !== 'Activo') {
       return NextResponse.json({ error: '❌ Estudiante Inactivo / Retirado' }, { status: 403 });
     }
 
-    // Buscar asignación activa del profesor para este bloque horario
-    const horaActual = horaSQL; // HH:MM:SS
+    // Buscar asignación de profesor activo en este horario
     const { data: asignacion } = await supabaseAdmin
       .from('profesores_asignaciones')
       .select(`
@@ -142,24 +112,25 @@ export async function POST(request: Request) {
       .eq('seccion', estudiante.seccion)
       .eq('activo', true)
       .eq('dia_semana', diaSemanaVE)
-      .lte('hora_inicio', horaActual)
-      .gte('hora_fin', horaActual)
+      .lte('hora_inicio', horaSQL)
+      .gte('hora_fin', horaSQL)
       .maybeSingle();
 
-    // Registrar el pase
     const { data: pase, error: paseError } = await supabaseAdmin
       .from('pases')
-      .insert([{
-        institucion_id: estudiante.institucion_id,
-        estudiante_id: estudiante.id,
-        tipo_pase,
-        motivo: motivo || null,
-        hora_pase: horaSQL,
-        fecha: fechaSQL,
-        profesor_notificado_id: asignacion?.personal_id || null,
-        asignacion_id: asignacion?.id || null,
-        notificacion_enviada: false,
-      }])
+      .insert([
+        {
+          institucion_id: estudiante.institucion_id,
+          estudiante_id: estudiante.id,
+          tipo_pase,
+          motivo: motivo ? motivo.trim() : null,
+          hora_pase: horaSQL,
+          fecha: fechaSQL,
+          profesor_notificado_id: asignacion?.personal_id || null,
+          asignacion_id: asignacion?.id || null,
+          notificacion_enviada: false,
+        },
+      ])
       .select('id')
       .single();
 
@@ -167,25 +138,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Error al registrar pase' }, { status: 500 });
     }
 
-    // Si hay profesor activo, crear notificación
     if (asignacion?.personal_id) {
-      const tipoPaseLabel = tipo_pase === 'ENTRADA' ? 'Pase de Entrada'
-        : tipo_pase === 'SALIDA' ? 'Pase de Salida'
-        : 'Pase Especial';
+      const tipoPaseLabel =
+        tipo_pase === 'ENTRADA'
+          ? 'Pase de Entrada'
+          : tipo_pase === 'SALIDA'
+            ? 'Pase de Salida'
+            : 'Pase Especial';
 
       const mensaje = `📋 ${tipoPaseLabel}: ${estudiante.nombre_completo} (${estudiante.grado} "${estudiante.seccion}") a las ${horaSQL.substring(0, 5)}${motivo ? ` — Motivo: ${motivo}` : ''}`;
 
-      await supabaseAdmin
-        .from('notificaciones_profesor')
-        .insert([{
+      await supabaseAdmin.from('notificaciones_profesor').insert([
+        {
           institucion_id: estudiante.institucion_id,
           personal_id: asignacion.personal_id,
           pase_id: pase.id,
           mensaje,
           leida: false,
-        }]);
+        },
+      ]);
 
-      // Actualizar pase como notificado
       await supabaseAdmin
         .from('pases')
         .update({ notificacion_enviada: true })

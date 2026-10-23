@@ -1,44 +1,28 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import fs from 'fs';
-import path from 'path';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireSession, resolveInstitucion } from '@/lib/api-auth';
+import { sanitizeSearch } from '@/lib/validation';
 
-function getAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  let key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!key) {
-    try {
-      const envPath = path.resolve(process.cwd(), '.env.local');
-      if (fs.existsSync(envPath)) {
-        const raw = fs.readFileSync(envPath, 'utf8');
-        const m = raw.match(/SUPABASE_SERVICE_ROLE_KEY\s*=\s*([^\r\n]+)/);
-        if (m?.[1]) key = m[1].trim().replace(/^"|"$/g, '');
-      }
-    } catch { /* ignore */ }
-  }
-  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY no configurada.');
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
-/**
- * GET /api/aula/estudiantes-seccion
- * Query: ?grado=&seccion=&institucion_id=
- *
- * Returns students of a specific grade+section with today's porteria entry time (if any).
- */
 export async function GET(request: Request) {
+  const auth = await requireSession(request, { kinds: ['admin', 'personal'] });
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
-    const sb = getAdmin();
+    const sb = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
-    const grado = searchParams.get('grado')?.trim() ?? '';
-    const seccion = searchParams.get('seccion')?.trim().toUpperCase() ?? '';
-    const institucionId = searchParams.get('institucion_id')?.trim() ?? '';
+    const grado = sanitizeSearch(searchParams.get('grado') ?? '');
+    const seccion = sanitizeSearch(searchParams.get('seccion') ?? '').toUpperCase();
+    const requestedInst = searchParams.get('institucion_id');
 
     if (!grado || !seccion) {
       return NextResponse.json({ error: 'grado y seccion son requeridos' }, { status: 400 });
     }
 
-    // 1. Fetch students of this section
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
+
     let estQuery = sb
       .from('estudiantes')
       .select('id, nombre_completo, cedula, foto_url, grado, seccion, institucion_id, qr_code')
@@ -56,9 +40,8 @@ export async function GET(request: Request) {
 
     const studentIds = (estudiantes ?? []).map((e: { id: string }) => e.id);
 
-    // 2. Fetch today's porteria entries for these students
-    const todayStr = new Date().toISOString().slice(0, 10); // yyyy-MM-dd
-    let porteriaMap: Record<string, string> = {};
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const porteriaMap: Record<string, string> = {};
 
     if (studentIds.length > 0) {
       const { data: registros } = await sb
@@ -75,8 +58,6 @@ export async function GET(request: Request) {
       }
     }
 
-    // 3. Fetch today's classroom attendance (asistencia_materia) to exclude already-marked
-    // We return this so the UI can pre-filter the swipe pile if the teacher re-opens the session
     const { data: asistenciaHoy } = await sb
       .from('asistencia_materia')
       .select('estudiante_id, estado')
@@ -90,7 +71,6 @@ export async function GET(request: Request) {
       }
     }
 
-    // 4. Compose response
     const result = (estudiantes ?? []).map((est: {
       id: string;
       nombre_completo: string;
@@ -110,7 +90,7 @@ export async function GET(request: Request) {
   } catch (err: unknown) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Error al obtener estudiantes' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

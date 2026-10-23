@@ -1,32 +1,33 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
 
-function getAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
-// GET /api/admin/rrhh/calendario?personal_id=xxx&inicio=yyyy-MM-dd&fin=yyyy-MM-dd
 export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
     const { searchParams } = new URL(request.url);
     const personal_id = searchParams.get('personal_id');
     const inicio = searchParams.get('inicio');
     const fin = searchParams.get('fin');
+    const requestedInst = searchParams.get('institucion_id');
 
-    const sb = getAdmin();
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
 
-    // Fetch ALL personal (no filter = left-join semantics: everyone shows up)
+    const sb = getSupabaseAdmin();
+
     if (!personal_id) {
       let personalQuery = sb
         .from('personal')
         .select('id, nombres, apellidos, rol, cargo, activo, institucion_id')
         .order('apellidos');
 
-      const instId = searchParams.get('institucion_id');
-      if (instId) {
-        personalQuery = personalQuery.eq('institucion_id', instId);
+      if (institucionId) {
+        personalQuery = personalQuery.eq('institucion_id', institucionId);
       }
 
       const { data, error } = await personalQuery;
@@ -34,12 +35,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ ok: true, data: data ?? [] });
     }
 
-    // Fetch asistencias for the given employee and date range
     if (!inicio || !fin) {
       return NextResponse.json({ error: 'inicio y fin son requeridos' }, { status: 400 });
     }
 
-    const { data, error } = await sb
+    let query = sb
       .from('asistencia_personal')
       .select('id, personal_id, tipo, fecha, hora, estado_evaluacion, minutos_diferencia, institucion_id')
       .eq('personal_id', personal_id)
@@ -48,6 +48,11 @@ export async function GET(request: Request) {
       .order('fecha', { ascending: true })
       .order('hora', { ascending: true });
 
+    if (institucionId) {
+      query = query.eq('institucion_id', institucionId);
+    }
+
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return NextResponse.json({ ok: true, data: data ?? [] });
   } catch (err: unknown) {

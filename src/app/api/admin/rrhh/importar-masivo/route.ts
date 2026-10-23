@@ -1,22 +1,27 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { generarEmailInterno } from '@/lib/login-pin';
+import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
+import { sanitizeSearch } from '@/lib/validation';
 
-function getAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+export async function POST(req: Request) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
 
-// POST /api/admin/rrhh/importar-masivo
-// Body: { empleados: EmpleadoImport[], institucion_id: string, institucion_nombre_corto: string }
-export async function POST(req: NextRequest) {
   try {
-    const sb = getAdmin();
-    const { empleados, institucion_id, institucion_nombre_corto } = await req.json();
+    const sb = getSupabaseAdmin();
+    const { empleados, institucion_id } = await req.json();
 
-    if (!Array.isArray(empleados) || !empleados.length || !institucion_id) {
+    if (!Array.isArray(empleados) || !empleados.length) {
       return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
+    }
+
+    const instResult = resolveInstitucion(session, institucion_id);
+    if (!instResult.ok) return instResult.response;
+    const targetInstitucionId = instResult.institucionId;
+
+    if (!targetInstitucionId) {
+      return NextResponse.json({ error: 'Institución obligatoria' }, { status: 400 });
     }
 
     const resultados: {
@@ -29,26 +34,24 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < empleados.length; i++) {
       const emp = empleados[i];
-      const fila = i + 2; // Excel row (1=header)
+      const fila = i + 2;
 
-      const nombres = (emp.nombres ?? '').trim();
-      const apellidos = (emp.apellidos ?? '').trim();
+      const nombres = sanitizeSearch(emp.nombres ?? '');
+      const apellidos = sanitizeSearch(emp.apellidos ?? '');
 
       if (!nombres || !apellidos) {
         resultados.push({ fila, nombre: `Fila ${fila}`, estado: 'error', mensaje: 'Nombres y apellidos son obligatorios' });
         continue;
       }
 
-      // Auto-generate username if not provided: first letter of nombre + apellido (slugified)
       const rawUsername = (emp.username ?? `${nombres[0]}${apellidos.split(' ')[0]}`).toLowerCase().replace(/[^a-z0-9_]/g, '');
       const username = rawUsername || `emp${fila}`;
 
       try {
-        // Check for existing personal with same cedula or username
         const { data: existing } = await sb
           .from('personal')
           .select('id, username')
-          .eq('institucion_id', institucion_id)
+          .eq('institucion_id', targetInstitucionId)
           .or(`username.eq.${username},cedula.eq.${emp.cedula ?? ''}`)
           .maybeSingle();
 
@@ -57,23 +60,22 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Insert into personal (no auth yet — PIN will be set later)
-        const { data: personalData, error: personalError } = await sb
+        const { error: personalError } = await sb
           .from('personal')
-          .insert([{
-            institucion_id,
-            nombres,
-            apellidos,
-            cedula: emp.cedula?.toString().trim() || null,
-            correo: emp.correo?.trim() || null,
-            telefono: emp.telefono?.toString().trim() || null,
-            cargo: emp.cargo?.trim() || null,
-            rol: emp.rol?.toLowerCase().trim() || 'docente',
-            username,
-            activo: true,
-          }])
-          .select('id, username')
-          .single();
+          .insert([
+            {
+              institucion_id: targetInstitucionId,
+              nombres,
+              apellidos,
+              cedula: emp.cedula ? String(emp.cedula).trim() : null,
+              correo: emp.correo ? String(emp.correo).trim().toLowerCase() : null,
+              telefono: emp.telefono ? String(emp.telefono).trim() : null,
+              cargo: emp.cargo ? String(emp.cargo).trim() : null,
+              rol: emp.rol ? String(emp.rol).toLowerCase().trim() : 'docente',
+              username,
+              activo: true,
+            },
+          ]);
 
         if (personalError) throw new Error(personalError.message);
 

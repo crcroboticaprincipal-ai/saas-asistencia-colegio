@@ -1,96 +1,114 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { resolverCredencialesLogin } from '@/lib/login-pin';
-
-// Client is initialized dynamically inside the route handler
+import { cookies } from 'next/headers';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { resolverCredencialesLogin, validarPin } from '@/lib/login-pin';
+import { rateLimit, rateLimitReset, clientIp } from '@/lib/rate-limit';
+import { signSession, SESSION_COOKIE, sessionCookieOptions } from '@/lib/session';
+import { verifyPassword, hashPassword, isHashed } from '@/lib/password';
 
 export async function POST(req: NextRequest) {
   try {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error("Variables de entorno de Supabase (URL o SERVICE_ROLE_KEY) no configuradas. Verifica tu archivo .env.local.");
-    }
-
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { persistSession: false } }
-    );
-
     const body = await req.json();
-    const { username, pin } = body;
+    const username = body.username ? String(body.username).trim().toLowerCase() : '';
+    const pin = body.pin ? String(body.pin).trim() : '';
     let institucion_nombre_corto = body.institucion_nombre_corto;
 
     if (!username || !pin) {
       return NextResponse.json({ error: 'Usuario y PIN son requeridos' }, { status: 400 });
     }
 
+    const pinVal = validarPin(pin);
+    if (!pinVal.valido) {
+      return NextResponse.json({ error: pinVal.error }, { status: 400 });
+    }
+
+    // Rate Limit (5 intentos por 5 min por IP+username)
+    const ip = clientIp(req);
+    const rlKey = `login-pin:${ip}:${username}`;
+    const rl = rateLimit(rlKey, 5, 5 * 60 * 1000);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Demasiados intentos fallidos. Reintenta en ${rl.retryAfterSeconds} segundos.` },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      );
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+
+    // 1. Buscar personal por username
+    const { data: personalData, error: pError } = await supabaseAdmin
+      .from('personal')
+      .select('id, nombres, apellidos, rol, cargo, institucion_id, pin_hash, password_hash, usa_password_alfanumerico, auth_user_id, activo')
+      .eq('username', username)
+      .eq('activo', true)
+      .maybeSingle();
+
+    if (pError || !personalData) {
+      return NextResponse.json({ error: 'Usuario no encontrado o inactivo' }, { status: 401 });
+    }
+
+    // 2. Verificar PIN (soporta scrypt y migración transparente de texto plano)
+    const currentStored = personalData.usa_password_alfanumerico
+      ? personalData.password_hash
+      : personalData.pin_hash;
+
+    const isValidPin = verifyPassword(pin, currentStored);
+
+    if (!isValidPin) {
+      return NextResponse.json({ error: 'Usuario o PIN incorrecto' }, { status: 401 });
+    }
+
+    // Login exitoso: reseteamos rate limit
+    rateLimitReset(rlKey);
+
+    // Migración transparente a hash scrypt si aún estaba en texto plano
+    if (currentStored && !isHashed(currentStored)) {
+      const newHash = hashPassword(pin);
+      const updateField = personalData.usa_password_alfanumerico ? { password_hash: newHash } : { pin_hash: newHash };
+      await supabaseAdmin.from('personal').update(updateField).eq('id', personalData.id);
+    }
+
+    // 3. Supabase Auth sync (si está configurado)
     if (!institucion_nombre_corto) {
-      // 1. Buscar la institución del usuario en la tabla 'personal'
-      const { data: pData, error: pError } = await supabaseAdmin
-        .from('personal')
-        .select('institucion_id')
-        .eq('username', username.trim().toLowerCase())
-        .eq('activo', true)
-        .maybeSingle();
-
-      if (pError || !pData) {
-        return NextResponse.json({ error: 'Usuario no encontrado o inactivo' }, { status: 404 });
-      }
-
-      // 2. Buscar el nombre corto de la institución
-      const { data: iData, error: iError } = await supabaseAdmin
+      const { data: iData } = await supabaseAdmin
         .from('instituciones')
         .select('nombre_corto')
-        .eq('id', pData.institucion_id)
-        .single();
+        .eq('id', personalData.institucion_id)
+        .maybeSingle();
+      institucion_nombre_corto = iData?.nombre_corto || 'CRC';
+    }
 
-      if (iError || !iData || !iData.nombre_corto) {
-        return NextResponse.json({ error: 'La institución de este usuario no está configurada' }, { status: 400 });
+    let authSession = null;
+    try {
+      const { email, password } = resolverCredencialesLogin({
+        username,
+        pin,
+        institucion_nombre_corto,
+      });
+      let result = await supabaseAdmin.auth.signInWithPassword({ email, password });
+      if (result.error && email.endsWith('.asisto.local')) {
+        const altEmail = email.replace('.asisto.local', '.qrono.local');
+        const retry = await supabaseAdmin.auth.signInWithPassword({ email: altEmail, password });
+        if (!retry.error) result = retry;
       }
-
-      institucion_nombre_corto = iData.nombre_corto;
+      authSession = result.data?.session;
+    } catch {
+      // Si la cuenta auth nativa aún no está creada, no se detiene la sesión local
     }
 
-    const { email, password } = resolverCredencialesLogin({
-      username,
-      pin,
-      institucion_nombre_corto,
-    });
+    // 4. Firmar cookie de sesión HMAC (kind: 'personal')
+    const tokenFirmado = await signSession(
+      {
+        uid: personalData.id,
+        rol: personalData.rol || 'personal',
+        inst: personalData.institucion_id,
+        kind: 'personal',
+      },
+      60 * 60 * 24 * 30 // 30 días
+    );
 
-    // Intentar login con las credenciales internas
-    let result = await supabaseAdmin.auth.signInWithPassword({ email, password });
-
-    // Si falla, intentar con el dominio alternativo qrono.local (para soporte legacy)
-    if (result.error && email.endsWith('.asisto.local')) {
-      const altEmail = email.replace('.asisto.local', '.qrono.local');
-      const retryResult = await supabaseAdmin.auth.signInWithPassword({ email: altEmail, password });
-      if (!retryResult.error) {
-        result = retryResult;
-      }
-    }
-
-    if (result.error || !result.data.user) {
-      return NextResponse.json(
-        { error: 'Usuario o PIN incorrecto' },
-        { status: 401 }
-      );
-    }
-
-    const data = result.data;
-    // Obtener datos del personal
-    const { data: personalData } = await supabaseAdmin
-      .from('personal')
-      .select('id, nombres, apellidos, rol, cargo, institucion_id')
-      .eq('auth_user_id', data.user.id)
-      .eq('activo', true)
-      .single();
-
-    if (!personalData) {
-      return NextResponse.json(
-        { error: 'Personal no encontrado o inactivo' },
-        { status: 403 }
-      );
-    }
+    const cookieStore = await cookies();
+    cookieStore.set(SESSION_COOKIE, tokenFirmado, sessionCookieOptions('personal'));
 
     // Actualizar último acceso
     await supabaseAdmin
@@ -99,13 +117,18 @@ export async function POST(req: NextRequest) {
       .eq('id', personalData.id);
 
     return NextResponse.json({
-      access_token: data.session?.access_token,
-      refresh_token: data.session?.refresh_token,
+      access_token: authSession?.access_token || tokenFirmado,
+      refresh_token: authSession?.refresh_token,
       institucion_nombre_corto,
       user: {
-        auth_id: data.user.id,
-        email: data.user.email,
-        ...personalData,
+        auth_id: personalData.auth_user_id || personalData.id,
+        email: `${username}@${institucion_nombre_corto.toLowerCase()}.asisto.local`,
+        id: personalData.id,
+        nombres: personalData.nombres,
+        apellidos: personalData.apellidos,
+        rol: personalData.rol,
+        cargo: personalData.cargo,
+        institucion_id: personalData.institucion_id,
       },
     });
   } catch (error: unknown) {

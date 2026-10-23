@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
+import { requireSession } from '@/lib/api-auth';
 import { enviarCorreoAsistencia } from '@/lib/email';
 
-// Este endpoint SOLO envía el correo de notificación.
-// El registro de asistencia ya fue hecho por /api/escaner/validar.
 export async function POST(request: Request) {
+  const auth = await requireSession(request, { kinds: ['admin', 'personal'] });
+  if (!auth.ok) return auth.response;
+
   try {
     const { estudiante_id, tipo } = await request.json();
 
@@ -27,4 +29,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
-

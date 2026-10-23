@@ -1,72 +1,73 @@
-// Admin API: Crear usuario personal con acceso PIN
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
+import { hashPassword } from '@/lib/password';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error("Variables de entorno de Supabase no configuradas.");
-    }
-
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { persistSession: false } }
-    );
-
-    const { email, pin, nombres, apellidos, rol, username, institucion_id } = await req.json();
+    const supabaseAdmin = getSupabaseAdmin();
+    const body = await req.json();
+    const { email, pin, nombres, apellidos, rol, username, institucion_id } = body as {
+      email?: string;
+      pin?: string;
+      nombres?: string;
+      apellidos?: string;
+      rol?: string;
+      username?: string;
+      institucion_id?: string;
+    };
 
     if (!email || !pin || !nombres) {
-      return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
+      return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
     }
 
-    // Resolver institucion_id dinámicamente desde la DB si no viene en el body
-    let finalInstitucionId = institucion_id;
+    const instResult = resolveInstitucion(session, institucion_id);
+    if (!instResult.ok) return instResult.response;
+    const finalInstitucionId = instResult.institucionId;
+
     if (!finalInstitucionId) {
-      const { data: inst, error: instErr } = await supabaseAdmin
-        .from("instituciones")
-        .select("id")
-        .eq("activo", true)
-        .limit(1)
-        .maybeSingle();
-
-      if (instErr || !inst) {
-        return NextResponse.json({ error: "No se encontró una institución activa en el sistema" }, { status: 400 });
-      }
-      finalInstitucionId = inst.id;
+      return NextResponse.json({ error: 'Institución obligatoria' }, { status: 400 });
     }
 
-    // 1. Crear usuario en Supabase Auth con email interno + PIN como contraseña
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: email.trim().toLowerCase(),
       password: pin,
       email_confirm: true,
-      user_metadata: { nombres, apellidos, username },
-      app_metadata: { rol, institucion_id: finalInstitucionId },
+      user_metadata: { nombres: nombres.trim(), apellidos: apellidos?.trim(), username: username?.trim() },
+      app_metadata: { rol: rol || 'docente', institucion_id: finalInstitucionId },
     });
 
     if (authError) {
-      if (authError.message.includes("already been registered")) {
+      if (authError.message.includes('already been registered')) {
         return NextResponse.json(
-          { error: "⚠️ Error: El documento o usuario ya se encuentra registrado" },
-          { status: 409 }
+          { error: '⚠️ Error: El documento o usuario ya se encuentra registrado' },
+          { status: 409 },
         );
       }
       throw new Error(authError.message);
     }
 
-    // 2. Vincular personal con auth_user_id
+    const hashedPin = await hashPassword(pin);
+
     if (authData.user && username) {
       await supabaseAdmin
-        .from("personal")
-        .update({ auth_user_id: authData.user.id })
-        .eq("username", username)
-        .is("auth_user_id", null);
+        .from('personal')
+        .update({
+          auth_user_id: authData.user.id,
+          pin_hash: hashedPin,
+          institucion_id: finalInstitucionId,
+        })
+        .eq('username', username.trim().toLowerCase())
+        .eq('institucion_id', finalInstitucionId);
     }
 
     return NextResponse.json({ ok: true, userId: authData.user?.id });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Error interno";
+    const msg = err instanceof Error ? err.message : 'Error interno';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

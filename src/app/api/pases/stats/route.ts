@@ -1,37 +1,34 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireSession, resolveInstitucion } from '@/lib/api-auth';
 
 export async function GET(request: Request) {
+  const auth = await requireSession(request, { kinds: ['admin', 'personal'] });
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json({ error: 'Configuración incompleta' }, { status: 500 });
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
-      auth: { persistSession: false },
-    });
-
+    const supabaseAdmin = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'dia';
-    const institucion_id = searchParams.get('institucion_id');
+    const requestedInst = searchParams.get('institucion_id');
 
-    // Calcular fechas
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
+
     const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Caracas' }));
     const hoy = now.toISOString().split('T')[0];
 
     let fechaDesde = hoy;
     if (period === 'semana') {
       const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Lunes
+      startOfWeek.setDate(now.getDate() - now.getDay() + 1);
       fechaDesde = startOfWeek.toISOString().split('T')[0];
     } else if (period === 'mes') {
       fechaDesde = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     }
 
-    // Query base
     let query = supabaseAdmin
       .from('pases')
       .select(`
@@ -47,26 +44,23 @@ export async function GET(request: Request) {
       .lte('fecha', hoy)
       .order('created_at', { ascending: false });
 
-    if (institucion_id) {
-      query = query.eq('institucion_id', institucion_id);
+    if (institucionId) {
+      query = query.eq('institucion_id', institucionId);
     }
 
     const { data: pases, error } = await query;
-
     if (error) {
       return NextResponse.json({ error: 'Error al obtener pases' }, { status: 500 });
     }
 
     const total = pases?.length || 0;
 
-    // Agrupar pases por tipo
     const porTipo = {
-      ENTRADA: pases?.filter(p => p.tipo_pase === 'ENTRADA').length || 0,
-      SALIDA: pases?.filter(p => p.tipo_pase === 'SALIDA').length || 0,
-      ESPECIAL: pases?.filter(p => p.tipo_pase === 'ESPECIAL').length || 0,
+      ENTRADA: pases?.filter((p) => p.tipo_pase === 'ENTRADA').length || 0,
+      SALIDA: pases?.filter((p) => p.tipo_pase === 'SALIDA').length || 0,
+      ESPECIAL: pases?.filter((p) => p.tipo_pase === 'ESPECIAL').length || 0,
     };
 
-    // Ranking de alumnos con más pases en el MES
     const mesDesde = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
     let queryMes = supabaseAdmin
       .from('pases')
@@ -77,13 +71,12 @@ export async function GET(request: Request) {
       .gte('fecha', mesDesde)
       .lte('fecha', hoy);
 
-    if (institucion_id) {
-      queryMes = queryMes.eq('institucion_id', institucion_id);
+    if (institucionId) {
+      queryMes = queryMes.eq('institucion_id', institucionId);
     }
 
     const { data: pasesMes } = await queryMes;
 
-    // Contar por estudiante
     const conteoEstudiante: Record<string, {
       nombre: string;
       grado: string;
@@ -93,9 +86,9 @@ export async function GET(request: Request) {
       alerta: boolean;
     }> = {};
 
-    for (const p of (pasesMes || [])) {
+    for (const p of pasesMes || []) {
       const id = p.estudiante_id;
-      const est = p.estudiantes as any;
+      const est = p.estudiantes as { nombre_completo?: string; grado?: string; seccion?: string; foto_url?: string | null } | null;
       if (!conteoEstudiante[id]) {
         conteoEstudiante[id] = {
           nombre: est?.nombre_completo || 'Desconocido',
@@ -109,7 +102,6 @@ export async function GET(request: Request) {
       conteoEstudiante[id].total++;
     }
 
-    // Marcar alerta si > 3 pases en el mes
     const ranking = Object.entries(conteoEstudiante)
       .map(([estudiante_id, data]) => ({
         estudiante_id,

@@ -6,8 +6,9 @@ import { formatHora12 } from "@/lib/utils";
 import { 
   ArrowLeft, Calendar, FileText, Download, 
   Clock, LogIn, LogOut, AlertTriangle, 
-  CheckCircle, Loader2, User, Building, Percent, CreditCard
+  CheckCircle, Loader2, User, Building, Percent, CreditCard, Mail
 } from "lucide-react";
+import { CobranzaIndividualModal } from "@/components/CobranzaIndividualModal";
 import Link from "next/link";
 import Image from "next/image";
 import jsPDF from "jspdf";
@@ -54,6 +55,7 @@ export default function EstudianteDetailPage({ params }: { params: Promise<{ id:
   const [institucion, setInstitucion] = useState<Institucion | null>(null);
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showCobranzaModal, setShowCobranzaModal] = useState(false);
   const [error, setError] = useState("");
 
   // Filters
@@ -377,6 +379,13 @@ export default function EstudianteDetailPage({ params }: { params: Promise<{ id:
           
           <div className="flex flex-wrap items-center gap-2">
             <button
+              onClick={() => setShowCobranzaModal(true)}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-lg shadow-amber-500/20 self-start sm:self-auto cursor-pointer"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Emitir Notificación de Cobranza
+            </button>
+            <button
               onClick={() => {
                 if (student) {
                   window.open(`/admin/estudiantes/carnet-preview?id=${student.id}`, '_blank');
@@ -494,6 +503,15 @@ export default function EstudianteDetailPage({ params }: { params: Promise<{ id:
         </div>
 
       </div>
+
+      {/* Modal Cobranza Individual */}
+      {student && (
+        <CobranzaIndividualModal
+          student={student}
+          isOpen={showCobranzaModal}
+          onClose={() => setShowCobranzaModal(false)}
+        />
+      )}
     </div>
   );
 }

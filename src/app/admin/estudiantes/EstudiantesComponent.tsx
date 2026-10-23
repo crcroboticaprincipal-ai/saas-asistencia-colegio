@@ -27,7 +27,9 @@ import {
   GraduationCap,
   ArrowUpCircle,
   ImageIcon,
+  Mail,
 } from "lucide-react";
+import { CobranzaIndividualModal } from "@/components/CobranzaIndividualModal";
 import Image from "next/image";
 import * as XLSX from "xlsx";
 import { TODOS_LOS_GRADOS, SECCIONES } from "@/lib/grados-catalogo";
@@ -108,6 +110,8 @@ export default function EstudiantesComponent() {
   const [searchTerm, setSearchTerm] = useState("");
   const [showPrintView, setShowPrintView] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<Estudiante[]>([]);
+  const [estudianteCobranza, setEstudianteCobranza] = useState<Estudiante | null>(null);
+  const [showCobranzaModal, setShowCobranzaModal] = useState(false);
 
   // Hierarchical filters
   const [filterGrado, setFilterGrado] = useState("");
@@ -925,6 +929,16 @@ export default function EstudiantesComponent() {
                         title="Ver Ficha / Historial"
                       >
                         <FileText className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEstudianteCobranza(estudiante);
+                          setShowCobranzaModal(true);
+                        }}
+                        className="p-2 text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors inline-flex items-center justify-center"
+                        title="✉️ Notificar Saldo Pendiente"
+                      >
+                        <Mail className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleOpenModal(estudiante)}
@@ -1796,6 +1810,20 @@ export default function EstudiantesComponent() {
             </div>
           </div>
         </div>
+      )}
+      {/* ── Modal Cobranza Individual ── */}
+      {showCobranzaModal && estudianteCobranza && (
+        <CobranzaIndividualModal
+          student={estudianteCobranza}
+          isOpen={showCobranzaModal}
+          onClose={() => {
+            setShowCobranzaModal(false);
+            setEstudianteCobranza(null);
+          }}
+          onSuccess={() => {
+            showToast("Notificación de cobranza enviada exitosamente", "success");
+          }}
+        />
       )}
     </div>
   );

@@ -1,31 +1,33 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import ExcelJS from 'exceljs';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, parseISO } from 'date-fns';
-import { es } from 'date-fns/locale';
-
-function getAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
 
 export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
     const { searchParams } = new URL(request.url);
     const personal_id = searchParams.get('personal_id');
     const inicio = searchParams.get('inicio');
     const fin = searchParams.get('fin');
     const nombre = searchParams.get('nombre') || 'Empleado';
+    const requestedInst = searchParams.get('institucion_id');
 
     if (!personal_id || !inicio || !fin) {
       return NextResponse.json({ error: 'Parámetros requeridos: personal_id, inicio, fin' }, { status: 400 });
     }
 
-    const sb = getAdmin();
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
 
-    // Fetch attendance data for the period — only columns needed for the Excel report
-    const { data: asistencias, error } = await sb
+    const sb = getSupabaseAdmin();
+
+    let query = sb
       .from('asistencia_personal')
       .select('tipo, fecha, hora, estado_evaluacion, minutos_diferencia')
       .eq('personal_id', personal_id)
@@ -34,9 +36,13 @@ export async function GET(request: Request) {
       .order('fecha', { ascending: true })
       .order('hora', { ascending: true });
 
+    if (institucionId) {
+      query = query.eq('institucion_id', institucionId);
+    }
+
+    const { data: asistencias, error } = await query;
     if (error) throw new Error(error.message);
 
-    // Build attendance index by date
     const idx: Record<string, { entrada?: { hora: string; estado: string; minutos?: number | null }; salida?: { hora: string } }> = {};
     (asistencias ?? []).forEach((a: { tipo: string; fecha: string; hora: string; estado_evaluacion: string; minutos_diferencia: number | null }) => {
       if (!idx[a.fecha]) idx[a.fecha] = {};
@@ -44,21 +50,18 @@ export async function GET(request: Request) {
       if (a.tipo === 'SALIDA') idx[a.fecha].salida = { hora: a.hora };
     });
 
-    // Parse month
     const mesDate = parseISO(inicio);
     const diasDelMes = eachDayOfInterval({ start: startOfMonth(mesDate), end: endOfMonth(mesDate) });
     const mesLabel = new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' })
       .format(mesDate)
       .replace(/^(\w)/, (c) => c.toUpperCase());
 
-    // Create workbook
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Asisto SaaS';
     wb.created = new Date();
 
     const ws = wb.addWorksheet(`Asistencia ${mesLabel}`);
 
-    // ── Title rows ──
     ws.mergeCells('A1:H1');
     const titleCell = ws.getCell('A1');
     titleCell.value = `Reporte de Asistencia — ${nombre}`;
@@ -75,7 +78,6 @@ export async function GET(request: Request) {
     subTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     ws.getRow(2).height = 22;
 
-    // ── Day of week headers (row 3) ──
     const diaSemana = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     const headerRow = ws.getRow(3);
     diaSemana.forEach((d, i) => {
@@ -88,18 +90,15 @@ export async function GET(request: Request) {
     });
     headerRow.height = 22;
 
-    // Set column widths
     for (let col = 1; col <= 7; col++) {
       ws.getColumn(col).width = 16;
     }
 
-    // ── Build calendar grid ──
-    // First day offset (Mon=0 ... Sun=6)
-    const firstDay = getDay(startOfMonth(mesDate)); // 0=Sun, 1=Mon...
+    const firstDay = getDay(startOfMonth(mesDate));
     const offsetDias = firstDay === 0 ? 6 : firstDay - 1;
 
     let currentRow = 4;
-    let currentCol = offsetDias + 1; // 1-indexed
+    let currentCol = offsetDias + 1;
 
     diasDelMes.forEach((dia) => {
       if (currentCol > 7) {
@@ -115,11 +114,11 @@ export async function GET(request: Request) {
       const dayNum = format(dia, 'd');
       const lines: string[] = [`${dayNum}`];
 
-      let fillColor = 'FF1E293B'; // default dark — sin registro
+      let fillColor = 'FF1E293B';
       let fontColor = 'FF64748B';
 
       if (esFinde) {
-        fillColor = 'FF0F172A'; // darker for weekend
+        fillColor = 'FF0F172A';
         fontColor = 'FF475569';
       }
 
@@ -130,13 +129,13 @@ export async function GET(request: Request) {
         if (estado === 'Retardo' && minutos) lines.push(`+${minutos}m tarde`);
 
         if (estado === 'Puntual') {
-          fillColor = 'FF052E16'; // deep green
-          fontColor = 'FF86EFAC'; // light green text
+          fillColor = 'FF052E16';
+          fontColor = 'FF86EFAC';
         } else if (estado === 'Retardo') {
-          fillColor = 'FF450A0A'; // deep red
-          fontColor = 'FFFCA5A5'; // light red text
+          fillColor = 'FF450A0A';
+          fontColor = 'FFFCA5A5';
         } else {
-          fillColor = 'FF422006'; // amber
+          fillColor = 'FF422006';
           fontColor = 'FFFCD34D';
         }
       }
@@ -156,7 +155,6 @@ export async function GET(request: Request) {
       currentCol++;
     });
 
-    // ── Summary stats row ──
     currentRow += 2;
     ws.mergeCells(`A${currentRow}:H${currentRow}`);
     const statsHeader = ws.getCell(`A${currentRow}`);
@@ -183,7 +181,6 @@ export async function GET(request: Request) {
       row.getCell(2).font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Calibri', size: 10 };
     });
 
-    // ── Legend ──
     ws.addRow([]);
     const legendRow = ws.addRow(['Leyenda:']);
     legendRow.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };

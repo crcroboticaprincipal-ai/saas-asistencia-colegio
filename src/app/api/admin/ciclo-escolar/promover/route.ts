@@ -1,41 +1,41 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
 import { siguienteGrado } from '@/lib/grados-catalogo';
 
-function getAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
 export async function POST(request: Request) {
-  try {
-    const sb = getAdmin();
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
 
-    // Resolve institucion_id
-    const { data: inst } = await sb.from('instituciones').select('id').limit(1).single();
-    const instId = inst?.id;
+  try {
+    const sb = getSupabaseAdmin();
+    const body = await request.json().catch(() => ({}));
+    const requestedInst = body?.institucion_id;
+
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const instId = instResult.institucionId;
+
     if (!instId) {
       return NextResponse.json({ error: 'No se encontró la institución' }, { status: 400 });
     }
 
-    // ── 1. Limpieza de materias y dependencias académicas ──
-    // Eliminadas en orden inverso de dependencia (FK)
+    // ── 1. Limpieza de materias y dependencias académicas en la institución ──
+    const { error: errNotas } = await sb.from('notas').delete().eq('institucion_id', instId);
+    if (errNotas) console.warn('[promover] Warning notas delete:', errNotas.message);
 
-    const { error: errNotas } = await sb.from('notas').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (errNotas) throw new Error(`Error al limpiar notas: ${errNotas.message}`);
+    const { error: errEval } = await sb.from('evaluaciones').delete().eq('institucion_id', instId);
+    if (errEval) console.warn('[promover] Warning evaluaciones delete:', errEval.message);
 
-    const { error: errEval } = await sb.from('evaluaciones').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (errEval) throw new Error(`Error al limpiar evaluaciones: ${errEval.message}`);
+    const { error: errAsisMat } = await sb.from('asistencia_materia').delete().eq('institucion_id', instId);
+    if (errAsisMat) console.warn('[promover] Warning asistencia_materia delete:', errAsisMat.message);
 
-    const { error: errAsisMat } = await sb.from('asistencia_materia').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (errAsisMat) throw new Error(`Error al limpiar asistencias a materias: ${errAsisMat.message}`);
+    const { error: errAsig } = await sb.from('profesores_asignaciones').delete().eq('institucion_id', instId);
+    if (errAsig) console.warn('[promover] Warning asignaciones delete:', errAsig.message);
 
-    const { error: errAsig } = await sb.from('profesores_asignaciones').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (errAsig) throw new Error(`Error al limpiar asignaciones de profesores: ${errAsig.message}`);
-
-    const { error: errMat } = await sb.from('materias').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    if (errMat) throw new Error(`Error al limpiar materias: ${errMat.message}`);
+    const { error: errMat } = await sb.from('materias').delete().eq('institucion_id', instId);
+    if (errMat) console.warn('[promover] Warning materias delete:', errMat.message);
 
     // ── 2. Promoción de Estudiantes usando catálogo canónico ──
     const { data: estudiantes, error: errEst } = await sb
@@ -49,7 +49,6 @@ export async function POST(request: Request) {
     let graduadosCount = 0;
     let promovidosCount = 0;
 
-    // Determinar año escolar próximo
     const currentYear = new Date().getFullYear();
     const proximoCiclo = `${currentYear}-${currentYear + 1}`;
 
@@ -93,7 +92,7 @@ export async function POST(request: Request) {
   } catch (err: unknown) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Error al promover año escolar' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

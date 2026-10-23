@@ -1,51 +1,96 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-
-const COOKIE_NAME = 'admin_session';
-// Legacy token for backward compatibility during rollout
-const LEGACY_TOKEN = 'rafael-castillo-admin-auth';
+import { SESSION_COOKIE, verifySession, ROLES_ADMIN } from '@/lib/session';
 
 /**
- * Proxy — Next.js 16 replacement for middleware.ts
- * Lightweight optimistic auth check at the network boundary.
- * Only validates cookie presence/format here; actual DB auth happens in /api/auth.
- * See: node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md
+ * Proxy — Next.js 16 (reemplaza a middleware.ts).
+ * Primera barrera: verifica la FIRMA y expiración de la sesión (ya no solo el formato).
+ * Cada Route Handler vuelve a validar con requireSession() (defensa en profundidad).
  *
- * Token format: "[rol]-[uuid]-auth"
- * e.g. "superadmin-c4e8711a-f035-428c-b98f-69555a819ec7-auth"
- * The UUID segment is validated with a strict regex to prevent manually crafted tokens
- * from bypassing this guard (e.g. "abc-xyz-auth" is now rejected).
+ *  - /admin, /api/admin             → sesión admin (superadmin | admin_institucion)
+ *  - /qrono-admin, /api/qrono-admin → solo superadmin
+ *  - /escaner (excepto expo-local)  → cualquier sesión válida (admin o personal)
+ *  - APIs operativas                → cualquier sesión válida (el handler afina el rol)
  */
 
-/** Matches the dynamic token format exactly: [rol]-[uuid]-auth */
-const DYNAMIC_TOKEN_RE =
-  /^[a-z_]+-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-auth$/i;
+const PUBLIC_EXCEPTIONS = ['/escaner/expo-local', '/api/notificar/expo'];
 
-export function proxy(request: NextRequest) {
+function isAdminArea(p: string) {
+  return (
+    p === '/admin' ||
+    p.startsWith('/admin/') ||
+    p.startsWith('/api/admin') ||
+    p === '/dashboard' ||
+    p.startsWith('/dashboard/')
+  );
+}
+function isSuperArea(p: string) {
+  return p === '/qrono-admin' || p.startsWith('/qrono-admin/') || p.startsWith('/api/qrono-admin');
+}
+function isAnySessionArea(p: string) {
+  return (
+    p === '/escaner' ||
+    p.startsWith('/api/escaner') ||
+    p.startsWith('/api/pases') ||
+    p.startsWith('/api/aula') ||
+    p.startsWith('/api/exportar') ||
+    p.startsWith('/api/notificar') ||
+    p.startsWith('/api/perfil')
+  );
+}
+
+function deny(request: NextRequest, status: 401 | 403) {
+  const { pathname } = request.nextUrl;
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.json(
+      { error: status === 401 ? 'No autorizado' : 'Acceso denegado' },
+      { status, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
+  const loginUrl = new URL('/login', request.url);
+  if (status === 401) loginUrl.searchParams.set('from', pathname);
+  return NextResponse.redirect(loginUrl);
+}
+
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Protect administrative front-end and API routes
-  if (pathname.startsWith('/admin') || pathname.startsWith('/api/admin') || pathname.startsWith('/api/qrono-admin')) {
-    const session = request.cookies.get(COOKIE_NAME);
-    const token = session?.value || '';
-
-    // Accept: legacy hardcoded token OR new dynamic token with a valid UUID segment
-    const isValid = token === LEGACY_TOKEN || DYNAMIC_TOKEN_RE.test(token);
-
-    if (!isValid) {
-      if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-      } else {
-        const loginUrl = new URL('/login', request.url);
-        loginUrl.searchParams.set('from', pathname);
-        return NextResponse.redirect(loginUrl);
-      }
-    }
+  if (PUBLIC_EXCEPTIONS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return NextResponse.next();
   }
 
-  return NextResponse.next();
+  const admin = isAdminArea(pathname);
+  const superArea = isSuperArea(pathname);
+  const anySession = isAnySessionArea(pathname);
+  if (!admin && !superArea && !anySession) return NextResponse.next();
+
+  const session = await verifySession(request.cookies.get(SESSION_COOKIE)?.value);
+  if (!session) return deny(request, 401);
+
+  if (superArea && !(session.kind === 'admin' && session.rol === 'superadmin')) return deny(request, 403);
+  if (admin && !(session.kind === 'admin' && (ROLES_ADMIN as readonly string[]).includes(session.rol))) {
+    return deny(request, 403);
+  }
+
+  const res = NextResponse.next();
+  // Nunca cachear respuestas autenticadas en CDN/navegador compartido
+  res.headers.set('Cache-Control', 'no-store');
+  return res;
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*', '/api/qrono-admin/:path*'],
+  matcher: [
+    '/admin/:path*',
+    '/api/admin/:path*',
+    '/dashboard/:path*',
+    '/qrono-admin/:path*',
+    '/api/qrono-admin/:path*',
+    '/escaner',
+    '/api/escaner/:path*',
+    '/api/pases/:path*',
+    '/api/aula/:path*',
+    '/api/exportar/:path*',
+    '/api/notificar/:path*',
+    '/api/perfil/:path*',
+  ],
 };

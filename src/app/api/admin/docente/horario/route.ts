@@ -1,44 +1,56 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
 
-function getAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
-// GET /api/admin/docente/horario?personal_id=xxx
-// Devuelve plantillas + bloques + asignaciones del docente
 export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
     const { searchParams } = new URL(request.url);
     const personal_id = searchParams.get('personal_id');
+    const requestedInst = searchParams.get('institucion_id');
+
     if (!personal_id) return NextResponse.json({ error: 'personal_id requerido' }, { status: 400 });
 
-    const sb = getAdmin();
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
 
-    // Plantillas con sus bloques
-    const { data: plantillas, error: ePlant } = await sb
+    const sb = getSupabaseAdmin();
+
+    let qPlantillas = sb
       .from('horarios_plantillas')
       .select('*, horarios_bloques(*)')
       .eq('personal_id', personal_id)
       .order('created_at');
+
+    if (institucionId) qPlantillas = qPlantillas.eq('institucion_id', institucionId);
+
+    const { data: plantillas, error: ePlant } = await qPlantillas;
     if (ePlant) throw new Error(ePlant.message);
 
-    // Asignaciones con materia
-    const { data: asignaciones, error: eAsig } = await sb
+    let qAsig = sb
       .from('profesores_asignaciones')
       .select('*, materia:materias(id, nombre, codigo)')
       .eq('personal_id', personal_id)
       .eq('activo', true)
       .order('hora_inicio');
+
+    if (institucionId) qAsig = qAsig.eq('institucion_id', institucionId);
+
+    const { data: asignaciones, error: eAsig } = await qAsig;
     if (eAsig) throw new Error(eAsig.message);
 
-    // Materias disponibles
-    const { data: materias, error: eMat } = await sb
+    let qMat = sb
       .from('materias')
       .select('id, nombre, codigo')
       .order('nombre');
+
+    if (institucionId) qMat = qMat.eq('institucion_id', institucionId);
+
+    const { data: materias, error: eMat } = await qMat;
     if (eMat) throw new Error(eMat.message);
 
     return NextResponse.json({ ok: true, plantillas: plantillas ?? [], asignaciones: asignaciones ?? [], materias: materias ?? [] });
@@ -47,40 +59,49 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/admin/docente/horario
-// Body: { personal_id, institucion_id, plantilla: { nombre, tipo, dias }, asignaciones: [...] }
 export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
     const body = await request.json();
     const { personal_id, institucion_id, plantilla, bloques, asignaciones } = body;
 
-    if (!personal_id || !institucion_id) {
-      return NextResponse.json({ error: 'personal_id e institucion_id son requeridos' }, { status: 400 });
+    if (!personal_id) {
+      return NextResponse.json({ error: 'personal_id es requerido' }, { status: 400 });
     }
 
-    const sb = getAdmin();
+    const instResult = resolveInstitucion(session, institucion_id);
+    if (!instResult.ok) return instResult.response;
+    const targetInstitucionId = instResult.institucionId;
 
-    // ── 1. Crear / reemplazar plantilla ──
+    if (!targetInstitucionId) {
+      return NextResponse.json({ error: 'Institución obligatoria' }, { status: 400 });
+    }
+
+    const sb = getSupabaseAdmin();
+
     if (plantilla && bloques?.length > 0) {
-      // Desactivar plantillas anteriores
-      await sb.from('horarios_plantillas').update({ activo: false }).eq('personal_id', personal_id);
+      await sb.from('horarios_plantillas').update({ activo: false }).eq('personal_id', personal_id).eq('institucion_id', targetInstitucionId);
 
       const { data: nuevaPlantilla, error: ePlant } = await sb
         .from('horarios_plantillas')
-        .insert([{
-          personal_id,
-          institucion_id,
-          nombre: plantilla.nombre || 'Horario Principal',
-          tipo: plantilla.tipo || 'fijo',
-          activo: true,
-          vigente_desde: new Date().toISOString().split('T')[0],
-        }])
+        .insert([
+          {
+            personal_id,
+            institucion_id: targetInstitucionId,
+            nombre: plantilla.nombre || 'Horario Principal',
+            tipo: plantilla.tipo || 'fijo',
+            activo: true,
+            vigente_desde: new Date().toISOString().split('T')[0],
+          },
+        ])
         .select()
         .single();
 
       if (ePlant || !nuevaPlantilla) throw new Error(ePlant?.message || 'Error creando plantilla');
 
-      // Insertar bloques
       const bloquesInsert = bloques.map((b: {
         dia_semana: number;
         hora_entrada_esperada: string;
@@ -102,10 +123,8 @@ export async function POST(request: Request) {
       if (eBloques) throw new Error(eBloques.message);
     }
 
-    // ── 2. Reemplazar asignaciones académicas ──
     if (asignaciones && Array.isArray(asignaciones)) {
-      // Desactivar anteriores
-      await sb.from('profesores_asignaciones').update({ activo: false }).eq('personal_id', personal_id);
+      await sb.from('profesores_asignaciones').update({ activo: false }).eq('personal_id', personal_id).eq('institucion_id', targetInstitucionId);
 
       if (asignaciones.length > 0) {
         const asigInsert = asignaciones.map((a: {
@@ -118,7 +137,7 @@ export async function POST(request: Request) {
           periodo_escolar?: string;
         }) => ({
           personal_id,
-          institucion_id,
+          institucion_id: targetInstitucionId,
           materia_id: a.materia_id,
           grado: a.grado,
           seccion: a.seccion,

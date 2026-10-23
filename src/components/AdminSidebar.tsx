@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, GraduationCap, Building2, Upload, Shield } from "lucide-react";
+import { LayoutDashboard, Users, FileText, LogOut, QrCode, UserCog, BookOpen, GraduationCap, Building2, Upload, Shield, DollarSign } from "lucide-react";
 import { handleLogout } from "@/lib/auth-actions";
 
 import Image from "next/image";
@@ -17,6 +17,10 @@ export function AdminSidebar() {
     { name: "Estudiantes / QR", path: "/admin/estudiantes", icon: QrCode },
     { name: "Reportes", path: "/admin/reportes", icon: FileText },
     { name: "Mi Perfil", path: "/admin/perfil", icon: UserCog },
+  ];
+
+  const routesAdministracion = [
+    { name: "Cobranzas", path: "/admin/cobranzas", icon: DollarSign },
   ];
 
   const routesRRHH = [
@@ -66,6 +70,27 @@ export function AdminSidebar() {
             </Link>
           );
         })}
+
+        <div className="pt-3">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-4 mb-2">Administración</p>
+          {routesAdministracion.map((route) => {
+            const isActive = pathname.startsWith(route.path);
+            return (
+              <Link
+                key={route.path}
+                href={route.path}
+                className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 ${
+                  isActive
+                    ? "bg-amber-500/15 text-amber-300 border border-amber-500/25 shadow-[0_0_12px_rgba(245,158,11,0.15)] font-semibold"
+                    : "text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent"
+                }`}
+              >
+                <route.icon className={`w-4 h-4 ${isActive ? "text-amber-400" : "text-slate-500"}`} />
+                <span className="font-medium text-sm">{route.name}</span>
+              </Link>
+            );
+          })}
+        </div>
 
         <div className="pt-3">
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest px-4 mb-2">RRHH</p>

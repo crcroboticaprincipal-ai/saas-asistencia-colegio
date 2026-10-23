@@ -1,27 +1,25 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { SESSION_COOKIE, signSession, getSession, sessionCookieOptions } from '@/lib/session';
+import { loginAdminSchema, firstZodError } from '@/lib/validation';
+import { rateLimit, rateLimitReset, clientIp } from '@/lib/rate-limit';
 
-const COOKIE_NAME = 'admin_session';
+const COOKIE_LEGACY_NAME = 'admin_session';
 const COOKIE_ROL = 'admin_rol';
 const COOKIE_INST = 'admin_institucion_id';
 const COOKIE_NOMBRE = 'admin_nombre';
 const COOKIE_EMAIL = 'admin_email';
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
 export async function POST(request: Request) {
   try {
-    const { email, password, action } = await request.json();
+    const body = await request.json();
 
     // Logout
-    if (action === 'logout') {
+    if (body.action === 'logout') {
       const cookieStore = await cookies();
-      cookieStore.delete(COOKIE_NAME);
+      cookieStore.delete(SESSION_COOKIE);
+      cookieStore.delete(COOKIE_LEGACY_NAME);
       cookieStore.delete(COOKIE_ROL);
       cookieStore.delete(COOKIE_INST);
       cookieStore.delete(COOKIE_NOMBRE);
@@ -30,8 +28,6 @@ export async function POST(request: Request) {
         { success: true },
         {
           headers: {
-            // Prevent the browser from serving a cached authenticated response
-            // when the user presses the Back button after logout.
             'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
             'Pragma': 'no-cache',
           },
@@ -39,28 +35,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate input & Backward Compatibility Fallback (e.g. cached login page)
-    let userEmail = email ? email.trim().toLowerCase() : '';
-    if (!userEmail && password) {
-      if (password === 'admin2025') {
-        userEmail = 'orlandoasisto@asisto.app';
-      } else if (password === 'crc2025') {
-        userEmail = 'colegiorafaelcastillo@asisto.app';
-      }
+    // Validate input with Zod
+    const parsed = loginAdminSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: firstZodError(parsed.error) }, { status: 400 });
     }
 
-    if (!userEmail || !password) {
-      return NextResponse.json({ error: 'Email y contraseña son requeridos' }, { status: 400 });
+    const { email, password } = parsed.data;
+
+    // Rate Limiting (5 intentos por cada 5 minutos por IP + Email)
+    const ip = clientIp(request);
+    const rlKey = `login-admin:${ip}:${email}`;
+    const rl = rateLimit(rlKey, 5, 5 * 60 * 1000);
+
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `Demasiados intentos fallidos. Reintenta en ${rl.retryAfterSeconds} segundos.` },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } }
+      );
     }
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    // 1. Verificar contraseña con función SQL
-    const { data: pwValid, error: pwError } = await supabaseAdmin
-      .rpc('check_admin_password', {
-        user_email: userEmail,
-        user_password: password,
-      });
+    // 1. Verificar contraseña con función RPC
+    const { data: pwValid, error: pwError } = await supabaseAdmin.rpc('check_admin_password', {
+      user_email: email,
+      user_password: password,
+    });
 
     if (pwError || !pwValid) {
       return NextResponse.json({ error: 'Email o contraseña incorrectos' }, { status: 401 });
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
     const { data: usuario, error: userError } = await supabaseAdmin
       .from('usuarios_sistema')
       .select('id, nombre_completo, email, rol, institucion_id, activo')
-      .eq('email', userEmail)
+      .eq('email', email)
       .eq('activo', true)
       .maybeSingle();
 
@@ -78,29 +79,37 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Usuario no encontrado o inactivo' }, { status: 401 });
     }
 
+    // Login exitoso: reseteamos rate limit
+    rateLimitReset(rlKey);
+
     // 3. Actualizar último acceso
     await supabaseAdmin
       .from('usuarios_sistema')
       .update({ ultimo_acceso: new Date().toISOString() })
       .eq('id', usuario.id);
 
-    // 4. Generar token de sesión y setear cookies
-    const sessionToken = `${usuario.rol}-${usuario.id}-auth`;
+    // 4. Firmar token HMAC-SHA256
+    const tokenFirmado = await signSession(
+      {
+        uid: usuario.id,
+        rol: usuario.rol,
+        inst: usuario.institucion_id || null,
+        kind: 'admin',
+      },
+      60 * 60 * 24 * 7 // 7 días
+    );
 
     const cookieStore = await cookies();
-    const cookieOpts = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax' as const,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 días
-    };
+    const opts = sessionCookieOptions('admin');
 
-    cookieStore.set(COOKIE_NAME, sessionToken, cookieOpts);
-    cookieStore.set(COOKIE_ROL, usuario.rol, { ...cookieOpts, httpOnly: false });
-    cookieStore.set(COOKIE_INST, usuario.institucion_id || '', { ...cookieOpts, httpOnly: false });
-    cookieStore.set(COOKIE_NOMBRE, usuario.nombre_completo, { ...cookieOpts, httpOnly: false });
-    cookieStore.set(COOKIE_EMAIL, usuario.email || '', { ...cookieOpts, httpOnly: false });
+    // Cookie segura principal (firmada y HttpOnly)
+    cookieStore.set(SESSION_COOKIE, tokenFirmado, opts);
+
+    // Cookies informativas para la UI (no-sensibles)
+    cookieStore.set(COOKIE_ROL, usuario.rol, { ...opts, httpOnly: false });
+    cookieStore.set(COOKIE_INST, usuario.institucion_id || '', { ...opts, httpOnly: false });
+    cookieStore.set(COOKIE_NOMBRE, usuario.nombre_completo, { ...opts, httpOnly: false });
+    cookieStore.set(COOKIE_EMAIL, usuario.email || '', { ...opts, httpOnly: false });
 
     return NextResponse.json({
       success: true,
@@ -114,24 +123,22 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const session = cookieStore.get(COOKIE_NAME);
+    const session = await getSession(request);
 
-    if (!session?.value || !session.value.includes('-auth')) {
+    if (!session || session.kind !== 'admin') {
       return NextResponse.json({ authenticated: false, rol: null, institucion_id: null, nombre: '', email: '' });
     }
 
-    const rol = cookieStore.get(COOKIE_ROL)?.value || null;
-    const institucion_id = cookieStore.get(COOKIE_INST)?.value || null;
+    const cookieStore = await cookies();
     const nombre = cookieStore.get(COOKIE_NOMBRE)?.value || '';
     const email = cookieStore.get(COOKIE_EMAIL)?.value || '';
 
     return NextResponse.json({
       authenticated: true,
-      rol,
-      institucion_id: institucion_id || null,
+      rol: session.rol,
+      institucion_id: session.inst,
       nombre,
       email,
     });

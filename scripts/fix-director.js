@@ -1,7 +1,12 @@
 const { createClient } = require("@supabase/supabase-js");
 
-const url = "https://obtjhfoffpskzvkbsgnv.supabase.co";
-const key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9idGpoZm9mZnBza3p2a2JzZ252Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ4Njk5MiwiZXhwIjoyMDkzMDYyOTkyfQ.EI1ccqunh2LI9Yyb4xZkwFAKqdCr7piYl1JICv1QmQk";
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://obtjhfoffpskzvkbsgnv.supabase.co";
+const key = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+if (!key) {
+  console.error("❌ ERROR: SUPABASE_SERVICE_ROLE_KEY no está configurada.");
+  process.exit(1);
+}
 
 const supabaseAdmin = createClient(url, key, { auth: { persistSession: false } });
 

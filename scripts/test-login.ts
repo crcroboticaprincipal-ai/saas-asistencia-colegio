@@ -1,7 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 
-const SUPABASE_URL = "https://obtjhfoffpskzvkbsgnv.supabase.co";
-const SUPABASE_SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9idGpoZm9mZnBza3p2a2JzZ252Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ4Njk5MiwiZXhwIjoyMDkzMDYyOTkyfQ.EI1ccqunh2LI9Yyb4xZkwFAKqdCr7piYl1JICv1QmQk";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://obtjhfoffpskzvkbsgnv.supabase.co";
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+if (!SUPABASE_SERVICE_KEY) {
+  console.error("❌ ERROR: SUPABASE_SERVICE_ROLE_KEY no está configurada.");
+  process.exit(1);
+}
 
 const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false },

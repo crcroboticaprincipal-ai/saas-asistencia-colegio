@@ -104,12 +104,17 @@ export default function EscanerComponent() {
       let response: Response;
       let data: any;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+
       if (mode === "PASE") {
         response = await fetch("/api/pases/registrar", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ qrCode, tipo_pase: tipoPase, motivo: motivoPase || null }),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         data = await response.json();
 
         if (!response.ok) throw new Error(data.error || "Error al procesar el pase");
@@ -130,7 +135,9 @@ export default function EscanerComponent() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ qrCode, tipo: mode }),
+          signal: controller.signal,
         });
+        clearTimeout(timeoutId);
         data = await response.json();
 
         if (!response.ok) throw new Error(data.error || "Error al procesar el código QR");

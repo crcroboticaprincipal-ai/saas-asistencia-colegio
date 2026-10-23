@@ -1,20 +1,32 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
+import { sanitizeSearch } from '@/lib/validation';
 
-function getAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
+export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
 
-// GET — Lista todas las materias
-export async function GET() {
   try {
-    const sb = getAdmin();
-    const { data, error } = await sb
+    const sb = getSupabaseAdmin();
+    const { searchParams } = new URL(request.url);
+    const requestedInst = searchParams.get('institucion_id');
+
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
+
+    let query = sb
       .from('materias')
-      .select('id, nombre, codigo, nivel, created_at')
+      .select('id, nombre, codigo, nivel, created_at, institucion_id')
       .order('nombre');
+
+    if (institucionId) {
+      query = query.eq('institucion_id', institucionId);
+    }
+
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
     return NextResponse.json({ ok: true, data: data ?? [] });
   } catch (err: unknown) {
@@ -22,21 +34,35 @@ export async function GET() {
   }
 }
 
-// POST — Crea una materia
 export async function POST(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
-    const sb = getAdmin();
+    const sb = getSupabaseAdmin();
     const body = await request.json();
     const { nombre, codigo, nivel, institucion_id } = body;
 
-    if (!nombre?.trim() || !institucion_id) {
+    const instResult = resolveInstitucion(session, institucion_id);
+    if (!instResult.ok) return instResult.response;
+    const targetInstitucionId = instResult.institucionId;
+
+    if (!nombre?.trim() || !targetInstitucionId) {
       return NextResponse.json({ error: 'Nombre e institucion_id son obligatorios' }, { status: 400 });
     }
 
     const { data, error } = await sb
       .from('materias')
-      .insert([{ nombre: nombre.trim(), codigo: codigo?.trim() || null, nivel: nivel || null, institucion_id }])
-      .select()
+      .insert([
+        {
+          nombre: sanitizeSearch(nombre),
+          codigo: codigo ? sanitizeSearch(codigo) : null,
+          nivel: nivel || null,
+          institucion_id: targetInstitucionId,
+        },
+      ])
+      .select('id, nombre, codigo, nivel, created_at, institucion_id')
       .single();
 
     if (error) throw new Error(error.message);
@@ -46,13 +72,22 @@ export async function POST(request: Request) {
   }
 }
 
-// DELETE — Elimina una materia
 export async function DELETE(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
-    const sb = getAdmin();
+    const sb = getSupabaseAdmin();
     const { id } = await request.json();
     if (!id) return NextResponse.json({ error: 'id requerido' }, { status: 400 });
-    const { error } = await sb.from('materias').delete().eq('id', id);
+
+    let deleteQuery = sb.from('materias').delete().eq('id', id);
+    if (session.kind === 'admin' && session.rol !== 'superadmin' && session.inst) {
+      deleteQuery = deleteQuery.eq('institucion_id', session.inst);
+    }
+
+    const { error } = await deleteQuery;
     if (error) throw new Error(error.message);
     return NextResponse.json({ ok: true });
   } catch (err: unknown) {

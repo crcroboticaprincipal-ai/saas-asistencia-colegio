@@ -11,8 +11,13 @@
  */
 
 // El service_role JWT contiene el project ref en el campo 'ref'
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9idGpoZm9mZnBza3p2a2JzZ252Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NzQ4Njk5MiwiZXhwIjoyMDkzMDYyOTkyfQ.EI1ccqunh2LI9Yyb4xZkwFAKqdCr7piYl1JICv1QmQk';
-const SUPABASE_URL = 'https://obtjhfoffpskzvkbsgnv.supabase.co';
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://obtjhfoffpskzvkbsgnv.supabase.co';
+
+if (!SERVICE_ROLE_KEY) {
+  console.error('❌ ERROR: SUPABASE_SERVICE_ROLE_KEY no está configurada.');
+  process.exit(1);
+}
 
 // Decode JWT payload to get project ref
 const payload = JSON.parse(Buffer.from(SERVICE_ROLE_KEY.split('.')[1], 'base64').toString('utf8'));

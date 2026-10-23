@@ -1,29 +1,36 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabase/admin';
+import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await requireAdmin(request);
+  if (!auth.ok) return auth.response;
+  const { session } = auth;
+
   try {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      throw new Error("Variables de entorno de Supabase no configuradas.");
+    const sb = getSupabaseAdmin();
+    const { searchParams } = new URL(request.url);
+    const requestedInst = searchParams.get('institucion_id');
+
+    const instResult = resolveInstitucion(session, requestedInst);
+    if (!instResult.ok) return instResult.response;
+    const institucionId = instResult.institucionId;
+
+    let query = sb
+      .from('personal')
+      .select('id, nombres, apellidos, cedula, correo, telefono, cargo, rol, username, activo, auth_user_id, institucion_id, created_at')
+      .order('apellidos', { ascending: true });
+
+    if (institucionId) {
+      query = query.eq('institucion_id', institucionId);
     }
 
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { persistSession: false } }
-    );
-
-    // Fetch all personal
-    const { data, error } = await supabaseAdmin
-      .from("personal")
-      .select("*")
-      .order("apellidos", { ascending: true });
-
+    const { data, error } = await query;
     if (error) throw new Error(error.message);
 
-    return NextResponse.json({ ok: true, data });
+    return NextResponse.json({ ok: true, data: data ?? [] });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Error interno";
+    const msg = err instanceof Error ? err.message : 'Error interno';
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
