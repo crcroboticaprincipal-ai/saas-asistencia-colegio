@@ -262,7 +262,8 @@ export async function POST(request: Request) {
 
       for (const cand of candidatosValidados) {
         const base = cand.cedulaBase;
-        const exist = mapaExistentesPorBaseCedula[base] || [];
+        if (!mapaExistentesPorBaseCedula[base]) mapaExistentesPorBaseCedula[base] = [];
+        const exist = mapaExistentesPorBaseCedula[base];
 
         const yaExisteEnBD = exist.some(
           e => e.nombre_completo.trim().toUpperCase() === cand.nombreCompleto.trim().toUpperCase()
@@ -308,6 +309,7 @@ export async function POST(request: Request) {
 
         if (cand.genero) registro.genero = cand.genero;
         estudiantesAInsertar.push(registro);
+        exist.push({ cedula: cedulaFinalDisplay, nombre_completo: cand.nombreCompleto });
       }
 
       if (estudiantesAInsertar.length > 0) {
