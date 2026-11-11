@@ -17,6 +17,7 @@ interface FilaProcesada {
   estudiante_id: string | null;
   cedula: string | null;
   nombre_estudiante: string;
+  nombre_estudiante_bd?: string | null;
   nombre_archivo: string;
   grado: string;
   seccion: string;
@@ -28,6 +29,7 @@ interface FilaProcesada {
   total_dolares: number;
   mes_vencido: string;
   foto_url?: string | null;
+  desvinculadoManual?: boolean;
   resultadoEnvio?: {
     ok: boolean;
     error?: string;
@@ -51,6 +53,7 @@ export function CobranzasMasivasComponent() {
   const [filas, setFilas] = useState<FilaProcesada[]>([]);
   const [resumen, setResumen] = useState<ResumenMatch | null>(null);
   const [filtroTab, setFiltroTab] = useState<"todos" | "listos" | "sin_correo" | "advertencias">("todos");
+  const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
 
   // Estado para guardado en base de datos de correos manuales
   const [guardandoIdx, setGuardandoIdx] = useState<number | null>(null);
@@ -345,6 +348,15 @@ export function CobranzasMasivasComponent() {
 
       setResumen(matchData.resumen);
       setFilas(matchData.filas);
+
+      // Pre-seleccionar automáticamente todos los registros listos para envío
+      const inicialSeleccionados = new Set<number>();
+      (matchData.filas as FilaProcesada[]).forEach((f) => {
+        if (f.estado === "listo") {
+          inicialSeleccionados.add(f.idx);
+        }
+      });
+      setSeleccionados(inicialSeleccionados);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error procesando el archivo.";
       alert(msg);
@@ -381,26 +393,100 @@ export function CobranzasMasivasComponent() {
     setDespachando(false);
     setDespachoTerminado(false);
     setFiltroTab("todos");
+    setSeleccionados(new Set());
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  // Modificar correo localmente
-  const handleCambiarCorreoLocal = (idx: number, nuevoCorreo: string) => {
+  // Manejo de Selección de Filas para Despacho Masivo
+  const toggleSeleccion = (idx: number) => {
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
+      return next;
+    });
+  };
+
+  const toggleSeleccionarTodos = () => {
+    const listosVisibles = filasFiltradas.filter((f) => f.estado === "listo");
+    const todosSeleccionados = listosVisibles.length > 0 && listosVisibles.every((f) => seleccionados.has(f.idx));
+
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      if (todosSeleccionados) {
+        listosVisibles.forEach((f) => next.delete(f.idx));
+      } else {
+        listosVisibles.forEach((f) => next.add(f.idx));
+      }
+      return next;
+    });
+  };
+
+  // Desvincular manualmente un estudiante emparejado si no corresponde
+  const handleDesvincularFila = (idx: number) => {
     setFilas((prev) =>
       prev.map((f) => {
         if (f.idx === idx) {
-          const valido = nuevoCorreo.includes("@") && nuevoCorreo.includes(".");
           return {
             ...f,
-            correo_representante: nuevoCorreo,
-            estado: valido ? "listo" : "sin_correo",
+            estudiante_id: null,
+            nombre_estudiante_bd: null,
+            correo_representante: "",
+            estado: "sin_correo" as const,
+            desvinculadoManual: true,
           };
         }
         return f;
       })
     );
+
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      next.delete(idx);
+      return next;
+    });
+
+    setResumen((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        totalListos: Math.max(0, prev.totalListos - 1),
+        totalSinCorreo: prev.totalSinCorreo + 1,
+      };
+    });
+  };
+
+  // Modificar correo localmente
+  const handleCambiarCorreoLocal = (idx: number, nuevoCorreo: string) => {
+    const valido = nuevoCorreo.includes("@") && nuevoCorreo.includes(".");
+    setFilas((prev) =>
+      prev.map((f) => {
+        if (f.idx === idx) {
+          return {
+            ...f,
+            correo_representante: nuevoCorreo,
+            estado: valido ? "listo" : "sin_correo",
+            desvinculadoManual: false,
+          };
+        }
+        return f;
+      })
+    );
+
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      if (valido) {
+        next.add(idx);
+      } else {
+        next.delete(idx);
+      }
+      return next;
+    });
   };
 
   // Guardar y persistir correo directamente en la base de datos
@@ -431,6 +517,9 @@ export function CobranzasMasivasComponent() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Error al actualizar correo");
 
+      // Actualizar selección local
+      setSeleccionados((prev) => new Set(prev).add(fila.idx));
+
       // Actualizar resumen local
       setResumen((prev) => {
         if (!prev) return prev;
@@ -456,16 +545,17 @@ export function CobranzasMasivasComponent() {
 
   // ── Despacho Controlado (Pausa de 300 ms entre envíos) ──
   const iniciarEnvioMasivo = async () => {
-    const filasParaEnviar = filas.filter((f) => f.estado === "listo" && f.correo_representante);
+    const filasParaEnviar = filas.filter(
+      (f) => f.estado === "listo" && f.correo_representante && seleccionados.has(f.idx)
+    );
     if (filasParaEnviar.length === 0) {
-      alert("No hay destinatarios con correo validado para enviar.");
+      alert("No hay destinatarios seleccionados con correo validado. Por favor marca las casillas de los estudiantes a los que deseas enviar el correo.");
       return;
     }
 
+    const montoTotal = filasParaEnviar.reduce((acc, curr) => acc + curr.total_dolares, 0);
     const confirmar = window.confirm(
-      `¿Confirmas el envío masivo de notificaciones a ${filasParaEnviar.length} representantes por un monto total de $${filasParaEnviar
-        .reduce((acc, curr) => acc + curr.total_dolares, 0)
-        .toFixed(2)} USD?`
+      `¿Confirmas el envío masivo de notificaciones a ${filasParaEnviar.length} representantes seleccionados por un monto total de $${montoTotal.toFixed(2)} USD?`
     );
     if (!confirmar) return;
 
@@ -551,7 +641,8 @@ export function CobranzasMasivasComponent() {
   // ── Descarga de Reporte en CSV ──
   const descargarReporteCSV = () => {
     const encabezados = [
-      "Estudiante",
+      "Estudiante Archivo",
+      "Estudiante BD",
       "Cédula",
       "Sección",
       "Representante",
@@ -570,6 +661,12 @@ export function CobranzasMasivasComponent() {
       if (f.resultadoEnvio) {
         estatus = f.resultadoEnvio.ok ? "Enviado exitosamente" : "Error de envío";
         detalle = f.resultadoEnvio.error || `ID: ${f.resultadoEnvio.emailId || "OK"}`;
+      } else if (f.desvinculadoManual) {
+        estatus = "Omitido";
+        detalle = "Desvinculado manualmente por el usuario";
+      } else if (!seleccionados.has(f.idx) && f.estado === "listo") {
+        estatus = "Omitido";
+        detalle = "Casilla desmarcada por el usuario";
       } else if (f.estado === "sin_correo") {
         estatus = "Omitido";
         detalle = "Sin correo registrado";
@@ -580,6 +677,7 @@ export function CobranzasMasivasComponent() {
 
       return [
         `"${f.nombre_estudiante.replace(/"/g, '""')}"`,
+        `"${(f.nombre_estudiante_bd || '').replace(/"/g, '""')}"`,
         `"${(f.cedula || '').replace(/"/g, '""')}"`,
         `"${(f.seccion || f.seccion_archivo).replace(/"/g, '""')}"`,
         `"${f.nombre_representante.replace(/"/g, '""')}"`,
@@ -788,7 +886,9 @@ export function CobranzasMasivasComponent() {
                 <span className="text-2xl font-black text-emerald-300 mt-1 block">
                   {resumen.totalListos}
                 </span>
-                <span className="text-[11px] text-emerald-500/80">Con correo verificado</span>
+                <span className="text-[11px] text-emerald-500/80">
+                  {filas.filter((f) => f.estado === "listo" && seleccionados.has(f.idx)).length} seleccionados para despacho
+                </span>
               </div>
 
               <div className="glass-card p-4 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
@@ -939,7 +1039,10 @@ export function CobranzasMasivasComponent() {
             <div className="flex items-center gap-3">
               <button
                 onClick={iniciarEnvioMasivo}
-                disabled={despachando || (resumen?.totalListos || 0) === 0}
+                disabled={
+                  despachando ||
+                  filas.filter((f) => f.estado === "listo" && seleccionados.has(f.idx)).length === 0
+                }
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 {despachando ? (
@@ -950,7 +1053,11 @@ export function CobranzasMasivasComponent() {
                 ) : (
                   <>
                     <Play className="w-4 h-4 fill-white" />
-                    <span>🚀 Iniciar Envío Masivo ({resumen?.totalListos || 0})</span>
+                    <span>
+                      🚀 Iniciar Envío (
+                      {filas.filter((f) => f.estado === "listo" && seleccionados.has(f.idx)).length}
+                      {" "}de {resumen?.totalListos || 0})
+                    </span>
                   </>
                 )}
               </button>
@@ -963,8 +1070,23 @@ export function CobranzasMasivasComponent() {
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-white/10">
                   <tr className="text-slate-400 uppercase font-semibold">
-                    <th className="py-3 px-4">#</th>
-                    <th className="py-3 px-4">Estudiante</th>
+                    <th className="py-3 px-3 text-center w-10">
+                      <input
+                        type="checkbox"
+                        aria-label="Seleccionar todos los listos visibles"
+                        checked={
+                          filasFiltradas.filter((f) => f.estado === "listo").length > 0 &&
+                          filasFiltradas
+                            .filter((f) => f.estado === "listo")
+                            .every((f) => seleccionados.has(f.idx))
+                        }
+                        onChange={toggleSeleccionarTodos}
+                        className="rounded border-slate-700 text-amber-500 focus:ring-amber-400 bg-slate-900 cursor-pointer w-4 h-4"
+                        title="Seleccionar / deseleccionar todos los listos"
+                      />
+                    </th>
+                    <th className="py-3 px-3 w-10">#</th>
+                    <th className="py-3 px-4">Estudiante (Archivo vs BD)</th>
                     <th className="py-3 px-4">Sección</th>
                     <th className="py-3 px-4">Representante y Correo</th>
                     <th className="py-3 px-4">Concepto / Mes</th>
@@ -992,15 +1114,55 @@ export function CobranzasMasivasComponent() {
                             : "hover:bg-white/[0.02]"
                         }`}
                       >
-                        <td className="py-3.5 px-4 font-mono text-slate-500">
+                        {/* Checkbox de Selección */}
+                        <td className="py-3.5 px-3 text-center">
+                          <input
+                            type="checkbox"
+                            aria-label={`Seleccionar estudiante fila ${fila.idx + 1}`}
+                            checked={seleccionados.has(fila.idx)}
+                            disabled={!esListo || despachando}
+                            onChange={() => toggleSeleccion(fila.idx)}
+                            className="rounded border-slate-700 text-amber-500 focus:ring-amber-400 bg-slate-900 cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed w-4 h-4"
+                          />
+                        </td>
+
+                        <td className="py-3.5 px-3 font-mono text-slate-500">
                           {fila.idx + 1}
                         </td>
 
-                        {/* Nombre del Estudiante */}
+                        {/* Nombre del Estudiante y Cruce con BD */}
                         <td className="py-3.5 px-4 font-medium">
                           <p className="text-white font-bold uppercase">
                             {fila.nombre_estudiante}
                           </p>
+
+                          {/* Si hubo cruce con BD mostrarlo con botón de Desvincular */}
+                          {fila.nombre_estudiante_bd && (
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[10px]">
+                                <span>🔗 Emparejado con:</span>
+                                <strong className="text-white">{fila.nombre_estudiante_bd}</strong>
+                                <span className="text-indigo-400">({fila.grado} {fila.seccion})</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleDesvincularFila(fila.idx)}
+                                className="px-1.5 py-0.5 rounded text-[10px] text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors cursor-pointer"
+                                title="Desvincular este estudiante si no corresponde al de tu archivo"
+                              >
+                                Desvincular
+                              </button>
+                            </div>
+                          )}
+
+                          {fila.desvinculadoManual && (
+                            <div className="mt-1">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-500/15 border border-rose-500/30 text-rose-300 text-[10px] font-semibold">
+                                ✕ Desvinculado manualmente (No se enviará notificación)
+                              </span>
+                            </div>
+                          )}
+
                           <div className="flex flex-wrap items-center gap-1.5 mt-1">
                             {fila.cedula && (
                               <span className="text-[10px] text-slate-400 font-mono">
@@ -1008,11 +1170,11 @@ export function CobranzasMasivasComponent() {
                               </span>
                             )}
                             {fila.esNuevoRegistro && (
-                              <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[9px] font-bold">
-                                ✨ Alumno nuevo registrado
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold">
+                                ✨ Alumno nuevo registrado en nómina
                               </span>
                             )}
-                            {esSinCorreo && (
+                            {esSinCorreo && !fila.desvinculadoManual && (
                               <span className="px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 border border-amber-500/40 text-[9px] font-bold flex items-center gap-1">
                                 <AlertTriangle className="w-2.5 h-2.5" /> Requiere Correo
                               </span>

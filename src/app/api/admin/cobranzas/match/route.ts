@@ -63,6 +63,34 @@ function cleanBaseCedula(c: string | null | undefined): string {
 }
 
 /**
+ * Valida estrictamente si el grado del archivo es compatible con el grado en BD.
+ * Evita que un alumno de 4to Año se empareje con uno de 1er Grado solo por compartir apellido.
+ */
+function esGradoCompatible(gradoArchivoNorm: string, gradoDbNorm: string): boolean {
+  if (!gradoArchivoNorm || !gradoDbNorm) return true;
+
+  const esPrimariaArchivo = gradoArchivoNorm.includes('grado');
+  const esPrimariaDb = gradoDbNorm.includes('grado');
+  const esBachilleratoArchivo = gradoArchivoNorm.includes('ano') || gradoArchivoNorm.includes('anio');
+  const esBachilleratoDb = gradoDbNorm.includes('ano') || gradoDbNorm.includes('anio');
+  const esInicialArchivo = gradoArchivoNorm.includes('inicial') || gradoArchivoNorm.includes('maternal');
+  const esInicialDb = gradoDbNorm.includes('inicial') || gradoDbNorm.includes('maternal');
+
+  // Si uno es Inicial y el otro no -> Incompatible
+  if (esInicialArchivo !== esInicialDb && (esInicialArchivo || esInicialDb)) return false;
+  // Si uno es Primaria y el otro Bachillerato -> Incompatible
+  if (esPrimariaArchivo && esBachilleratoDb) return false;
+  if (esBachilleratoArchivo && esPrimariaDb) return false;
+
+  // Extraer número de grado o año (1, 2, 3, 4, 5, 6)
+  const numArchivo = gradoArchivoNorm.match(/(\d+)/)?.[1];
+  const numDb = gradoDbNorm.match(/(\d+)/)?.[1];
+  if (numArchivo && numDb && numArchivo !== numDb) return false;
+
+  return true;
+}
+
+/**
  * Extrae grado y sección de una cadena como "1er Grado A", "3er Año B", "Inicial B", "A", etc.
  */
 function extraerGradoYSeccion(texto: string): { grado: string; seccion: string } {
@@ -140,7 +168,7 @@ export async function POST(request: Request) {
 
     const listaEstudiantes = estudiantes || [];
 
-    // Pre-indexar estudiantes con tokens normalizados para coincidencia inteligente
+    // Pre-indexar estudiantes con tokens normalizados para coincidencia estricta y segura
     const estudiantesIndexados = listaEstudiantes.map((e) => ({
       raw: e,
       baseCedula: cleanBaseCedula(e.cedula),
@@ -160,7 +188,6 @@ export async function POST(request: Request) {
     for (let index = 0; index < filas.length; index++) {
       const fila = filas[index];
       const nombreNorm = normalizarTexto(fila.nombre_estudiante);
-      const repNorm = normalizarTexto(fila.nombre_representante);
       const seccionNorm = normalizarTexto(fila.seccion);
       const tokensEstFila = obtenerTokens(fila.nombre_estudiante);
       const tokensRepFila = obtenerTokens(fila.nombre_representante);
@@ -187,77 +214,86 @@ export async function POST(request: Request) {
         }
       }
 
-      // ── CASO B: Sin Cédula — Algoritmo Multicriterio de Nombres de Alumnos y Representantes ──
-      if (!match) {
-        let bestCandidate: (typeof estudiantesIndexados)[number] | null = null;
-        let bestScore = 0;
+      // ── CASO B: Sin Cédula — Cruce Estricto Anti Falsos Positivos ──
+      if (!match && tokensEstFila.length > 0) {
+        // B.1: Coincidencia de texto idéntico
+        const exactStr = estudiantesIndexados.find((e) => e.normNombre === nombreNorm);
+        if (exactStr) {
+          match = exactStr;
+        }
 
-        for (const cand of estudiantesIndexados) {
-          // 1. Coincidencia exacta de texto completo
-          if (cand.normNombre === nombreNorm) {
-            bestCandidate = cand;
-            bestScore = 150;
-            break;
-          }
-
-          // 2. Coincidencia exacta de conjunto de palabras (independiente de orden: Nombre Apellido vs Apellido Nombre)
-          if (
-            tokensEstFila.length >= 2 &&
-            tokensEstFila.slice().sort().join(' ') === cand.tokensNombre.slice().sort().join(' ')
-          ) {
-            bestCandidate = cand;
-            bestScore = 140;
-            break;
-          }
-
-          // 3. Evaluar solapamiento de tokens de estudiante
-          const sharedEst = tokensEstFila.filter((t) => cand.tokensNombre.includes(t)).length;
-          if (sharedEst === 0) continue; // Si no comparte ninguna palabra del alumno, descartar
-
-          const ratioEst = sharedEst / Math.max(tokensEstFila.length, 1);
-          const ratioDb = sharedEst / Math.max(cand.tokensNombre.length, 1);
-
-          // 4. Evaluar solapamiento de tokens de representante (CLAVE cuando no hay cédula)
-          let sharedRep = 0;
-          if (tokensRepFila.length > 0 && cand.tokensRep.length > 0) {
-            sharedRep = tokensRepFila.filter((t) => cand.tokensRep.includes(t)).length;
-          }
-          const ratioRep = tokensRepFila.length > 0 ? sharedRep / tokensRepFila.length : 0;
-
-          // 5. Evaluar compatibilidad de grado y sección
-          let secScore = 0;
-          if (seccionNorm) {
-            if (cand.normGrado && (seccionNorm.includes(cand.normGrado) || cand.normGrado.includes(seccionNorm))) {
-              secScore += 0.6;
-            }
-            if (
-              cand.normSeccion &&
-              (seccionNorm.endsWith(cand.normSeccion) ||
-                seccionNorm.includes(' ' + cand.normSeccion) ||
-                seccionNorm.includes('-' + cand.normSeccion))
-            ) {
-              secScore += 0.4;
-            }
-          }
-
-          // Ponderación de señales
-          let score = ratioEst * 50 + ratioDb * 20 + ratioRep * 25 + secScore * 15;
-
-          // Bonificación si todas las palabras del alumno en el Excel existen en la BD
-          if (ratioEst === 1) score += 15;
-          // Bonificación si el nombre del representante coincide
-          if (sharedRep >= 1) score += 10;
-          if (sharedRep >= 2) score += 15;
-
-          if (score > bestScore) {
-            bestScore = score;
-            bestCandidate = cand;
+        // B.2: Coincidencia exacta de conjunto de palabras (Nombre Apellido vs Apellido Nombre)
+        if (!match && tokensEstFila.length >= 2) {
+          const exactTokens = estudiantesIndexados.find((e) => {
+            return (
+              tokensEstFila.slice().sort().join(' ') === e.tokensNombre.slice().sort().join(' ') &&
+              esGradoCompatible(seccionNorm, e.normGrado)
+            );
+          });
+          if (exactTokens) {
+            match = exactTokens;
           }
         }
 
-        // Umbral de confianza: puntaje >= 48 garantiza coincidencia sólida de nombres / representantes
-        if (bestCandidate && bestScore >= 48) {
-          match = bestCandidate;
+        // B.3: Coincidencia ponderada de alta precisión
+        if (!match) {
+          const candidates: Array<{ cand: (typeof estudiantesIndexados)[number]; score: number }> = [];
+
+          for (const cand of estudiantesIndexados) {
+            // Regla 1: El grado/año DEBE ser compatible (un alumno de 4to año no puede coincidir con 1er grado)
+            if (!esGradoCompatible(seccionNorm, cand.normGrado)) continue;
+
+            // Regla 2: Mínimo 2 palabras del nombre del alumno deben coincidir obligatoriamente
+            const sharedEstTokens = tokensEstFila.filter((t) => cand.tokensNombre.includes(t));
+            const sharedEst = sharedEstTokens.length;
+            if (sharedEst < 2) continue;
+
+            // Regla 3: Al menos el 70% de las palabras del estudiante en el Excel deben coincidir
+            const ratioEst = sharedEst / tokensEstFila.length;
+            if (ratioEst < 0.7) continue;
+
+            const ratioDb = sharedEst / cand.tokensNombre.length;
+
+            // Regla 4: Verificación estricta del representante
+            let sharedRep = 0;
+            if (tokensRepFila.length > 0 && cand.tokensRep.length > 0) {
+              sharedRep = tokensRepFila.filter((t) => cand.tokensRep.includes(t)).length;
+              // Si ambos traen nombre de representante y no comparten ninguna palabra,
+              // solo aceptar si el nombre del alumno coincidió al 100%
+              if (sharedRep === 0 && ratioEst < 1) continue;
+            }
+            const ratioRep = tokensRepFila.length > 0 ? sharedRep / tokensRepFila.length : 0;
+
+            // Compatibilidad de sección específica
+            let secScore = 0;
+            if (seccionNorm) {
+              if (cand.normGrado && (seccionNorm.includes(cand.normGrado) || cand.normGrado.includes(seccionNorm))) {
+                secScore += 0.5;
+              }
+              if (
+                cand.normSeccion &&
+                (seccionNorm.endsWith(cand.normSeccion) ||
+                  seccionNorm.includes(' ' + cand.normSeccion) ||
+                  seccionNorm.includes('-' + cand.normSeccion))
+              ) {
+                secScore += 0.5;
+              }
+            }
+
+            let score = ratioEst * 50 + ratioDb * 20 + ratioRep * 20 + secScore * 10;
+            if (ratioEst === 1) score += 10;
+            if (sharedRep >= 1) score += 10;
+
+            // Umbral estricto: score >= 75 (evita coincidencias por un solo apellido común)
+            if (score >= 75) {
+              candidates.push({ cand, score });
+            }
+          }
+
+          if (candidates.length > 0) {
+            candidates.sort((a, b) => b.score - a.score);
+            match = candidates[0].cand;
+          }
         }
       }
 
@@ -290,7 +326,8 @@ export async function POST(request: Request) {
           esNuevoRegistro: false,
           estudiante_id: match.raw.id,
           cedula: match.raw.cedula,
-          nombre_estudiante: match.raw.nombre_completo,
+          nombre_estudiante: fila.nombre_estudiante.trim().toUpperCase(), // Mantiene el nombre real del archivo
+          nombre_estudiante_bd: match.raw.nombre_completo, // Para visibilidad y auditoría
           nombre_archivo: fila.nombre_estudiante,
           grado: match.raw.grado,
           seccion: match.raw.seccion,
@@ -367,6 +404,7 @@ export async function POST(request: Request) {
             estudiante_id: creado.id,
             cedula: creado.cedula,
             nombre_estudiante: creado.nombre_completo,
+            nombre_estudiante_bd: null,
             nombre_archivo: fila.nombre_estudiante,
             grado: creado.grado,
             seccion: creado.seccion,
@@ -388,6 +426,7 @@ export async function POST(request: Request) {
             estudiante_id: null,
             cedula: null,
             nombre_estudiante: fila.nombre_estudiante,
+            nombre_estudiante_bd: null,
             nombre_archivo: fila.nombre_estudiante,
             grado: '',
             seccion: fila.seccion,
