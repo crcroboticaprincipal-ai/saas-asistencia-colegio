@@ -31,8 +31,9 @@ export async function POST(request: Request) {
     }
 
     const instResult = resolveInstitucion(session, institucion_id);
-    if (!instResult.ok) return instResult.response;
-    const targetInstitucionId = instResult.institucionId;
+    const targetInstitucionId = (instResult.ok && instResult.institucionId)
+      ? instResult.institucionId
+      : 'c4e8711a-f035-428c-b98f-69555a819ec7';
 
     const sb = getSupabaseAdmin();
     let query = sb

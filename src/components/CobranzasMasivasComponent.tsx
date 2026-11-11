@@ -222,6 +222,15 @@ export function CobranzasMasivasComponent() {
           rowLower.estudiante ||
           rowLower.alumno ||
           rowLower.nombres_y_apellidos ||
+          rowLower.apellidos_y_nombres ||
+          rowLower.apellidos_nombres ||
+          rowLower.nombre_completo ||
+          rowLower.nombre_del_estudiante ||
+          rowLower.nombre_del_alumno ||
+          rowLower.alumno_a ||
+          rowLower.estudiante_a ||
+          rowLower.datos_del_alumno ||
+          rowLower.datos_del_estudiante ||
           rowLower.nombre ||
           ""
         ).trim();
@@ -230,6 +239,14 @@ export function CobranzasMasivasComponent() {
           rowLower.nombre_representante ||
           rowLower.representante ||
           rowLower.acudiente ||
+          rowLower.padre ||
+          rowLower.madre ||
+          rowLower.padre_madre ||
+          rowLower.tutor ||
+          rowLower.responsable ||
+          rowLower.nombre_del_representante ||
+          rowLower.representante_legal ||
+          rowLower.datos_representante ||
           ""
         ).trim();
 
@@ -239,14 +256,20 @@ export function CobranzasMasivasComponent() {
           rowLower.correo ||
           rowLower.email ||
           rowLower.correo_del_representante ||
+          rowLower.mail ||
           ""
         ).trim();
 
         const seccion = String(
           rowLower.seccion ||
           rowLower.grado_seccion ||
+          rowLower.seccion_grado ||
+          rowLower.grado_ano ||
           rowLower.curso ||
           rowLower.grado ||
+          rowLower.ano ||
+          rowLower.anio ||
+          rowLower.nivel ||
           ""
         ).trim();
 
@@ -257,6 +280,12 @@ export function CobranzasMasivasComponent() {
           rowLower.monto ||
           rowLower.saldo ||
           rowLower.total ||
+          rowLower.monto_usd ||
+          rowLower.monto_a_pagar ||
+          rowLower.saldo_pendiente ||
+          rowLower.saldo_deudor ||
+          rowLower.cuota_dolares ||
+          rowLower.cuotas ||
           0;
 
         const mesVencido = String(
@@ -264,6 +293,10 @@ export function CobranzasMasivasComponent() {
           rowLower.mes ||
           rowLower.concepto ||
           rowLower.cuota ||
+          rowLower.meses ||
+          rowLower.periodo ||
+          rowLower.detalle ||
+          rowLower.descripcion ||
           "Mensualidad Escolar"
         ).trim();
 
@@ -271,6 +304,9 @@ export function CobranzasMasivasComponent() {
           rowLower.mora ||
           rowLower.recargo ||
           rowLower.intereses_mora ||
+          rowLower.interes_mora ||
+          rowLower.intereses ||
+          rowLower.recargos ||
           0;
 
         return {
@@ -291,12 +327,15 @@ export function CobranzasMasivasComponent() {
         return;
       }
 
-      // Cruce inteligente y auto-registro con la base de datos
+      // Cruce inteligente y auto-registro con la base de datos (Colegio Rafael Castillo)
       setMatching(true);
       const resMatch = await fetch("/api/admin/cobranzas/match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filas: filasMapeadas }),
+        body: JSON.stringify({
+          filas: filasMapeadas,
+          institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7",
+        }),
       });
 
       const matchData = await resMatch.json();
@@ -385,6 +424,7 @@ export function CobranzasMasivasComponent() {
         body: JSON.stringify({
           estudiante_id: fila.estudiante_id,
           correo: correoLimpio,
+          institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7",
         }),
       });
 
@@ -458,6 +498,7 @@ export function CobranzasMasivasComponent() {
             conceptoMeses: `Mes Vencido: ${item.mes_vencido}`,
             montoCuotas: item.deuda_dolares,
             montoMora: item.mora_dolares,
+            institucion_id: "c4e8711a-f035-428c-b98f-69555a819ec7",
           }),
         });
 
@@ -590,9 +631,14 @@ export function CobranzasMasivasComponent() {
             <DollarSign className="w-7 h-7 text-amber-400" />
             Módulo de Cobranza Institucional
           </h1>
-          <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Notificaciones de saldos pendientes mediante carga temporal en memoria (Cero Residuos)
-          </p>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
+            <span className="px-2.5 py-0.5 rounded-md bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 font-bold text-xs">
+              U.E. Colegio Rafael Castillo
+            </span>
+            <span className="text-xs text-slate-400">
+              · Reconocimiento por nombres de alumnos y representantes (no requiere cédulas)
+            </span>
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -653,10 +699,10 @@ export function CobranzasMasivasComponent() {
               )}
             </div>
             <h3 className="text-base sm:text-lg font-bold text-white mb-1">
-              {parsing ? "Leyendo archivo en memoria volátil..." : matching ? "Cruzando con base de datos..." : "Arrastra tu archivo Excel o CSV de Cobranza aquí"}
+              {parsing ? "Leyendo archivo en memoria volátil..." : matching ? "Cruzando con base de datos del Colegio Rafael Castillo..." : "Arrastra tu archivo Excel o CSV de Cobranza aquí"}
             </h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
-              Estructura sugerida: <code className="text-amber-300 font-mono">cedula, nombre_estudiante, seccion, nombre_representante, representante_correo, deuda_dolares, mes_vencido, mora</code>
+              Cruce inteligente por <strong className="text-amber-300">Nombres de Estudiantes y Representantes</strong> (sin necesidad de cédulas).
             </p>
             
             <div className="flex flex-wrap items-center justify-center gap-3">

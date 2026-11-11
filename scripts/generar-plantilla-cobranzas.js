@@ -88,7 +88,7 @@ const instruccionesData = [
   ['Guía para el Departamento de Cobranzas y Administración Escolar'],
   [''],
   ['COLUMNA', 'DESCRIPCIÓN', 'OBLIGATORIO', 'EJEMPLO Y RECOMENDACIÓN'],
-  ['cedula', 'Cédula o Cédula Escolar del estudiante', 'RECOMENDADO', 'V-32145678 o 32145678. Si son hermanos que comparten cédula, usar sufijo -H1, -H2.'],
+  ['cedula', 'Cédula o Cédula Escolar (OPCIONAL: el sistema cruza por nombres sin requerir cédula)', 'OPCIONAL', 'V-32145678 o dejar vacía si no se tiene.'],
   ['nombre_estudiante', 'Nombres y apellidos completos del estudiante', 'SÍ (OBLIGATORIO)', 'GARCÍA PÉREZ ANDRÉS FELIPE. Permite el cruce automático con la nómina escolar.'],
   ['seccion', 'Grado / Año y Sección del estudiante', 'SÍ (OBLIGATORIO)', '1er Grado A, 2do Grado B, 4to Año A, Inicial B, etc.'],
   ['nombre_representante', 'Nombre del padre, madre o representante', 'OPCIONAL', 'CARLOS GARCÍA (si se omite, el sistema usará el registrado en la ficha del alumno).'],

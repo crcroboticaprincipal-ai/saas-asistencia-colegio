@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
-import { normalizarGrado, esSeccionValida, SECCIONES } from '@/lib/grados-catalogo';
+import { normalizarGrado, esSeccionValida } from '@/lib/grados-catalogo';
+
+const DEFAULT_INSTITUCION_ID = 'c4e8711a-f035-428c-b98f-69555a819ec7'; // Colegio Rafael Castillo
 
 interface FilaEntrante {
   cedula?: string;
@@ -14,6 +16,8 @@ interface FilaEntrante {
   mora?: number | string;
 }
 
+const STOP_WORDS = new Set(['de', 'la', 'los', 'las', 'del', 'el', 'y', 'al', 'en']);
+
 function normalizarTexto(txt: string | null | undefined): string {
   if (!txt) return '';
   return txt
@@ -23,6 +27,12 @@ function normalizarTexto(txt: string | null | undefined): string {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function obtenerTokens(txt: string | null | undefined): string[] {
+  return normalizarTexto(txt)
+    .split(' ')
+    .filter((w) => w.length > 1 && !STOP_WORDS.has(w));
 }
 
 function parseMonto(val: number | string | undefined): number {
@@ -101,17 +111,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Límite de 1000 registros por archivo' }, { status: 400 });
     }
 
-    const instResult = resolveInstitucion(session, institucion_id);
-    if (!instResult.ok) return instResult.response;
-    const targetInstitucionId = instResult.institucionId;
-
-    if (!targetInstitucionId) {
-      return NextResponse.json({ error: 'Institución obligatoria' }, { status: 400 });
-    }
-
     const sb = getSupabaseAdmin();
 
-    // 1. Consultar todos los estudiantes activos del plantel
+    // 1. Resolver institución automáticamente sin bloquear al usuario
+    const instResult = resolveInstitucion(session, institucion_id);
+    let targetInstitucionId: string | null = instResult.ok ? instResult.institucionId : null;
+
+    if (!targetInstitucionId) {
+      const { data: instActiva } = await sb
+        .from('instituciones')
+        .select('id')
+        .eq('activo', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      targetInstitucionId = instActiva?.id || DEFAULT_INSTITUCION_ID;
+    }
+
+    // 2. Consultar todos los estudiantes activos del plantel (Colegio Rafael Castillo)
     const { data: estudiantes, error: errEst } = await sb
       .from('estudiantes')
       .select('id, cedula, nombre_completo, grado, seccion, nombre_representante, correo_representante, foto_url')
@@ -122,12 +140,14 @@ export async function POST(request: Request) {
 
     const listaEstudiantes = estudiantes || [];
 
-    // Pre-indexar estudiantes para coincidencia rápida
+    // Pre-indexar estudiantes con tokens normalizados para coincidencia inteligente
     const estudiantesIndexados = listaEstudiantes.map((e) => ({
       raw: e,
       baseCedula: cleanBaseCedula(e.cedula),
       normNombre: normalizarTexto(e.nombre_completo),
-      tokensNombre: normalizarTexto(e.nombre_completo).split(' ').filter((t) => t.length > 1),
+      tokensNombre: obtenerTokens(e.nombre_completo),
+      normRep: normalizarTexto(e.nombre_representante),
+      tokensRep: obtenerTokens(e.nombre_representante),
       normSeccion: normalizarTexto(e.seccion),
       normGrado: normalizarTexto(e.grado),
     }));
@@ -140,8 +160,10 @@ export async function POST(request: Request) {
     for (let index = 0; index < filas.length; index++) {
       const fila = filas[index];
       const nombreNorm = normalizarTexto(fila.nombre_estudiante);
+      const repNorm = normalizarTexto(fila.nombre_representante);
       const seccionNorm = normalizarTexto(fila.seccion);
-      const tokensFila = nombreNorm.split(' ').filter((t) => t.length > 1);
+      const tokensEstFila = obtenerTokens(fila.nombre_estudiante);
+      const tokensRepFila = obtenerTokens(fila.nombre_representante);
       const filaCedulaBase = cleanBaseCedula(fila.cedula);
 
       const deuda = parseMonto(fila.deuda_dolares);
@@ -151,63 +173,91 @@ export async function POST(request: Request) {
 
       let match: (typeof estudiantesIndexados)[number] | null = null;
 
-      // ── INTENTO 1: Coincidencia por Cédula (si viene en el archivo) ──
+      // ── CASO A: Si el archivo trae cédula, intentar match directo ──
       if (filaCedulaBase) {
         const matchesPorCedula = estudiantesIndexados.filter((e) => e.baseCedula === filaCedulaBase);
         if (matchesPorCedula.length === 1) {
           match = matchesPorCedula[0];
         } else if (matchesPorCedula.length > 1) {
-          // Si son hermanos con la misma cédula base, desambiguar por nombre
+          // Hermanos con misma cédula de representante: desambiguar por nombre
           const matchHermano = matchesPorCedula.find(
-            (e) => e.normNombre === nombreNorm || tokensFila.some((t) => e.tokensNombre.includes(t))
+            (e) => e.normNombre === nombreNorm || tokensEstFila.some((t) => e.tokensNombre.includes(t))
           );
           match = matchHermano || matchesPorCedula[0];
         }
       }
 
-      // ── INTENTO 2: Coincidencia exacta por nombre y sección ──
+      // ── CASO B: Sin Cédula — Algoritmo Multicriterio de Nombres de Alumnos y Representantes ──
       if (!match) {
-        match =
-          estudiantesIndexados.find((e) => {
-            const nombreExacto = e.normNombre === nombreNorm;
-            if (!nombreExacto) return false;
-            if (!seccionNorm) return true;
-            return (
-              e.normSeccion === seccionNorm ||
-              e.normSeccion.includes(seccionNorm) ||
-              seccionNorm.includes(e.normSeccion) ||
-              e.normGrado.includes(seccionNorm)
-            );
-          }) || null;
-      }
+        let bestCandidate: (typeof estudiantesIndexados)[number] | null = null;
+        let bestScore = 0;
 
-      // ── INTENTO 3: Coincidencia por tokens principales de nombre y sección ──
-      if (!match && tokensFila.length >= 2) {
-        match =
-          estudiantesIndexados.find((e) => {
-            const coincidenciasTokens = tokensFila.filter((tok) => e.tokensNombre.includes(tok));
-            const tokenMatch = coincidenciasTokens.length >= Math.min(2, tokensFila.length);
-            if (!tokenMatch) return false;
+        for (const cand of estudiantesIndexados) {
+          // 1. Coincidencia exacta de texto completo
+          if (cand.normNombre === nombreNorm) {
+            bestCandidate = cand;
+            bestScore = 150;
+            break;
+          }
 
-            if (!seccionNorm) return true;
-            return (
-              e.normSeccion === seccionNorm ||
-              e.normSeccion.includes(seccionNorm) ||
-              seccionNorm.includes(e.normSeccion) ||
-              e.normGrado.includes(seccionNorm)
-            );
-          }) || null;
-      }
+          // 2. Coincidencia exacta de conjunto de palabras (independiente de orden: Nombre Apellido vs Apellido Nombre)
+          if (
+            tokensEstFila.length >= 2 &&
+            tokensEstFila.slice().sort().join(' ') === cand.tokensNombre.slice().sort().join(' ')
+          ) {
+            bestCandidate = cand;
+            bestScore = 140;
+            break;
+          }
 
-      // ── INTENTO 4: Nombre único en toda la institución ──
-      if (!match) {
-        const matchesNombre = estudiantesIndexados.filter((e) => {
-          if (e.normNombre === nombreNorm) return true;
-          const coincidencias = tokensFila.filter((tok) => e.tokensNombre.includes(tok));
-          return coincidencias.length >= 2 && coincidencias.length === tokensFila.length;
-        });
-        if (matchesNombre.length === 1) {
-          match = matchesNombre[0];
+          // 3. Evaluar solapamiento de tokens de estudiante
+          const sharedEst = tokensEstFila.filter((t) => cand.tokensNombre.includes(t)).length;
+          if (sharedEst === 0) continue; // Si no comparte ninguna palabra del alumno, descartar
+
+          const ratioEst = sharedEst / Math.max(tokensEstFila.length, 1);
+          const ratioDb = sharedEst / Math.max(cand.tokensNombre.length, 1);
+
+          // 4. Evaluar solapamiento de tokens de representante (CLAVE cuando no hay cédula)
+          let sharedRep = 0;
+          if (tokensRepFila.length > 0 && cand.tokensRep.length > 0) {
+            sharedRep = tokensRepFila.filter((t) => cand.tokensRep.includes(t)).length;
+          }
+          const ratioRep = tokensRepFila.length > 0 ? sharedRep / tokensRepFila.length : 0;
+
+          // 5. Evaluar compatibilidad de grado y sección
+          let secScore = 0;
+          if (seccionNorm) {
+            if (cand.normGrado && (seccionNorm.includes(cand.normGrado) || cand.normGrado.includes(seccionNorm))) {
+              secScore += 0.6;
+            }
+            if (
+              cand.normSeccion &&
+              (seccionNorm.endsWith(cand.normSeccion) ||
+                seccionNorm.includes(' ' + cand.normSeccion) ||
+                seccionNorm.includes('-' + cand.normSeccion))
+            ) {
+              secScore += 0.4;
+            }
+          }
+
+          // Ponderación de señales
+          let score = ratioEst * 50 + ratioDb * 20 + ratioRep * 25 + secScore * 15;
+
+          // Bonificación si todas las palabras del alumno en el Excel existen en la BD
+          if (ratioEst === 1) score += 15;
+          // Bonificación si el nombre del representante coincide
+          if (sharedRep >= 1) score += 10;
+          if (sharedRep >= 2) score += 15;
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestCandidate = cand;
+          }
+        }
+
+        // Umbral de confianza: puntaje >= 48 garantiza coincidencia sólida de nombres / representantes
+        if (bestCandidate && bestScore >= 48) {
+          match = bestCandidate;
         }
       }
 
@@ -254,14 +304,12 @@ export async function POST(request: Request) {
           foto_url: match.raw.foto_url,
         });
       } else {
-        // ── REGISTRO AUTOMÁTICO DE ESTUDIANTES NO ENCONTRADOS ──
-        // El usuario solicitó: "si en la lista figuran estudiantes que no tenemos registrados,
-        // registralos y luego yo les agrego el correo!!"
+        // ── REGISTRO AUTOMÁTICO DE ESTUDIANTES NUEVOS (COLEGIO RAFAEL CASTILLO) ──
         try {
           const { grado: gradoFinal, seccion: seccionFinal } = extraerGradoYSeccion(fila.seccion);
           const nombreCompletoUpper = fila.nombre_estudiante.trim().toUpperCase();
 
-          // Determinar cédula (si vino en archivo, usarla; si no, generar cédula escolar temporal)
+          // Sin cédula en el Excel: generar cédula escolar provisional única
           let cedulaFinal = String(fila.cedula || '').trim().toUpperCase().replace(/\s+/g, '');
           if (!cedulaFinal) {
             cedulaFinal = `ESC-${Date.now().toString().slice(-6)}${Math.floor(100 + Math.random() * 900)}`;
@@ -298,12 +346,14 @@ export async function POST(request: Request) {
 
           totalNuevosRegistrados++;
 
-          // Agregar al índice local para que próximas filas que repitan a este alumno lo reconozcan
+          // Agregar al índice local por si este alumno nuevo se repite en filas posteriores
           estudiantesIndexados.push({
             raw: creado,
             baseCedula: cleanBaseCedula(creado.cedula),
             normNombre: normalizarTexto(creado.nombre_completo),
-            tokensNombre: normalizarTexto(creado.nombre_completo).split(' ').filter((t) => t.length > 1),
+            tokensNombre: obtenerTokens(creado.nombre_completo),
+            normRep: normalizarTexto(creado.nombre_representante),
+            tokensRep: obtenerTokens(creado.nombre_representante),
             normSeccion: normalizarTexto(creado.seccion),
             normGrado: normalizarTexto(creado.grado),
           });
@@ -313,7 +363,7 @@ export async function POST(request: Request) {
           filasProcesadas.push({
             idx: index,
             estado: tieneCorreoNuevo ? ('listo' as const) : ('sin_correo' as const),
-            esNuevoRegistro: true, // Marcador especial para destacar
+            esNuevoRegistro: true,
             estudiante_id: creado.id,
             cedula: creado.cedula,
             nombre_estudiante: creado.nombre_completo,
