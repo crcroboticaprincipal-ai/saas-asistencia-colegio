@@ -5,13 +5,15 @@ import * as XLSX from "xlsx";
 import { 
   UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle, 
   AlertCircle, Play, Download, Trash2, Mail, 
-  DollarSign, ArrowLeft, ShieldCheck, Check, Loader2, Sparkles, XCircle 
+  DollarSign, ArrowLeft, ShieldCheck, Check, Loader2, Sparkles, XCircle,
+  FileDown
 } from "lucide-react";
 import Link from "next/link";
 
 interface FilaProcesada {
   idx: number;
   estado: "listo" | "sin_correo" | "no_encontrado";
+  esNuevoRegistro?: boolean;
   estudiante_id: string | null;
   cedula: string | null;
   nombre_estudiante: string;
@@ -37,6 +39,7 @@ interface ResumenMatch {
   totalFilas: number;
   totalListos: number;
   totalSinCorreo: number;
+  totalNuevosRegistrados?: number;
   totalNoEncontrados: number;
   montoGlobalTotal: number;
 }
@@ -47,7 +50,11 @@ export function CobranzasMasivasComponent() {
   const [matching, setMatching] = useState(false);
   const [filas, setFilas] = useState<FilaProcesada[]>([]);
   const [resumen, setResumen] = useState<ResumenMatch | null>(null);
-  const [filtroTab, setFiltroTab] = useState<"todos" | "listos" | "advertencias">("todos");
+  const [filtroTab, setFiltroTab] = useState<"todos" | "listos" | "sin_correo" | "advertencias">("todos");
+
+  // Estado para guardado en base de datos de correos manuales
+  const [guardandoIdx, setGuardandoIdx] = useState<number | null>(null);
+  const [correoGuardadoExito, setCorreoGuardadoExito] = useState<number | null>(null);
 
   // Dispatch progress state
   const [despachando, setDespachando] = useState(false);
@@ -57,6 +64,118 @@ export function CobranzasMasivasComponent() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneId = useId();
+
+  // ── Generar y Descargar Plantilla Oficial de Cobranzas (.xlsx) ──
+  const descargarPlantillaOficial = () => {
+    const datosCobranza = [
+      {
+        cedula: "V-32145678",
+        nombre_estudiante: "GARCÍA PÉREZ ANDRÉS FELIPE",
+        seccion: "1er Grado A",
+        nombre_representante: "CARLOS GARCÍA",
+        representante_correo: "carlos.garcia@email.com",
+        mes_vencido: "Octubre 2026",
+        deuda_dolares: 45.0,
+        mora: 0.0,
+      },
+      {
+        cedula: "V-33987654",
+        nombre_estudiante: "RODRÍGUEZ HERNÁNDEZ VALENTINA",
+        seccion: "2do Grado B",
+        nombre_representante: "PATRICIA HERNÁNDEZ",
+        representante_correo: "patricia.hernandez@email.com",
+        mes_vencido: "Septiembre y Octubre 2026",
+        deuda_dolares: 90.0,
+        mora: 5.0,
+      },
+      {
+        cedula: "V-30876543",
+        nombre_estudiante: "MARTÍNEZ LÓPEZ SEBASTIÁN",
+        seccion: "4to Año A",
+        nombre_representante: "ROBERTO MARTÍNEZ",
+        representante_correo: "", // Ejemplo de alumno sin correo, el sistema lo destacará
+        mes_vencido: "Octubre 2026",
+        deuda_dolares: 50.0,
+        mora: 0.0,
+      },
+      {
+        cedula: "V-31234567-H1",
+        nombre_estudiante: "MENDOZA CASTILLO ISABELLA",
+        seccion: "Inicial B",
+        nombre_representante: "MARIANA CASTILLO",
+        representante_correo: "mariana.castillo@email.com",
+        mes_vencido: "Matrícula Escolar 2026-2027",
+        deuda_dolares: 60.0,
+        mora: 0.0,
+      },
+      {
+        cedula: "V-31234567-H2",
+        nombre_estudiante: "MENDOZA CASTILLO SANTIAGO",
+        seccion: "3er Grado A",
+        nombre_representante: "MARIANA CASTILLO",
+        representante_correo: "mariana.castillo@email.com",
+        mes_vencido: "Matrícula Escolar 2026-2027",
+        deuda_dolares: 60.0,
+        mora: 0.0,
+      },
+    ];
+
+    const wsCobranza = XLSX.utils.json_to_sheet(datosCobranza, {
+      header: [
+        "cedula",
+        "nombre_estudiante",
+        "seccion",
+        "nombre_representante",
+        "representante_correo",
+        "mes_vencido",
+        "deuda_dolares",
+        "mora",
+      ],
+    });
+
+    wsCobranza["!cols"] = [
+      { wch: 16 },
+      { wch: 34 },
+      { wch: 18 },
+      { wch: 28 },
+      { wch: 32 },
+      { wch: 28 },
+      { wch: 16 },
+      { wch: 12 },
+    ];
+
+    const instruccionesData = [
+      ["SISTEMA ASISTO — PLANTILLA OFICIAL DE COBRANZAS INSTITUCIONALES"],
+      ["Guía para el Departamento de Cobranzas y Administración Escolar"],
+      [""],
+      ["COLUMNA", "DESCRIPCIÓN", "OBLIGATORIO", "EJEMPLO Y RECOMENDACIÓN"],
+      ["cedula", "Cédula o Cédula Escolar del estudiante", "RECOMENDADO", "V-32145678 o 32145678. Si son hermanos con la misma cédula, usar sufijo -H1, -H2."],
+      ["nombre_estudiante", "Nombres y apellidos completos del estudiante", "SÍ (OBLIGATORIO)", "GARCÍA PÉREZ ANDRÉS FELIPE. Permite el cruce automático con la nómina escolar."],
+      ["seccion", "Grado / Año y Sección del estudiante", "SÍ (OBLIGATORIO)", "1er Grado A, 2do Grado B, 4to Año A, Inicial B, etc."],
+      ["nombre_representante", "Nombre del padre, madre o representante", "OPCIONAL", "CARLOS GARCÍA (si se omite, el sistema usará el registrado en la ficha del alumno)."],
+      ["representante_correo", "Correo del representante para la notificación", "OPCIONAL", "correo@ejemplo.com. Si no se tiene, déjelo vacío; el sistema lo destacará para agregarlo."],
+      ["mes_vencido", "Concepto, mes o cuotas adeudadas", "SÍ (OBLIGATORIO)", "Octubre 2026, Septiembre y Octubre, Matrícula 2026-2027, etc."],
+      ["deuda_dolares", "Monto subtotal de la cuota en dólares ($ USD)", "SÍ (OBLIGATORIO)", "45.00 (solo número decimal, sin símbolo de moneda)."],
+      ["mora", "Recargo o intereses de mora en dólares ($ USD)", "OPCIONAL", "5.00 o 0.00 si no aplica recargo."],
+      [""],
+      ["FUNCIONAMIENTO INTELIGENTE DE ASISTO EN COBRANZAS:"],
+      ["1. CRUCE AUTOMÁTICO:", "El sistema cruza cada fila con los estudiantes activos de la institución y extrae automáticamente el correo si ya está en el sistema."],
+      ["2. ALUMNOS NO REGISTRADOS:", "Si un alumno de esta lista no aparece en el sistema escolar, Asisto lo registra automáticamente en la base de datos."],
+      ["3. ALUMNOS SIN CORREO:", "El sistema destacará en color ámbar a los estudiantes que no tengan correo asociado para que administración pueda escribirlo y guardarlo."],
+      ["4. SEGURIDAD Y PRIVACIDAD:", "El archivo se procesa únicamente en memoria volátil temporal (Cero Residuos en disco) y no se guardan datos bancarios en las plantillas."],
+      [""],
+      ["IMPORTANTE:", "NO modifiques los nombres de los encabezados de la fila 1 de la hoja 'Cobranza_Alumnos'. Puedes borrar las filas de ejemplo antes de pegar tus datos reales."],
+    ];
+
+    const wsInstrucciones = XLSX.utils.aoa_to_sheet(instruccionesData);
+    wsInstrucciones["!cols"] = [{ wch: 25 }, { wch: 45 }, { wch: 18 }, { wch: 65 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsCobranza, "Cobranza_Alumnos");
+    XLSX.utils.book_append_sheet(wb, wsInstrucciones, "INSTRUCCIONES");
+
+    XLSX.writeFile(wb, "Plantilla_Oficial_Cobranzas_Asisto.xlsx");
+  };
 
   // ── Leer archivo en memoria volátil (Cero Residuos) ──
   const procesarArchivoEnMemoria = async (file: File) => {
@@ -90,6 +209,14 @@ export function CobranzasMasivasComponent() {
           rowLower[kNorm] = v;
         }
 
+        const cedula = String(
+          rowLower.cedula ||
+          rowLower.ci ||
+          rowLower.documento ||
+          rowLower.cedula_escolar ||
+          ""
+        ).trim();
+
         const nombreEstudiante = String(
           rowLower.nombre_estudiante ||
           rowLower.estudiante ||
@@ -103,6 +230,15 @@ export function CobranzasMasivasComponent() {
           rowLower.nombre_representante ||
           rowLower.representante ||
           rowLower.acudiente ||
+          ""
+        ).trim();
+
+        const correoRepresentante = String(
+          rowLower.representante_correo ||
+          rowLower.correo_representante ||
+          rowLower.correo ||
+          rowLower.email ||
+          rowLower.correo_del_representante ||
           ""
         ).trim();
 
@@ -138,8 +274,10 @@ export function CobranzasMasivasComponent() {
           0;
 
         return {
+          cedula,
           nombre_estudiante: nombreEstudiante,
           nombre_representante: nombreRepresentante,
+          correo_representante: correoRepresentante,
           seccion,
           deuda_dolares: deudaDolares,
           mes_vencido: mesVencido,
@@ -153,7 +291,7 @@ export function CobranzasMasivasComponent() {
         return;
       }
 
-      // Cruce inteligente con la base de datos
+      // Cruce inteligente y auto-registro con la base de datos
       setMatching(true);
       const resMatch = await fetch("/api/admin/cobranzas/match", {
         method: "POST",
@@ -203,17 +341,18 @@ export function CobranzasMasivasComponent() {
     setResumen(null);
     setDespachando(false);
     setDespachoTerminado(false);
+    setFiltroTab("todos");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
 
-  // Modificar manualmente correo en caso de advertencia
-  const handleActualizarCorreo = (idx: number, nuevoCorreo: string) => {
+  // Modificar correo localmente
+  const handleCambiarCorreoLocal = (idx: number, nuevoCorreo: string) => {
     setFilas((prev) =>
       prev.map((f) => {
         if (f.idx === idx) {
-          const valido = nuevoCorreo.includes("@");
+          const valido = nuevoCorreo.includes("@") && nuevoCorreo.includes(".");
           return {
             ...f,
             correo_representante: nuevoCorreo,
@@ -223,6 +362,56 @@ export function CobranzasMasivasComponent() {
         return f;
       })
     );
+  };
+
+  // Guardar y persistir correo directamente en la base de datos
+  const handleGuardarCorreoEnBD = async (fila: FilaProcesada) => {
+    const correoLimpio = fila.correo_representante.trim().toLowerCase();
+    if (!correoLimpio || !correoLimpio.includes("@") || !correoLimpio.includes(".")) {
+      alert("Por favor introduce una dirección de correo válida (ejemplo: usuario@correo.com)");
+      return;
+    }
+
+    if (!fila.estudiante_id) {
+      alert("No se puede sincronizar el correo porque el alumno no posee ID asignado.");
+      return;
+    }
+
+    try {
+      setGuardandoIdx(fila.idx);
+      const res = await fetch("/api/admin/cobranzas/actualizar-correo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estudiante_id: fila.estudiante_id,
+          correo: correoLimpio,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Error al actualizar correo");
+
+      // Actualizar resumen local
+      setResumen((prev) => {
+        if (!prev) return prev;
+        const totalListos = filas.filter((f) => (f.idx === fila.idx ? true : f.estado === "listo")).length;
+        const totalSinCorreo = filas.filter((f) => (f.idx === fila.idx ? false : f.estado === "sin_correo")).length;
+        return {
+          ...prev,
+          totalListos,
+          totalSinCorreo,
+        };
+      });
+
+      setCorreoGuardadoExito(fila.idx);
+      setTimeout(() => {
+        setCorreoGuardadoExito((current) => (current === fila.idx ? null : current));
+      }, 3500);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Error al guardar el correo en la base de datos");
+    } finally {
+      setGuardandoIdx(null);
+    }
   };
 
   // ── Despacho Controlado (Pausa de 300 ms entre envíos) ──
@@ -322,6 +511,7 @@ export function CobranzasMasivasComponent() {
   const descargarReporteCSV = () => {
     const encabezados = [
       "Estudiante",
+      "Cédula",
       "Sección",
       "Representante",
       "Correo",
@@ -349,6 +539,7 @@ export function CobranzasMasivasComponent() {
 
       return [
         `"${f.nombre_estudiante.replace(/"/g, '""')}"`,
+        `"${(f.cedula || '').replace(/"/g, '""')}"`,
         `"${(f.seccion || f.seccion_archivo).replace(/"/g, '""')}"`,
         `"${f.nombre_representante.replace(/"/g, '""')}"`,
         `"${f.correo_representante.replace(/"/g, '""')}"`,
@@ -374,6 +565,7 @@ export function CobranzasMasivasComponent() {
 
   const filasFiltradas = filas.filter((f) => {
     if (filtroTab === "listos") return f.estado === "listo";
+    if (filtroTab === "sin_correo") return f.estado === "sin_correo";
     if (filtroTab === "advertencias") return f.estado !== "listo";
     return true;
   });
@@ -381,7 +573,7 @@ export function CobranzasMasivasComponent() {
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       
-      {/* Barra de Título y Navegación */}
+      {/* Barra de Título y Acciones */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -403,25 +595,37 @@ export function CobranzasMasivasComponent() {
           </p>
         </div>
 
-        {filas.length > 0 && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={resetearCarga}
-              disabled={despachando}
-              className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 border border-white/5 transition-colors flex items-center gap-1.5"
-            >
-              <Trash2 className="w-4 h-4" /> Descartar Archivo
-            </button>
-            {despachoTerminado && (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Botón de Descarga de Plantilla Oficial */}
+          <button
+            onClick={descargarPlantillaOficial}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600/20 to-teal-600/20 hover:from-emerald-600/30 hover:to-teal-600/30 text-emerald-300 border border-emerald-500/40 transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+            title="Descargar archivo Excel oficial con encabezados, instrucciones y ejemplos para el Departamento de Cobranzas"
+          >
+            <FileDown className="w-4 h-4 text-emerald-400" />
+            <span>Descargar Plantilla Excel</span>
+          </button>
+
+          {filas.length > 0 && (
+            <>
               <button
-                onClick={descargarReporteCSV}
-                className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md flex items-center gap-1.5"
+                onClick={resetearCarga}
+                disabled={despachando}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-rose-300 hover:bg-rose-500/10 border border-white/5 transition-colors flex items-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-4 h-4" /> Exportar Resultado CSV
+                <Trash2 className="w-4 h-4" /> Descartar Archivo
               </button>
-            )}
-          </div>
-        )}
+              {despachoTerminado && (
+                <button
+                  onClick={descargarReporteCSV}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" /> Exportar Resultado CSV
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* ── ZONA 1: CARGA DE ARCHIVO EN MEMORIA VOLÁTIL ── */}
@@ -452,24 +656,39 @@ export function CobranzasMasivasComponent() {
               {parsing ? "Leyendo archivo en memoria volátil..." : matching ? "Cruzando con base de datos..." : "Arrastra tu archivo Excel o CSV de Cobranza aquí"}
             </h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto mb-4">
-              Estructura sugerida: <code className="text-amber-300 font-mono">nombre_estudiante, nombre_representante, seccion, deuda_dolares, mes_vencido</code>
+              Estructura sugerida: <code className="text-amber-300 font-mono">cedula, nombre_estudiante, seccion, nombre_representante, representante_correo, deuda_dolares, mes_vencido, mora</code>
             </p>
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-slate-300 group-hover:text-white">
-              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-              Seleccionar archivo (.xlsx / .csv)
+            
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-xs font-bold text-amber-300 group-hover:bg-amber-500/30">
+                <FileSpreadsheet className="w-4 h-4 text-amber-400" />
+                Seleccionar archivo (.xlsx / .csv)
+              </div>
+
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  descargarPlantillaOficial();
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-xs font-bold text-emerald-300 transition-colors"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+                Descargar Plantilla Oficial
+              </button>
             </div>
           </div>
 
           {/* Banner de Garantía Cero Residuos y Seguridad Financiera */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/20 flex items-start gap-3">
               <ShieldCheck className="w-5 h-5 text-indigo-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
-                  Procesamiento en Memoria (Cero Residuos)
+                  Memoria Volátil (Cero Residuos)
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  El archivo no se almacena en el disco del servidor ni en la nube. Se procesa en memoria volátil y se destruye inmediatamente tras el envío.
+                  El archivo no se guarda en disco ni en servidores. Se procesa en RAM y se destruye inmediatamente tras el envío.
                 </p>
               </div>
             </div>
@@ -478,10 +697,22 @@ export function CobranzasMasivasComponent() {
               <Sparkles className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs font-bold text-amber-300 uppercase tracking-wider">
-                  Cruce Inteligente (Smart Match)
+                  Cruce y Auto-Registro
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  El sistema detecta automáticamente al estudiante y extrae su correo institucional registrado para evitar errores de digitación en los montos.
+                  Detecta estudiantes existentes y si alguno no figura en la nómina, lo registra automáticamente en el sistema para que no pierdas su control.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-rose-950/20 border border-rose-500/20 flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-rose-300 uppercase tracking-wider">
+                  Detección de Correos Faltantes
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Los estudiantes sin correo aparecen destacados para que puedas escribir el email directamente en la tabla y guardarlo en su ficha.
                 </p>
               </div>
             </div>
@@ -514,19 +745,20 @@ export function CobranzasMasivasComponent() {
                 <span className="text-[11px] text-emerald-500/80">Con correo verificado</span>
               </div>
 
-              <div className="glass-card p-4 rounded-2xl border border-rose-500/25 bg-rose-500/5">
-                <span className="text-[11px] font-semibold text-rose-400 uppercase tracking-wider block">
-                  Advertencias
+              <div className="glass-card p-4 rounded-2xl border-2 border-amber-500/40 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+                <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider block flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400" />
+                  Sin Correo
                 </span>
-                <span className="text-2xl font-black text-rose-300 mt-1 block">
-                  {resumen.totalSinCorreo + resumen.totalNoEncontrados}
+                <span className="text-2xl font-black text-amber-300 mt-1 block">
+                  {resumen.totalSinCorreo}
                 </span>
-                <span className="text-[11px] text-rose-500/80">
-                  {resumen.totalSinCorreo} sin email · {resumen.totalNoEncontrados} no hallados
+                <span className="text-[11px] text-amber-400/90 font-medium">
+                  {resumen.totalSinCorreo > 0 ? "Requieren ingresar email" : "¡Todos con correo!"}
                 </span>
               </div>
 
-              <div className="glass-card p-4 rounded-2xl border border-amber-500/30 bg-amber-500/10">
+              <div className="glass-card p-4 rounded-2xl border border-amber-500/30 bg-amber-500/5">
                 <span className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider block">
                   Monto Global
                 </span>
@@ -535,6 +767,41 @@ export function CobranzasMasivasComponent() {
                 </span>
                 <span className="text-[11px] text-amber-400 font-bold">USD a notificar</span>
               </div>
+            </div>
+          )}
+
+          {/* Banner de Aviso de Estudiantes Nuevos Registrados */}
+          {resumen && (resumen.totalNuevosRegistrados || 0) > 0 && (
+            <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-500/30 flex items-center gap-3 animate-slide-up">
+              <Sparkles className="w-5 h-5 text-indigo-400 shrink-0" />
+              <p className="text-xs text-indigo-200">
+                <strong>✨ Registro Automático:</strong> Se detectaron y registraron exitosamente en la institución <strong>{resumen.totalNuevosRegistrados} alumno(s) nuevo(s)</strong> que no existían previamente en la base de datos escolar.
+              </p>
+            </div>
+          )}
+
+          {/* Banner de Advertencia Destacado para Estudiantes Sin Correo */}
+          {resumen && resumen.totalSinCorreo > 0 && (
+            <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 shrink-0 mt-0.5">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-amber-200">
+                    ⚠️ Tienes {resumen.totalSinCorreo} estudiante(s) sin correo electrónico registrado
+                  </p>
+                  <p className="text-xs text-amber-300/80 mt-0.5">
+                    Están destacados con franja ámbar en la tabla. Puedes escribir el correo de su representante en la casilla y presionar &quot;Guardar&quot; para agregarlo a su ficha escolar y poder despacharles la notificación.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setFiltroTab("sin_correo")}
+                className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-md shrink-0 self-start sm:self-auto cursor-pointer"
+              >
+                Ver sólo sin correo ({resumen.totalSinCorreo})
+              </button>
             </div>
           )}
 
@@ -579,7 +846,7 @@ export function CobranzasMasivasComponent() {
 
           {/* Panel de Control y Filtros */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900/60 border border-white/10">
-            <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-950/80 border border-white/5 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-slate-950/80 border border-white/5 text-xs">
               <button
                 onClick={() => setFiltroTab("todos")}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
@@ -601,6 +868,17 @@ export function CobranzasMasivasComponent() {
                 Listos ({resumen?.totalListos || 0})
               </button>
               <button
+                onClick={() => setFiltroTab("sin_correo")}
+                className={`px-3 py-1.5 rounded-lg font-bold transition-all flex items-center gap-1.5 ${
+                  filtroTab === "sin_correo"
+                    ? "bg-amber-500 text-slate-950 shadow"
+                    : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10"
+                }`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                Sin Correo ({resumen?.totalSinCorreo || 0})
+              </button>
+              <button
                 onClick={() => setFiltroTab("advertencias")}
                 className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
                   filtroTab === "advertencias"
@@ -616,7 +894,7 @@ export function CobranzasMasivasComponent() {
               <button
                 onClick={iniciarEnvioMasivo}
                 disabled={despachando || (resumen?.totalListos || 0) === 0}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-white transition-all shadow-lg shadow-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 {despachando ? (
                   <>
@@ -626,7 +904,7 @@ export function CobranzasMasivasComponent() {
                 ) : (
                   <>
                     <Play className="w-4 h-4 fill-white" />
-                    <span>🚀 Iniciar Envío Masivo</span>
+                    <span>🚀 Iniciar Envío Masivo ({resumen?.totalListos || 0})</span>
                   </>
                 )}
               </button>
@@ -635,12 +913,12 @@ export function CobranzasMasivasComponent() {
 
           {/* Tabla de Resultados del Cruce */}
           <div className="glass-panel rounded-2xl border border-white/10 overflow-hidden shadow-2xl">
-            <div className="overflow-x-auto max-h-[550px]">
+            <div className="overflow-x-auto max-h-[580px]">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-slate-950/80 sticky top-0 z-10 border-b border-white/10">
                   <tr className="text-slate-400 uppercase font-semibold">
                     <th className="py-3 px-4">#</th>
-                    <th className="py-3 px-4">Estudiante (Archivo vs BD)</th>
+                    <th className="py-3 px-4">Estudiante</th>
                     <th className="py-3 px-4">Sección</th>
                     <th className="py-3 px-4">Representante y Correo</th>
                     <th className="py-3 px-4">Concepto / Mes</th>
@@ -658,73 +936,113 @@ export function CobranzasMasivasComponent() {
                     return (
                       <tr
                         key={fila.idx}
-                        className={`hover:bg-white/[0.02] transition-colors ${
-                          resultado?.ok
+                        className={`transition-colors ${
+                          esSinCorreo
+                            ? "bg-amber-500/10 hover:bg-amber-500/15 border-l-4 border-l-amber-500"
+                            : resultado?.ok
                             ? "bg-emerald-500/5"
                             : resultado?.error
                             ? "bg-rose-500/5"
-                            : ""
+                            : "hover:bg-white/[0.02]"
                         }`}
                       >
-                        <td className="py-3 px-4 font-mono text-slate-500">
+                        <td className="py-3.5 px-4 font-mono text-slate-500">
                           {fila.idx + 1}
                         </td>
 
                         {/* Nombre del Estudiante */}
-                        <td className="py-3 px-4 font-medium">
+                        <td className="py-3.5 px-4 font-medium">
                           <p className="text-white font-bold uppercase">
                             {fila.nombre_estudiante}
                           </p>
-                          {fila.cedula && (
-                            <p className="text-[10px] text-slate-500 font-mono">
-                              CI: {fila.cedula}
-                            </p>
-                          )}
-                          {esNoEncontrado && (
-                            <span className="text-[10px] text-rose-400">
-                              No encontrado en el plantel
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                            {fila.cedula && (
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                CI: {fila.cedula}
+                              </span>
+                            )}
+                            {fila.esNuevoRegistro && (
+                              <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[9px] font-bold">
+                                ✨ Alumno nuevo registrado
+                              </span>
+                            )}
+                            {esSinCorreo && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-500/25 text-amber-300 border border-amber-500/40 text-[9px] font-bold flex items-center gap-1">
+                                <AlertTriangle className="w-2.5 h-2.5" /> Requiere Correo
+                              </span>
+                            )}
+                            {esNoEncontrado && (
+                              <span className="text-[10px] text-rose-400">
+                                Error de registro en BD
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Sección */}
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4">
                           <span className="px-2 py-0.5 rounded bg-slate-800 border border-white/5 font-semibold text-slate-300">
                             {fila.seccion || fila.seccion_archivo || "-"}
                           </span>
                         </td>
 
                         {/* Representante & Correo */}
-                        <td className="py-3 px-4">
-                          <p className="text-slate-300 font-medium">
+                        <td className="py-3.5 px-4">
+                          <p className="text-slate-200 font-medium">
                             {fila.nombre_representante}
                           </p>
                           {esSinCorreo || esNoEncontrado ? (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <input
-                                type="email"
-                                placeholder="Escribir correo para notificar..."
-                                value={fila.correo_representante}
-                                onChange={(e) => handleActualizarCorreo(fila.idx, e.target.value)}
-                                className="bg-slate-950 border border-rose-500/40 rounded px-2 py-1 text-[11px] text-white focus:outline-none focus:border-amber-400 w-48"
-                              />
+                            <div className="space-y-1 mt-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="email"
+                                  placeholder="correo@ejemplo.com"
+                                  value={fila.correo_representante}
+                                  onChange={(e) => handleCambiarCorreoLocal(fila.idx, e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      handleGuardarCorreoEnBD(fila);
+                                    }
+                                  }}
+                                  className="bg-slate-950 border-2 border-amber-400/80 focus:border-amber-400 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-400/40 w-52 font-mono"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleGuardarCorreoEnBD(fila)}
+                                  disabled={guardandoIdx === fila.idx || !fila.correo_representante.includes("@")}
+                                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] rounded-lg transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer shadow-sm"
+                                  title="Guardar correo permanentemente en la base de datos escolar"
+                                >
+                                  {guardandoIdx === fila.idx ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Check className="w-3 h-3" />
+                                  )}
+                                  <span>Guardar</span>
+                                </button>
+                              </div>
+                              {correoGuardadoExito === fila.idx && (
+                                <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 animate-fade-in">
+                                  <CheckCircle2 className="w-3 h-3" /> ¡Guardado en ficha escolar!
+                                </p>
+                              )}
                             </div>
                           ) : (
-                            <p className="text-slate-400 font-mono text-[11px]">
+                            <p className="text-slate-400 font-mono text-[11px] mt-0.5">
                               {fila.correo_representante}
                             </p>
                           )}
                         </td>
 
                         {/* Concepto / Mes */}
-                        <td className="py-3 px-4">
+                        <td className="py-3.5 px-4">
                           <span className="text-slate-300 font-medium">
                             {fila.mes_vencido}
                           </span>
                         </td>
 
                         {/* Montos */}
-                        <td className="py-3 px-4 text-right font-mono">
+                        <td className="py-3.5 px-4 text-right font-mono">
                           <p className="font-bold text-white">
                             ${fila.total_dolares.toFixed(2)}
                           </p>
@@ -736,7 +1054,7 @@ export function CobranzasMasivasComponent() {
                         </td>
 
                         {/* Estatus */}
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-3.5 px-4 text-center">
                           {resultado ? (
                             resultado.ok ? (
                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
@@ -755,12 +1073,12 @@ export function CobranzasMasivasComponent() {
                               <CheckCircle2 className="w-3 h-3" /> Listo
                             </span>
                           ) : esSinCorreo ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/25 text-amber-300 border border-amber-500/40 animate-pulse">
                               <AlertTriangle className="w-3 h-3" /> Sin correo
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                              <AlertCircle className="w-3 h-3" /> No hallado
+                              <AlertCircle className="w-3 h-3" /> Error
                             </span>
                           )}
                         </td>

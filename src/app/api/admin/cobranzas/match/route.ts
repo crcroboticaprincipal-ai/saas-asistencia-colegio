@@ -1,10 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase/admin';
 import { requireAdmin, resolveInstitucion } from '@/lib/api-auth';
+import { normalizarGrado, esSeccionValida, SECCIONES } from '@/lib/grados-catalogo';
 
 interface FilaEntrante {
+  cedula?: string;
   nombre_estudiante: string;
   nombre_representante?: string;
+  correo_representante?: string;
   seccion: string;
   deuda_dolares: number | string;
   mes_vencido: string;
@@ -28,6 +31,57 @@ function parseMonto(val: number | string | undefined): number {
   const clean = String(val).replace(/[^0-9.,]/g, '').replace(',', '.');
   const num = parseFloat(clean);
   return isNaN(num) ? 0 : Math.max(0, num);
+}
+
+function slugifyNombre(nombre: string): string {
+  return nombre
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function cleanBaseCedula(c: string | null | undefined): string {
+  if (!c) return '';
+  return String(c)
+    .trim()
+    .toUpperCase()
+    .replace(/-H\d+$/i, '')
+    .replace(/^(V-|E-|RC-|QR-|ASISTO-)/i, '')
+    .replace(/[^0-9A-Z]/g, '');
+}
+
+/**
+ * Extrae grado y sección de una cadena como "1er Grado A", "3er Año B", "Inicial B", "A", etc.
+ */
+function extraerGradoYSeccion(texto: string): { grado: string; seccion: string } {
+  if (!texto) return { grado: '1er Grado', seccion: 'A' };
+  const limpio = texto.trim();
+
+  // Si termina con una letra de sección (A, B, C) precedida de espacio o guion
+  const matchSeccion = limpio.match(/^(.*?)(?:[\s\-_]+)([A-C])$/i);
+  if (matchSeccion) {
+    const gradoTexto = matchSeccion[1].trim();
+    const posibleGrado = normalizarGrado(gradoTexto) ?? gradoTexto;
+    const seccionFinal = matchSeccion[2].toUpperCase();
+    return {
+      grado: String(posibleGrado || '1er Grado'),
+      seccion: esSeccionValida(seccionFinal) ? seccionFinal : 'A',
+    };
+  }
+
+  // Si solo viene "A", "B" o "C"
+  if (/^[A-C]$/i.test(limpio)) {
+    return { grado: '1er Grado', seccion: limpio.toUpperCase() };
+  }
+
+  // Si es un nombre de grado canónico
+  const norm = normalizarGrado(limpio);
+  return {
+    grado: String(norm || limpio),
+    seccion: 'A',
+  };
 }
 
 export async function POST(request: Request) {
@@ -57,7 +111,7 @@ export async function POST(request: Request) {
 
     const sb = getSupabaseAdmin();
 
-    // Consultar todos los estudiantes activos del plantel
+    // 1. Consultar todos los estudiantes activos del plantel
     const { data: estudiantes, error: errEst } = await sb
       .from('estudiantes')
       .select('id, cedula, nombre_completo, grado, seccion, nombre_representante, correo_representante, foto_url')
@@ -68,9 +122,10 @@ export async function POST(request: Request) {
 
     const listaEstudiantes = estudiantes || [];
 
-    // Pre-indexar estudiantes normalizados
+    // Pre-indexar estudiantes para coincidencia rápida
     const estudiantesIndexados = listaEstudiantes.map((e) => ({
       raw: e,
+      baseCedula: cleanBaseCedula(e.cedula),
       normNombre: normalizarTexto(e.nombre_completo),
       tokensNombre: normalizarTexto(e.nombre_completo).split(' ').filter((t) => t.length > 1),
       normSeccion: normalizarTexto(e.seccion),
@@ -78,49 +133,73 @@ export async function POST(request: Request) {
     }));
 
     let montoGlobalTotal = 0;
+    let totalNuevosRegistrados = 0;
 
-    const filasProcesadas = filas.map((fila, index) => {
+    const filasProcesadas = [];
+
+    for (let index = 0; index < filas.length; index++) {
+      const fila = filas[index];
       const nombreNorm = normalizarTexto(fila.nombre_estudiante);
       const seccionNorm = normalizarTexto(fila.seccion);
       const tokensFila = nombreNorm.split(' ').filter((t) => t.length > 1);
+      const filaCedulaBase = cleanBaseCedula(fila.cedula);
 
       const deuda = parseMonto(fila.deuda_dolares);
       const mora = parseMonto(fila.mora);
       const total = deuda + mora;
       montoGlobalTotal += total;
 
-      // 1. Intento de match exacto: nombre idéntico
-      let match = estudiantesIndexados.find((e) => {
-        const nombreExacto = e.normNombre === nombreNorm;
-        if (!nombreExacto) return false;
-        if (!seccionNorm) return true;
-        return (
-          e.normSeccion === seccionNorm ||
-          e.normSeccion.includes(seccionNorm) ||
-          seccionNorm.includes(e.normSeccion) ||
-          e.normGrado.includes(seccionNorm)
-        );
-      });
+      let match: (typeof estudiantesIndexados)[number] | null = null;
 
-      // 2. Si no hubo match exacto, coincidencia por tokens principales de nombre y sección
-      if (!match && tokensFila.length >= 2) {
-        match = estudiantesIndexados.find((e) => {
-          const coincidenciasTokens = tokensFila.filter((tok) => e.tokensNombre.includes(tok));
-          // Al menos 2 tokens significativos coincidentes
-          const tokenMatch = coincidenciasTokens.length >= Math.min(2, tokensFila.length);
-          if (!tokenMatch) return false;
-
-          if (!seccionNorm) return true;
-          return (
-            e.normSeccion === seccionNorm ||
-            e.normSeccion.includes(seccionNorm) ||
-            seccionNorm.includes(e.normSeccion) ||
-            e.normGrado.includes(seccionNorm)
+      // ── INTENTO 1: Coincidencia por Cédula (si viene en el archivo) ──
+      if (filaCedulaBase) {
+        const matchesPorCedula = estudiantesIndexados.filter((e) => e.baseCedula === filaCedulaBase);
+        if (matchesPorCedula.length === 1) {
+          match = matchesPorCedula[0];
+        } else if (matchesPorCedula.length > 1) {
+          // Si son hermanos con la misma cédula base, desambiguar por nombre
+          const matchHermano = matchesPorCedula.find(
+            (e) => e.normNombre === nombreNorm || tokensFila.some((t) => e.tokensNombre.includes(t))
           );
-        });
+          match = matchHermano || matchesPorCedula[0];
+        }
       }
 
-      // 3. Intento de match por nombre sin filtro estricto de sección si solo hay uno en toda la BD
+      // ── INTENTO 2: Coincidencia exacta por nombre y sección ──
+      if (!match) {
+        match =
+          estudiantesIndexados.find((e) => {
+            const nombreExacto = e.normNombre === nombreNorm;
+            if (!nombreExacto) return false;
+            if (!seccionNorm) return true;
+            return (
+              e.normSeccion === seccionNorm ||
+              e.normSeccion.includes(seccionNorm) ||
+              seccionNorm.includes(e.normSeccion) ||
+              e.normGrado.includes(seccionNorm)
+            );
+          }) || null;
+      }
+
+      // ── INTENTO 3: Coincidencia por tokens principales de nombre y sección ──
+      if (!match && tokensFila.length >= 2) {
+        match =
+          estudiantesIndexados.find((e) => {
+            const coincidenciasTokens = tokensFila.filter((tok) => e.tokensNombre.includes(tok));
+            const tokenMatch = coincidenciasTokens.length >= Math.min(2, tokensFila.length);
+            if (!tokenMatch) return false;
+
+            if (!seccionNorm) return true;
+            return (
+              e.normSeccion === seccionNorm ||
+              e.normSeccion.includes(seccionNorm) ||
+              seccionNorm.includes(e.normSeccion) ||
+              e.normGrado.includes(seccionNorm)
+            );
+          }) || null;
+      }
+
+      // ── INTENTO 4: Nombre único en toda la institución ──
       if (!match) {
         const matchesNombre = estudiantesIndexados.filter((e) => {
           if (e.normNombre === nombreNorm) return true;
@@ -134,14 +213,31 @@ export async function POST(request: Request) {
 
       const mesVencido = fila.mes_vencido?.trim() || 'Mensualidad Escolar';
       const nombreRepresentanteFila = fila.nombre_representante?.trim();
+      const correoFila = (fila.correo_representante || '').trim().toLowerCase();
+      const tieneCorreoFilaValido = Boolean(correoFila && correoFila.includes('@'));
 
       if (match) {
-        const correoRegistrado = match.raw.correo_representante?.trim() || '';
+        let correoRegistrado = match.raw.correo_representante?.trim() || '';
+
+        // Si el estudiante en BD no tenía correo pero el Excel lo incluye, sincronizarlo en la BD
+        if (!correoRegistrado && tieneCorreoFilaValido) {
+          await sb
+            .from('estudiantes')
+            .update({
+              correo_representante: correoFila,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', match.raw.id);
+          correoRegistrado = correoFila;
+          match.raw.correo_representante = correoFila;
+        }
+
         const tieneCorreoValido = Boolean(correoRegistrado && correoRegistrado.includes('@'));
 
-        return {
+        filasProcesadas.push({
           idx: index,
           estado: tieneCorreoValido ? ('listo' as const) : ('sin_correo' as const),
+          esNuevoRegistro: false,
           estudiante_id: match.raw.id,
           cedula: match.raw.cedula,
           nombre_estudiante: match.raw.nombre_completo,
@@ -156,28 +252,107 @@ export async function POST(request: Request) {
           total_dolares: total,
           mes_vencido: mesVencido,
           foto_url: match.raw.foto_url,
-        };
-      }
+        });
+      } else {
+        // ── REGISTRO AUTOMÁTICO DE ESTUDIANTES NO ENCONTRADOS ──
+        // El usuario solicitó: "si en la lista figuran estudiantes que no tenemos registrados,
+        // registralos y luego yo les agrego el correo!!"
+        try {
+          const { grado: gradoFinal, seccion: seccionFinal } = extraerGradoYSeccion(fila.seccion);
+          const nombreCompletoUpper = fila.nombre_estudiante.trim().toUpperCase();
 
-      return {
-        idx: index,
-        estado: 'no_encontrado' as const,
-        estudiante_id: null,
-        cedula: null,
-        nombre_estudiante: fila.nombre_estudiante,
-        nombre_archivo: fila.nombre_estudiante,
-        grado: '',
-        seccion: fila.seccion,
-        seccion_archivo: fila.seccion,
-        nombre_representante: nombreRepresentanteFila || 'Representante',
-        correo_representante: '',
-        deuda_dolares: deuda,
-        mora_dolares: mora,
-        total_dolares: total,
-        mes_vencido: mesVencido,
-        foto_url: null,
-      };
-    });
+          // Determinar cédula (si vino en archivo, usarla; si no, generar cédula escolar temporal)
+          let cedulaFinal = String(fila.cedula || '').trim().toUpperCase().replace(/\s+/g, '');
+          if (!cedulaFinal) {
+            cedulaFinal = `ESC-${Date.now().toString().slice(-6)}${Math.floor(100 + Math.random() * 900)}`;
+          } else if (!cedulaFinal.startsWith('V-') && !cedulaFinal.startsWith('E-') && /^\d+$/.test(cedulaFinal)) {
+            cedulaFinal = `V-${cedulaFinal}`;
+          }
+
+          const nombreSlug = slugifyNombre(nombreCompletoUpper);
+          const qrCodeFinal = `ASISTO-${cedulaFinal}-${nombreSlug}`.slice(0, 100);
+
+          const currentYear = new Date().getFullYear();
+          const nuevoEstudianteRegistro = {
+            cedula: cedulaFinal,
+            nombre_completo: nombreCompletoUpper,
+            grado: gradoFinal,
+            seccion: seccionFinal,
+            nombre_representante: nombreRepresentanteFila || `Representante de ${nombreCompletoUpper}`,
+            correo_representante: tieneCorreoFilaValido ? correoFila : null,
+            qr_code: qrCodeFinal,
+            institucion_id: targetInstitucionId,
+            estado: 'Activo',
+            ano_escolar: `${currentYear}-${currentYear + 1}`,
+          };
+
+          const { data: creado, error: errInsert } = await sb
+            .from('estudiantes')
+            .insert([nuevoEstudianteRegistro])
+            .select('id, cedula, nombre_completo, grado, seccion, nombre_representante, correo_representante, foto_url')
+            .single();
+
+          if (errInsert || !creado) {
+            throw new Error(errInsert?.message || 'Error al insertar alumno nuevo');
+          }
+
+          totalNuevosRegistrados++;
+
+          // Agregar al índice local para que próximas filas que repitan a este alumno lo reconozcan
+          estudiantesIndexados.push({
+            raw: creado,
+            baseCedula: cleanBaseCedula(creado.cedula),
+            normNombre: normalizarTexto(creado.nombre_completo),
+            tokensNombre: normalizarTexto(creado.nombre_completo).split(' ').filter((t) => t.length > 1),
+            normSeccion: normalizarTexto(creado.seccion),
+            normGrado: normalizarTexto(creado.grado),
+          });
+
+          const tieneCorreoNuevo = Boolean(creado.correo_representante && creado.correo_representante.includes('@'));
+
+          filasProcesadas.push({
+            idx: index,
+            estado: tieneCorreoNuevo ? ('listo' as const) : ('sin_correo' as const),
+            esNuevoRegistro: true, // Marcador especial para destacar
+            estudiante_id: creado.id,
+            cedula: creado.cedula,
+            nombre_estudiante: creado.nombre_completo,
+            nombre_archivo: fila.nombre_estudiante,
+            grado: creado.grado,
+            seccion: creado.seccion,
+            seccion_archivo: fila.seccion,
+            nombre_representante: creado.nombre_representante,
+            correo_representante: creado.correo_representante || '',
+            deuda_dolares: deuda,
+            mora_dolares: mora,
+            total_dolares: total,
+            mes_vencido: mesVencido,
+            foto_url: null,
+          });
+        } catch (errRegistro) {
+          console.warn('[cobranzas/match] No se pudo auto-registrar estudiante:', errRegistro);
+          filasProcesadas.push({
+            idx: index,
+            estado: 'no_encontrado' as const,
+            esNuevoRegistro: false,
+            estudiante_id: null,
+            cedula: null,
+            nombre_estudiante: fila.nombre_estudiante,
+            nombre_archivo: fila.nombre_estudiante,
+            grado: '',
+            seccion: fila.seccion,
+            seccion_archivo: fila.seccion,
+            nombre_representante: nombreRepresentanteFila || 'Representante',
+            correo_representante: '',
+            deuda_dolares: deuda,
+            mora_dolares: mora,
+            total_dolares: total,
+            mes_vencido: mesVencido,
+            foto_url: null,
+          });
+        }
+      }
+    }
 
     const totalListos = filasProcesadas.filter((f) => f.estado === 'listo').length;
     const totalSinCorreo = filasProcesadas.filter((f) => f.estado === 'sin_correo').length;
@@ -189,6 +364,7 @@ export async function POST(request: Request) {
         totalFilas: filas.length,
         totalListos,
         totalSinCorreo,
+        totalNuevosRegistrados,
         totalNoEncontrados,
         montoGlobalTotal,
       },
