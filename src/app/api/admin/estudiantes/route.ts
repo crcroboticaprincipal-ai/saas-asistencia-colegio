@@ -28,6 +28,7 @@ export async function GET(request: Request) {
     const search = sanitizeSearch(rawSearch);
     const gradoFilter = searchParams.get('grado')?.trim() ?? '';
     const seccionFilter = searchParams.get('seccion')?.trim() ?? '';
+    const filtroIncompleto = searchParams.get('filtro_incompleto')?.trim() ?? '';
     const from = page * limit;
     const to = from + limit - 1;
 
@@ -51,6 +52,16 @@ export async function GET(request: Request) {
     }
     if (seccionFilter) {
       query = query.eq('seccion', seccionFilter.toUpperCase());
+    }
+
+    if (filtroIncompleto === 'sin_correo') {
+      query = query.or('correo_representante.is.null,correo_representante.eq.,correo_representante.not.ilike.%@%');
+    } else if (filtroIncompleto === 'sin_foto') {
+      query = query.is('foto_url', null);
+    } else if (filtroIncompleto === 'cedula_provisional') {
+      query = query.like('cedula', 'ESC-%');
+    } else if (filtroIncompleto === 'faltan_datos') {
+      query = query.or('correo_representante.is.null,correo_representante.eq.,correo_representante.not.ilike.%@%,cedula.ilike.ESC-%');
     }
 
     const { data, error, count } = await query.range(from, to);

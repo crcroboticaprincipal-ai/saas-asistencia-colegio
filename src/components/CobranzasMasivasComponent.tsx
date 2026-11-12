@@ -6,7 +6,7 @@ import {
   UploadCloud, FileSpreadsheet, CheckCircle2, AlertTriangle, 
   AlertCircle, Play, Download, Trash2, Mail, 
   DollarSign, ArrowLeft, ShieldCheck, Check, Loader2, Sparkles, XCircle,
-  FileDown
+  FileDown, Edit, X
 } from "lucide-react";
 import Link from "next/link";
 
@@ -54,6 +54,7 @@ export function CobranzasMasivasComponent() {
   const [resumen, setResumen] = useState<ResumenMatch | null>(null);
   const [filtroTab, setFiltroTab] = useState<"todos" | "listos" | "sin_correo" | "advertencias">("todos");
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
+  const [editandoCorreoSet, setEditandoCorreoSet] = useState<Set<number>>(new Set());
 
   // Estado para guardado en base de datos de correos manuales
   const [guardandoIdx, setGuardandoIdx] = useState<number | null>(null);
@@ -351,12 +352,16 @@ export function CobranzasMasivasComponent() {
 
       // Pre-seleccionar automáticamente todos los registros listos para envío
       const inicialSeleccionados = new Set<number>();
+      const abiertosParaEditar = new Set<number>();
       (matchData.filas as FilaProcesada[]).forEach((f) => {
         if (f.estado === "listo") {
           inicialSeleccionados.add(f.idx);
+        } else {
+          abiertosParaEditar.add(f.idx);
         }
       });
       setSeleccionados(inicialSeleccionados);
+      setEditandoCorreoSet(abiertosParaEditar);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error procesando el archivo.";
       alert(msg);
@@ -394,6 +399,7 @@ export function CobranzasMasivasComponent() {
     setDespachoTerminado(false);
     setFiltroTab("todos");
     setSeleccionados(new Set());
+    setEditandoCorreoSet(new Set());
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -450,6 +456,8 @@ export function CobranzasMasivasComponent() {
       next.delete(idx);
       return next;
     });
+
+    setEditandoCorreoSet((prev) => new Set(prev).add(idx));
 
     setResumen((prev) => {
       if (!prev) return prev;
@@ -519,6 +527,13 @@ export function CobranzasMasivasComponent() {
 
       // Actualizar selección local
       setSeleccionados((prev) => new Set(prev).add(fila.idx));
+
+      // Salir del modo edición para esta fila
+      setEditandoCorreoSet((prev) => {
+        const next = new Set(prev);
+        next.delete(fila.idx);
+        return next;
+      });
 
       // Actualizar resumen local
       setResumen((prev) => {
@@ -1199,7 +1214,7 @@ export function CobranzasMasivasComponent() {
                           <p className="text-slate-200 font-medium">
                             {fila.nombre_representante}
                           </p>
-                          {esSinCorreo || esNoEncontrado ? (
+                          {editandoCorreoSet.has(fila.idx) || esSinCorreo || esNoEncontrado || !fila.correo_representante ? (
                             <div className="space-y-1 mt-1.5">
                               <div className="flex items-center gap-1.5">
                                 <input
@@ -1228,6 +1243,22 @@ export function CobranzasMasivasComponent() {
                                   )}
                                   <span>Guardar</span>
                                 </button>
+                                {fila.correo_representante && fila.correo_representante.includes("@") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditandoCorreoSet((prev) => {
+                                        const next = new Set(prev);
+                                        next.delete(fila.idx);
+                                        return next;
+                                      });
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                                    title="Cerrar edición"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
                               </div>
                               {correoGuardadoExito === fila.idx && (
                                 <p className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 animate-fade-in">
@@ -1236,9 +1267,27 @@ export function CobranzasMasivasComponent() {
                               )}
                             </div>
                           ) : (
-                            <p className="text-slate-400 font-mono text-[11px] mt-0.5">
-                              {fila.correo_representante}
-                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-slate-300 font-mono text-[11px] bg-slate-950/60 px-2 py-0.5 rounded border border-white/5">
+                                {fila.correo_representante}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditandoCorreoSet((prev) => new Set(prev).add(fila.idx));
+                                }}
+                                className="px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-500/25 border border-amber-500/30 transition-all inline-flex items-center gap-1 cursor-pointer"
+                                title="Modificar dirección de correo"
+                              >
+                                <Edit className="w-3 h-3" />
+                                <span>Modificar</span>
+                              </button>
+                              {correoGuardadoExito === fila.idx && (
+                                <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1 animate-fade-in">
+                                  <CheckCircle2 className="w-3 h-3" /> ¡Actualizado!
+                                </span>
+                              )}
+                            </div>
                           )}
                         </td>
 

@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
     let query = sb
       .from('estudiantes')
-      .select('grado, seccion')
+      .select('grado, seccion, correo_representante, foto_url, cedula')
       .eq('estado', 'Activo')
       .order('grado');
 
@@ -32,7 +32,29 @@ export async function GET(request: Request) {
     const grados = [...new Set((data ?? []).map((r) => r.grado).filter(Boolean))].sort();
     const secciones = [...new Set((data ?? []).map((r) => r.seccion).filter(Boolean))].sort();
 
-    return NextResponse.json({ ok: true, grados, secciones });
+    const sinCorreo = (data ?? []).filter(
+      (r) => !r.correo_representante || !r.correo_representante.includes('@')
+    ).length;
+    const sinFoto = (data ?? []).filter((r) => !r.foto_url).length;
+    const cedulaProvisional = (data ?? []).filter(
+      (r) => r.cedula && String(r.cedula).startsWith('ESC-')
+    ).length;
+    const faltanDatos = (data ?? []).filter(
+      (r) =>
+        !r.correo_representante ||
+        !r.correo_representante.includes('@') ||
+        (r.cedula && String(r.cedula).startsWith('ESC-'))
+    ).length;
+
+    const stats = {
+      total: data?.length ?? 0,
+      sinCorreo,
+      sinFoto,
+      cedulaProvisional,
+      faltanDatos,
+    };
+
+    return NextResponse.json({ ok: true, grados, secciones, stats });
   } catch (err: unknown) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Error al obtener opciones de filtro' },

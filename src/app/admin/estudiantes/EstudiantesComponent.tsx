@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   FileText,
   CheckCircle,
+  Check,
   AlertCircle,
   AlertTriangle,
   Zap,
@@ -118,6 +119,19 @@ export default function EstudiantesComponent() {
   const [filterSeccion, setFilterSeccion] = useState("");
   const [gradoOptions, setGradoOptions] = useState<string[]>([]);
   const [seccionOptions, setSeccionOptions] = useState<string[]>([]);
+  const [filtroIncompleto, setFiltroIncompleto] = useState<string>("");
+  const [statsIncompletos, setStatsIncompletos] = useState({
+    total: 0,
+    sinCorreo: 0,
+    sinFoto: 0,
+    cedulaProvisional: 0,
+    faltanDatos: 0,
+  });
+
+  // Quick Inline Email Editor
+  const [quickEditEmailId, setQuickEditEmailId] = useState<string | null>(null);
+  const [quickEmailValue, setQuickEmailValue] = useState<string>("");
+  const [savingEmailId, setSavingEmailId] = useState<string | null>(null);
 
   // Toast
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -174,7 +188,7 @@ export default function EstudiantesComponent() {
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchEstudiantes = useCallback(
-    async (page = 0, search = "", grado = "", seccion = "") => {
+    async (page = 0, search = "", grado = "", seccion = "", incompleto = "") => {
       setLoading(true);
       try {
         const params = new URLSearchParams({
@@ -183,6 +197,7 @@ export default function EstudiantesComponent() {
           ...(search ? { search } : {}),
           ...(grado ? { grado } : {}),
           ...(seccion ? { seccion } : {}),
+          ...(incompleto ? { filtro_incompleto: incompleto } : {}),
         });
         const res = await fetch(`/api/admin/estudiantes?${params}`);
         const resData = await res.json();
@@ -201,7 +216,7 @@ export default function EstudiantesComponent() {
     []
   );
 
-  // Fetch distinct grado/seccion options for filter dropdowns
+  // Fetch distinct grado/seccion options for filter dropdowns and audit stats
   const fetchFilterOptions = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/estudiantes/filter-options");
@@ -209,6 +224,9 @@ export default function EstudiantesComponent() {
       if (data.ok) {
         setGradoOptions(data.grados ?? []);
         setSeccionOptions(data.secciones ?? []);
+        if (data.stats) {
+          setStatsIncompletos(data.stats);
+        }
       }
     } catch {
       // silently fail — filters will be empty dropdowns
@@ -216,7 +234,7 @@ export default function EstudiantesComponent() {
   }, []);
 
   useEffect(() => {
-    fetchEstudiantes(0, "", "", "");
+    fetchEstudiantes(0, "", "", "", "");
     fetchFilterOptions();
   }, [fetchEstudiantes, fetchFilterOptions]);
 
@@ -286,7 +304,8 @@ export default function EstudiantesComponent() {
         }
       }
 
-      await fetchEstudiantes(currentPage, searchTerm, filterGrado, filterSeccion);
+      await fetchEstudiantes(currentPage, searchTerm, filterGrado, filterSeccion, filtroIncompleto);
+      await fetchFilterOptions();
       handleCloseModal();
       showToast(
         editingStudent
@@ -299,6 +318,46 @@ export default function EstudiantesComponent() {
       showToast(msg, "error");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // Guardado rápido de correo directo en tabla
+  const handleSaveQuickEmail = async (studentId: string) => {
+    const correoLimpio = quickEmailValue.trim().toLowerCase();
+    if (!correoLimpio || !correoLimpio.includes("@") || !correoLimpio.includes(".")) {
+      showToast("Ingresa un correo electrónico válido (ej: usuario@correo.com)", "error");
+      return;
+    }
+
+    setSavingEmailId(studentId);
+    try {
+      const res = await fetch("/api/admin/cobranzas/actualizar-correo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          estudiante_id: studentId,
+          correo: correoLimpio,
+        }),
+      });
+
+      const resData = await res.json();
+      if (!res.ok || !resData.ok) {
+        throw new Error(resData.error || "Error al actualizar correo");
+      }
+
+      showToast("Correo guardado exitosamente", "success");
+      setQuickEditEmailId(null);
+      setQuickEmailValue("");
+      // Actualizar en el estado local de estudiantes
+      setEstudiantes((prev) =>
+        prev.map((e) => (e.id === studentId ? { ...e, correo_representante: correoLimpio } : e))
+      );
+      // Refrescar conteos
+      fetchFilterOptions();
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Error al guardar correo", "error");
+    } finally {
+      setSavingEmailId(null);
     }
   };
 
@@ -325,7 +384,8 @@ export default function EstudiantesComponent() {
 
       setFormData((prev) => ({ ...prev, foto_url: urlData.publicUrl }));
       showToast("Foto de perfil actualizada exitosamente", "success");
-      fetchEstudiantes(currentPage, searchTerm, filterGrado, filterSeccion);
+      fetchEstudiantes(currentPage, searchTerm, filterGrado, filterSeccion, filtroIncompleto);
+      fetchFilterOptions();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Error al subir foto";
       showToast("Error al subir foto: " + msg, "error");
@@ -333,7 +393,6 @@ export default function EstudiantesComponent() {
       setUploadingPhoto(false);
     }
   };
-
 
   const currentEstudiantes = estudiantes;
   const totalPages = Math.ceil(totalEstudiantes / PAGE_SIZE);
@@ -343,7 +402,7 @@ export default function EstudiantesComponent() {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       setCurrentPage(0);
-      fetchEstudiantes(0, value, filterGrado, filterSeccion);
+      fetchEstudiantes(0, value, filterGrado, filterSeccion, filtroIncompleto);
     }, 400);
   };
 
@@ -351,12 +410,12 @@ export default function EstudiantesComponent() {
     setFilterGrado(newGrado);
     setFilterSeccion(newSeccion);
     setCurrentPage(0);
-    fetchEstudiantes(0, searchTerm, newGrado, newSeccion);
+    fetchEstudiantes(0, searchTerm, newGrado, newSeccion, filtroIncompleto);
   };
 
   const handlePageChange = (newPage: number) => {
     setCurrentPage(newPage);
-    fetchEstudiantes(newPage, searchTerm, filterGrado, filterSeccion);
+    fetchEstudiantes(newPage, searchTerm, filterGrado, filterSeccion, filtroIncompleto);
   };
 
   const toggleSelectAll = () => {
@@ -695,7 +754,7 @@ export default function EstudiantesComponent() {
     return <CarnetsView students={selectedStudents} onClose={() => setShowPrintView(false)} />;
   }
 
-  const activeFilters = filterGrado || filterSeccion;
+  const activeFilters = filterGrado || filterSeccion || filtroIncompleto;
 
   return (
     <div className="space-y-6 animate-fade-in relative">
@@ -756,6 +815,134 @@ export default function EstudiantesComponent() {
         </div>
       </div>
 
+      {/* ── Banner de Alerta para Alumnos sin Correo ── */}
+      {statsIncompletos.sinCorreo > 0 && filtroIncompleto !== "sin_correo" && (
+        <div className="p-4 rounded-2xl bg-amber-500/15 border-2 border-amber-500/40 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-slide-up">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300 shrink-0 mt-0.5">
+              <AlertTriangle className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-200">
+                ⚠️ Hay {statsIncompletos.sinCorreo} estudiante(s) sin correo electrónico registrado
+              </p>
+              <p className="text-xs text-amber-300/80 mt-0.5">
+                No podrán recibir avisos de cobranza ni su carnet escolar digital. Puedes filtrarlos y asignarles su correo rápidamente.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setFiltroIncompleto("sin_correo");
+              setCurrentPage(0);
+              fetchEstudiantes(0, searchTerm, filterGrado, filterSeccion, "sin_correo");
+            }}
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-md shrink-0 cursor-pointer"
+          >
+            Ver sólo sin correo ({statsIncompletos.sinCorreo})
+          </button>
+        </div>
+      )}
+
+      {/* ── Píldoras de Filtro Rápido / Auditoría de Datos ── */}
+      <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-2xl bg-slate-900/60 border border-white/5">
+        <button
+          onClick={() => {
+            setFiltroIncompleto("");
+            setCurrentPage(0);
+            fetchEstudiantes(0, searchTerm, filterGrado, filterSeccion, "");
+          }}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+            filtroIncompleto === ""
+              ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+              : "text-slate-400 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <span>Todos los Alumnos</span>
+          <span className="px-1.5 py-0.2 rounded-full bg-white/15 text-[10px] font-mono">
+            {statsIncompletos.total}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            const nuevo = filtroIncompleto === "sin_correo" ? "" : "sin_correo";
+            setFiltroIncompleto(nuevo);
+            setCurrentPage(0);
+            fetchEstudiantes(0, searchTerm, filterGrado, filterSeccion, nuevo);
+          }}
+          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            filtroIncompleto === "sin_correo"
+              ? "bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30 font-black"
+              : "text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 border border-amber-500/25"
+          }`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span>Falta Correo</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+              filtroIncompleto === "sin_correo"
+                ? "bg-slate-950 text-amber-300"
+                : "bg-amber-500/20 text-amber-300"
+            }`}
+          >
+            {statsIncompletos.sinCorreo}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            const nuevo = filtroIncompleto === "cedula_provisional" ? "" : "cedula_provisional";
+            setFiltroIncompleto(nuevo);
+            setCurrentPage(0);
+            fetchEstudiantes(0, searchTerm, filterGrado, filterSeccion, nuevo);
+          }}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+            filtroIncompleto === "cedula_provisional"
+              ? "bg-sky-500 text-slate-950 shadow-md shadow-sky-500/30 font-black"
+              : "text-sky-300 hover:text-white hover:bg-sky-500/10 border border-sky-500/20"
+          }`}
+        >
+          <QrCode className="w-3.5 h-3.5 text-sky-400" />
+          <span>Cédula Provisional</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+              filtroIncompleto === "cedula_provisional"
+                ? "bg-slate-950 text-sky-300"
+                : "bg-sky-500/20 text-sky-300"
+            }`}
+          >
+            {statsIncompletos.cedulaProvisional}
+          </span>
+        </button>
+
+        <button
+          onClick={() => {
+            const nuevo = filtroIncompleto === "faltan_datos" ? "" : "faltan_datos";
+            setFiltroIncompleto(nuevo);
+            setCurrentPage(0);
+            fetchEstudiantes(0, searchTerm, filterGrado, filterSeccion, nuevo);
+          }}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+            filtroIncompleto === "faltan_datos"
+              ? "bg-rose-500 text-white shadow-md shadow-rose-500/30 font-black"
+              : "text-rose-300 hover:text-white hover:bg-rose-500/10 border border-rose-500/20"
+          }`}
+        >
+          <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+          <span>Datos Incompletos</span>
+          <span
+            className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+              filtroIncompleto === "faltan_datos"
+                ? "bg-white/20 text-white"
+                : "bg-rose-500/20 text-rose-300"
+            }`}
+          >
+            {statsIncompletos.faltanDatos}
+          </span>
+        </button>
+      </div>
+
       {/* ── Bento Filter Panel ── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {/* Search */}
@@ -808,9 +995,24 @@ export default function EstudiantesComponent() {
       {/* Active filter badge */}
       {activeFilters && (
         <div className="flex items-center gap-3">
-          <span className="text-xs text-amber-400 font-medium flex items-center gap-1.5">
+          <span className="text-xs text-amber-400 font-medium flex items-center gap-1.5 flex-wrap">
             <Filter className="w-3.5 h-3.5" />
             Filtrando por:
+            {filtroIncompleto === "sin_correo" && (
+              <span className="px-2 py-0.5 bg-amber-500/20 border border-amber-500/40 rounded-full text-amber-300 font-bold">
+                ⚠️ Sin Correo ({statsIncompletos.sinCorreo})
+              </span>
+            )}
+            {filtroIncompleto === "cedula_provisional" && (
+              <span className="px-2 py-0.5 bg-sky-500/20 border border-sky-500/40 rounded-full text-sky-300 font-bold">
+                Cédula Provisional ({statsIncompletos.cedulaProvisional})
+              </span>
+            )}
+            {filtroIncompleto === "faltan_datos" && (
+              <span className="px-2 py-0.5 bg-rose-500/20 border border-rose-500/40 rounded-full text-rose-300 font-bold">
+                Datos Incompletos ({statsIncompletos.faltanDatos})
+              </span>
+            )}
             {filterGrado && (
               <span className="px-2 py-0.5 bg-amber-500/15 border border-amber-500/25 rounded-full text-amber-300">
                 {filterGrado}
@@ -823,8 +1025,14 @@ export default function EstudiantesComponent() {
             )}
           </span>
           <button
-            onClick={() => handleFilterChange("", "")}
-            className="text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2"
+            onClick={() => {
+              setFilterGrado("");
+              setFilterSeccion("");
+              setFiltroIncompleto("");
+              setCurrentPage(0);
+              fetchEstudiantes(0, searchTerm, "", "", "");
+            }}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors underline underline-offset-2 cursor-pointer"
           >
             Limpiar filtros
           </button>
@@ -902,8 +1110,15 @@ export default function EstudiantesComponent() {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3">{estudiante.cedula}</td>
-                    <td className="px-4 py-3">{estudiante.nombre_completo}</td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-white text-xs">{estudiante.cedula}</span>
+                      {estudiante.cedula?.startsWith("ESC-") && (
+                        <span className="block text-[10px] text-amber-400 font-semibold tracking-tight">
+                          Escolar Provisional
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 font-medium text-white">{estudiante.nombre_completo}</td>
                     <td className="px-4 py-3">{estudiante.grado}</td>
                     <td className="px-4 py-3">{estudiante.seccion}</td>
                     <td className="px-4 py-3">
@@ -919,8 +1134,80 @@ export default function EstudiantesComponent() {
                         {estudiante.estado || "Activo"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 hidden md:table-cell text-slate-400">
-                      {estudiante.correo_representante || "-"}
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      {quickEditEmailId === estudiante.id ? (
+                        <div className="flex items-center gap-1.5 animate-fade-in">
+                          <input
+                            type="email"
+                            placeholder="correo@ejemplo.com"
+                            value={quickEmailValue}
+                            autoFocus
+                            onChange={(e) => setQuickEmailValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleSaveQuickEmail(estudiante.id);
+                              } else if (e.key === "Escape") {
+                                setQuickEditEmailId(null);
+                              }
+                            }}
+                            className="bg-slate-950 border-2 border-amber-400 rounded-lg px-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-amber-400 w-48 font-mono"
+                          />
+                          <button
+                            onClick={() => handleSaveQuickEmail(estudiante.id)}
+                            disabled={savingEmailId === estudiante.id || !quickEmailValue.includes("@")}
+                            className="px-2 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition-colors flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm shrink-0"
+                            title="Guardar correo"
+                          >
+                            {savingEmailId === estudiante.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Check className="w-3 h-3" />
+                            )}
+                            <span>Guardar</span>
+                          </button>
+                          <button
+                            onClick={() => setQuickEditEmailId(null)}
+                            className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+                            title="Cancelar"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : !estudiante.correo_representante || !estudiante.correo_representante.includes("@") ? (
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            <AlertTriangle className="w-3 h-3 text-amber-400" />
+                            Sin Correo
+                          </span>
+                          <button
+                            onClick={() => {
+                              setQuickEditEmailId(estudiante.id);
+                              setQuickEmailValue("");
+                            }}
+                            className="px-2 py-0.5 text-[11px] font-bold rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                            title="Agregar correo rápidamente"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Agregar</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 group">
+                          <span className="text-slate-300 font-mono text-xs">
+                            {estudiante.correo_representante}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setQuickEditEmailId(estudiante.id);
+                              setQuickEmailValue(estudiante.correo_representante || "");
+                            }}
+                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-amber-300 transition-opacity rounded cursor-pointer"
+                            title="Editar correo directamente"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center space-x-1">
                       <button
